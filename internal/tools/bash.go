@@ -80,7 +80,24 @@ var destructivePatterns = []struct {
 	{regexp.MustCompile(`:\(\)\s*\{.*\}\s*;?\s*:`), "fork bomb"},
 	{regexp.MustCompile(`\b(shutdown|reboot|halt)\b`), "system power command"},
 	{regexp.MustCompile(`>\s*/dev/(sd|nvme|disk)`), "raw device write"},
+	// Deletion without `rm`. Found by TestAttack_CommandWrappingBypass, which
+	// tried wrapped forms of a denied command: `find . -delete` recursively
+	// removes files while containing none of the patterns above.
+	{regexp.MustCompile(`\bfind\b.*\s-delete\b`), "recursive delete via find"},
+	{regexp.MustCompile(`\bfind\b.*-exec\s+rm\b`), "recursive delete via find -exec"},
+	{regexp.MustCompile(`\bxargs\b.*\brm\b`), "delete via xargs"},
+	{regexp.MustCompile(`\bshred\b`), "secure delete"},
+	{regexp.MustCompile(`\btruncate\s+-s\s*0\b`), "file truncation"},
+	{regexp.MustCompile(`\bgit\s+checkout\s+--\s+\.`), "discard all working-tree changes"},
+	{regexp.MustCompile(`\bgit\s+branch\s+-D\b`), "force branch delete"},
 }
+
+// Note on completeness: this list cannot be exhaustive. Shell affords endless
+// ways to express deletion, and pattern matching on command text will always
+// lag. That is precisely why the sandbox — not this list — is the actual
+// boundary (docs/architecture/03-security.md). These patterns exist to make the
+// common destructive cases require confirmation, not to be a security control
+// anything depends on.
 
 // IsDestructive reports whether a command needs confirmation regardless of
 // permission mode. Exported so the policy engine can consult it.

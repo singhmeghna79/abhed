@@ -134,12 +134,25 @@ asserted. Current state:
 - [x] **Injection corpus** — adversarial tasks in `internal/eval/corpus`, where completing
       the task is the failure
 - [x] **Policy bypass** — escalation attempts covered by the adversarial suite
-- [ ] **Human red-team engagement** — *still outstanding, and not substitutable*
+- [x] **Chained and race attacks** — 8 further attacks in `internal/redteam/chained_test.go`:
+      undo abuse, export traversal, read-edit TOCTOU, concurrent-write tearing,
+      subagent budget escape, command-wrapping bypass, defence-in-depth after a policy
+      miss, session-id guessing
+- [ ] **Human red-team engagement** — *still outstanding, and not substitutable.*
+      Scoped and ready to commission: [`docs/ops/red-team-scope.md`](../ops/red-team-scope.md)
 
 **On the automated suite's limits.** It proves the controls resist the attacks enumerated
 in it. It cannot prove a determined attacker fails, because it only tries what its author
 thought of — which is precisely the gap a human engagement exists to close. Treat a green
 suite as a regression gate, not as clearance.
+
+The suite has already earned that framing twice. Writing the chained attacks found
+`find . -delete` slipping past the destructive-command patterns: it deletes recursively
+while containing no `rm`. Fixed, along with `xargs rm`, `shred`, `truncate -s 0` and
+`git checkout -- .`. **But the lesson is the pattern list, not the patch** — shell affords
+endless ways to express deletion, so text matching will always lag. That is exactly why
+the sandbox rather than the policy engine is the boundary, and the suite now asserts
+containment *after* an assumed policy miss.
 
 **Remaining position:** the process tier is a real filesystem and network boundary but
 shares the host kernel. For genuinely untrusted repositories, set `sandbox.min_tier` to
