@@ -241,3 +241,40 @@ func TestConsoleNotFoundForOtherPaths(t *testing.T) {
 		t.Fatalf("expected 404 for unknown path, got %d", rec.Code)
 	}
 }
+
+// SSE frames must NOT carry an "event:" field.
+//
+// A named SSE event is dispatched by the browser to addEventListener(name);
+// EventSource.onmessage fires only for UNNAMED frames. Naming them produced a
+// permanently empty transcript in the console while curl — which ignores the
+// field entirely — showed the data arriving correctly. curl cannot catch this;
+// only a test that asserts the wire format can.
+func TestSSEFramesAreUnnamed(t *testing.T) {
+	s := testServer(t)
+	h := s.Handler()
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/v1/sessions",
+		strings.NewReader(`{"prompt":"hello"}`)))
+	var created createResponse
+	json.Unmarshal(rec.Body.Bytes(), &created)
+	time.Sleep(250 * time.Millisecond)
+
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/sessions/"+created.SessionID+"/events", nil)
+	ctx, cancel := context.WithTimeout(req.Context(), 2*time.Second)
+	defer cancel()
+	h.ServeHTTP(rec, req.WithContext(ctx))
+
+	body := rec.Body.String()
+	if strings.Contains(body, "\nevent:") || strings.HasPrefix(body, "event:") {
+		t.Fatal("SSE frames carry an event: field — EventSource.onmessage will never fire")
+	}
+	if !strings.Contains(body, "data:") {
+		t.Fatalf("no data frames were written:\n%s", body)
+	}
+	// Every frame still needs an id, for Last-Event-ID resumption.
+	if !strings.Contains(body, "id:") {
+		t.Fatal("SSE frames have no id — reconnect cannot resume")
+	}
+}

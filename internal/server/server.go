@@ -597,7 +597,13 @@ func writeSSE(w http.ResponseWriter, ev agent.Event) {
 	if err != nil {
 		return
 	}
-	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", ev.Seq, ev.Type, data)
+	// No "event:" field, deliberately. Naming an SSE event makes the browser
+	// dispatch it to addEventListener(name), and EventSource.onmessage then
+	// never fires — which silently produced an empty transcript in the console
+	// while curl, which ignores the field, showed the data arriving fine.
+	// The type is already in the JSON payload, so one generic handler is both
+	// correct and simpler than registering a listener per event type.
+	fmt.Fprintf(w, "id: %d\ndata: %s\n\n", ev.Seq, data)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
