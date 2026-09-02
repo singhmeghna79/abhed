@@ -1,0 +1,262 @@
+// Package agent implements Titan's event-sourced agent loop.
+//
+// State is a chronological stream of actions and observations (docs P6). The
+// agent is a function of event history to action; the runtime is a function of
+// action to observation. Everything the loop does is recorded, which is what
+// makes audit, replay, and evaluation possible without extra machinery.
+package agent
+
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+)
+
+type EventType string
+
+const (
+	EvSessionStarted  EventType = "session.started"
+	EvUserMessage     EventType = "user.message"
+	EvAgentMessage    EventType = "agent.message"
+	EvActionRequested EventType = "action.requested"
+	EvActionApproved  EventType = "action.approved"
+	EvActionDenied    EventType = "action.denied"
+	EvObservation     EventType = "observation"
+	EvSubagentSpawned EventType = "subagent.spawned"
+	EvSubagentReturn  EventType = "subagent.returned"
+	EvCompactStarted  EventType = "compaction.started"
+	EvCompactDone     EventType = "compaction.completed"
+	EvPlanUpdated     EventType = "plan.updated"
+	EvTodoUpdated     EventType = "todo.updated"
+	EvSessionEnded    EventType = "session.ended"
+)
+
+type Actor string
+
+const (
+	ActorUser   Actor = "user"
+	ActorAgent  Actor = "agent"
+	ActorSystem Actor = "system"
+	ActorTool   Actor = "tool"
+)
+
+// Trust marks provenance. Content read from files, tool output, MCP responses
+// and search results is untrusted: it is data, never instruction (docs arch §6).
+// The tag is set at ingest and travels with the event.
+type Trust string
+
+const (
+	Trusted   Trust = "trusted"
+	Untrusted Trust = "untrusted"
+)
+
+// TerminalReason enumerates every way a session can end. These are distinct
+// because CI exit codes and the eval harness must tell them apart: "the task
+// failed" and "the budget ran out" call for different responses (docs §10).
+type TerminalReason string
+
+const (
+	TermCompleted      TerminalReason = "completed"
+	TermMaxTurns       TerminalReason = "max_turns"
+	TermMaxBudget      TerminalReason = "max_budget"
+	TermPolicyDenied   TerminalReason = "policy_denied"
+	TermUserInterrupt  TerminalReason = "user_interrupt"
+	TermError          TerminalReason = "error"
+	TermShutdown       TerminalReason = "shutdown"
+	TermRetryExhausted TerminalReason = "retry_exhausted"
+)
+
+// ExitCode maps a terminal reason to a process exit code for headless runs.
+func (r TerminalReason) ExitCode() int {
+	switch r {
+	case TermCompleted:
+		return 0
+	case TermMaxTurns:
+		return 2
+	case TermMaxBudget:
+		return 3
+	case TermPolicyDenied:
+		return 4
+	case TermUserInterrupt:
+		return 130
+	case TermRetryExhausted:
+		return 5
+	case TermShutdown:
+		return 6
+	default:
+		return 1
+	}
+}
+
+type Event struct {
+	ID        string          `json:"id"`
+	SessionID string          `json:"session_id"`
+	ParentID  string          `json:"parent_id,omitempty"`
+	Seq       int64           `json:"seq"`
+	Type      EventType       `json:"type"`
+	Payload   json.RawMessage `json:"payload"`
+	Actor     Actor           `json:"actor"`
+	Trust     Trust           `json:"trust"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// Payload shapes.
+
+type ActionRequested struct {
+	CallID           string          `json:"call_id"`
+	Tool             string          `json:"tool"`
+	Args             json.RawMessage `json:"args"`
+	RequiresApproval bool            `json:"requires_approval"`
+	Reason           string          `json:"reason,omitempty"`
+}
+
+type Observation struct {
+	CallID     string `json:"call_id"`
+	Tool       string `json:"tool"`
+	Content    string `json:"content"`
+	IsError    bool   `json:"is_error"`
+	Truncated  bool   `json:"truncated"`
+	ExitCode   *int   `json:"exit_code,omitempty"`
+	DurationMS int64  `json:"duration_ms"`
+}
+
+type Message struct {
+	Text string `json:"text"`
+}
+
+type SessionEnded struct {
+	Reason       TerminalReason `json:"reason"`
+	Turns        int            `json:"turns"`
+	TokensIn     int            `json:"tokens_in"`
+	TokensOut    int            `json:"tokens_out"`
+	TokensCached int            `json:"tokens_cached"`
+}
+
+type Compaction struct {
+	BeforeTokens int    `json:"before_tokens"`
+	AfterTokens  int    `json:"after_tokens"`
+	Summary      string `json:"summary,omitempty"`
+	Trigger      string `json:"trigger"` // auto | manual
+}
+
+// Store persists events. Append-only by contract: no update, no delete.
+// Retention is handled by dropping partitions, so the audit guarantee holds.
+type Store interface {
+	Append(ev Event) error
+	Events(sessionID string) ([]Event, error)
+	// Since supports SSE resumption via Last-Event-ID (docs §10).
+	Since(sessionID string, seq int64) ([]Event, error)
+}
+
+// MemStore is an in-memory Store for local development and tests. The
+// production path uses Postgres with the schema in docs/architecture/10-data-model.md.
+type MemStore struct {
+	mu     sync.RWMutex
+	events map[string][]Event
+	subs   map[string][]chan Event
+}
+
+func NewMemStore() *MemStore {
+	return &MemStore{
+		events: make(map[string][]Event),
+		subs:   make(map[string][]chan Event),
+	}
+}
+
+func (m *MemStore) Append(ev Event) error {
+	m.mu.Lock()
+	m.events[ev.SessionID] = append(m.events[ev.SessionID], ev)
+	subs := append([]chan Event(nil), m.subs[ev.SessionID]...)
+	m.mu.Unlock()
+
+	for _, ch := range subs {
+		select {
+		case ch <- ev:
+		default: // never block the loop on a slow consumer
+		}
+	}
+	return nil
+}
+
+func (m *MemStore) Events(sessionID string) ([]Event, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make([]Event, len(m.events[sessionID]))
+	copy(out, m.events[sessionID])
+	return out, nil
+}
+
+func (m *MemStore) Since(sessionID string, seq int64) ([]Event, error) {
+	all, err := m.Events(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	var out []Event
+	for _, e := range all {
+		if e.Seq > seq {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// Subscribe streams events for a session. Used by the CLI renderer and,
+// in server mode, by the SSE endpoint.
+func (m *MemStore) Subscribe(sessionID string) <-chan Event {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ch := make(chan Event, 256)
+	m.subs[sessionID] = append(m.subs[sessionID], ch)
+	return ch
+}
+
+func (m *MemStore) Unsubscribe(sessionID string, ch <-chan Event) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	subs := m.subs[sessionID]
+	for i, c := range subs {
+		if c == ch {
+			m.subs[sessionID] = append(subs[:i], subs[i+1:]...)
+			close(c)
+			return
+		}
+	}
+}
+
+// Recorder assigns sequence numbers and timestamps, so callers never have to.
+type Recorder struct {
+	store     Store
+	sessionID string
+	parentID  string
+	mu        sync.Mutex
+	seq       int64
+}
+
+func NewRecorder(store Store, sessionID, parentID string) *Recorder {
+	return &Recorder{store: store, sessionID: sessionID, parentID: parentID}
+}
+
+func (r *Recorder) Record(t EventType, actor Actor, trust Trust, payload any) (Event, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return Event{}, fmt.Errorf("marshal %s payload: %w", t, err)
+	}
+
+	r.mu.Lock()
+	r.seq++
+	ev := Event{
+		ID:        newID(),
+		SessionID: r.sessionID,
+		ParentID:  r.parentID,
+		Seq:       r.seq,
+		Type:      t,
+		Payload:   raw,
+		Actor:     actor,
+		Trust:     trust,
+		CreatedAt: time.Now().UTC(),
+	}
+	r.mu.Unlock()
+
+	return ev, r.store.Append(ev)
+}
