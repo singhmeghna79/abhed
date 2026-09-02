@@ -78,6 +78,20 @@ func (s *Process) seatbeltProfile() string {
 	for _, p := range []string{"/private/tmp", "/private/var/tmp", "/dev/null", "/dev/stdout", "/dev/stderr", "/dev/urandom", "/dev/dtracehelper"} {
 		b.WriteString(fmt.Sprintf("(allow file-write* (subpath %q))\n", p))
 	}
+	// macOS gives each user a private TMPDIR under /var/folders, and compilers
+	// put their work directories there. Without this, every `go build`, `cc` and
+	// `cargo build` inside the sandbox fails with "operation not permitted" —
+	// which reads as an agent error rather than a sandbox one. Found by running
+	// the USAGE.md quickstart end to end.
+	if tmp := strings.TrimSuffix(os.Getenv("TMPDIR"), "/"); tmp != "" {
+		// Trim the trailing slash BEFORE resolving: EvalSymlinks on a path with
+		// one can resolve somewhere other than intended.
+		if resolved, err := filepath.EvalSymlinks(tmp); err == nil {
+			tmp = resolved
+		}
+		b.WriteString(fmt.Sprintf("(allow file-write* (subpath %q))\n", tmp))
+	}
+
 	// Toolchains need writable caches or builds fail in ways that look like
 	// agent errors rather than sandbox errors.
 	if home, err := os.UserHomeDir(); err == nil {
