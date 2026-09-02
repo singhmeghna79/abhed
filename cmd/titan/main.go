@@ -853,6 +853,29 @@ func buildAuth(cfg config.Config) (*auth.Middleware, error) {
 			return nil, fmt.Errorf("OIDC setup failed: %w", err)
 		}
 		mw.Verifier = v
+
+		// Browser sign-in is optional: an API-only deployment behind a gateway
+		// needs no redirect flow.
+		if cfg.Auth.ClientID != "" && cfg.Auth.RedirectURL != "" {
+			secret := cfg.Auth.ClientSecret
+			if secret == "" && cfg.Auth.ClientSecretEnv != "" {
+				secret = os.Getenv(cfg.Auth.ClientSecretEnv)
+			}
+			ttl := time.Duration(cfg.Auth.SessionHours) * time.Hour
+			lg, err := auth.NewLogin(auth.LoginConfig{
+				Issuer:       cfg.Auth.Issuer,
+				ClientID:     cfg.Auth.ClientID,
+				ClientSecret: secret,
+				RedirectURL:  cfg.Auth.RedirectURL,
+				Scopes:       cfg.Auth.Scopes,
+				Secure:       cfg.Auth.CookieSecure,
+				SessionTTL:   ttl,
+			}, v)
+			if err != nil {
+				return nil, fmt.Errorf("browser sign-in setup failed: %w", err)
+			}
+			mw.Login = lg
+		}
 	case "proxy":
 		mw.TrustHeaders = true
 	}

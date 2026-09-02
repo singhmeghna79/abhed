@@ -69,6 +69,17 @@ type AuthConfig struct {
 	GroupsClaim string `json:"groups_claim,omitempty"`
 	// RequireGroup gates all access on membership, above tenancy.
 	RequireGroup string `json:"require_group,omitempty"`
+
+	// Browser sign-in. Without these, OIDC still validates bearer tokens for
+	// API clients, but a person opening the console has no way to sign in.
+	ClientID        string   `json:"client_id,omitempty"`
+	ClientSecret    string   `json:"client_secret,omitempty"`
+	ClientSecretEnv string   `json:"client_secret_env,omitempty"`
+	RedirectURL     string   `json:"redirect_url,omitempty"`
+	Scopes          []string `json:"scopes,omitempty"`
+	// CookieSecure should be true anywhere but local HTTP development.
+	CookieSecure bool `json:"cookie_secure,omitempty"`
+	SessionHours int  `json:"session_hours,omitempty"`
 }
 
 // StorageConfig selects the event store. Memory is fine for a CLI session;

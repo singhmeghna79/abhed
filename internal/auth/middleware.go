@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -36,6 +37,9 @@ func WithIdentity(ctx context.Context, id *Identity) context.Context {
 type Middleware struct {
 	Verifier     *Verifier
 	TrustHeaders bool
+	// Login resolves a browser session cookie. Set when interactive sign-in is
+	// configured; a bearer token still takes precedence for API clients.
+	Login *Login
 	// PublicPaths bypass authentication (health checks, the console shell).
 	PublicPaths []string
 }
@@ -54,8 +58,22 @@ func (m Middleware) Wrap(next http.Handler) http.Handler {
 		}
 
 		if m.Verifier != nil {
+			// A browser session cookie is checked first so the console works
+			// without every request carrying a token.
+			if m.Login != nil {
+				if id, ok := m.Login.FromCookie(r); ok {
+					next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(), id)))
+					return
+				}
+			}
 			token := bearerToken(r)
 			if token == "" {
+				// A browser gets sent to sign in; an API client gets 401.
+				if m.Login != nil && wantsHTML(r) {
+					http.Redirect(w, r, "/login?return="+url.QueryEscape(r.URL.RequestURI()),
+						http.StatusFound)
+					return
+				}
 				unauthorized(w, "missing bearer token")
 				return
 			}
@@ -87,6 +105,13 @@ func (m Middleware) Wrap(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(),
 			&Identity{Subject: "anonymous", Tenant: "default"})))
 	})
+}
+
+// wantsHTML distinguishes a browser navigation from an API call, so only the
+// former is redirected to a sign-in page.
+func wantsHTML(r *http.Request) bool {
+	return r.Method == http.MethodGet &&
+		strings.Contains(r.Header.Get("Accept"), "text/html")
 }
 
 func bearerToken(r *http.Request) string {

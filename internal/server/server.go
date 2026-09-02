@@ -121,6 +121,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
 	mux.HandleFunc("POST /v1/sessions/{id}/approve", s.approveAction)
 	mux.HandleFunc("GET /v1/health", s.health)
+	if s.opts.Auth != nil && s.opts.Auth.Login != nil {
+		lg := s.opts.Auth.Login
+		mux.HandleFunc("GET /login", lg.Start)
+		mux.HandleFunc("GET /auth/callback", lg.Callback)
+		mux.HandleFunc("GET /logout", lg.Logout)
+		mux.HandleFunc("GET /v1/whoami", lg.Whoami)
+	}
 	mux.HandleFunc("GET /", s.serveConsole)
 
 	// Order matters and is easy to get backwards: authentication must run
@@ -139,7 +146,8 @@ func (s *Server) authMiddleware() auth.Middleware {
 	if s.opts.Auth != nil {
 		return *s.opts.Auth
 	}
-	mw := auth.Middleware{PublicPaths: []string{"/v1/health", "/"}}
+	mw := auth.Middleware{PublicPaths: []string{
+		"/v1/health", "/login", "/auth/callback", "/logout"}}
 	if s.opts.Config.Auth.Mode == "proxy" {
 		mw.TrustHeaders = true
 	}
@@ -380,10 +388,18 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 // Last-Event-ID so a dropped connection does not lose the session.
 func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	live, ok := s.session(id, tenantOf(r.Context()))
-	if !ok {
-		writeError(w, http.StatusNotFound, "session not found")
-		return
+
+	// A session this process is not running may still be replayable from a
+	// durable store — that is the whole point of event sourcing. Looking only
+	// at the in-memory map meant every session from before a restart returned
+	// 404, so clicking one in the UI showed a blank pane.
+	live, running := s.session(id, tenantOf(r.Context()))
+	if !running {
+		backlog, err := s.store.Events(id)
+		if err != nil || len(backlog) == 0 {
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		}
 	}
 
 	flusher, ok := w.(http.Flusher)
@@ -405,12 +421,19 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Replay what was missed before subscribing, so no event is dropped in the
 	// gap between reconnect and subscription.
-	if backlog, err := s.store.Since(live.ID, lastSeq); err == nil {
+	if backlog, err := s.store.Since(id, lastSeq); err == nil {
 		for _, ev := range backlog {
 			writeSSE(w, ev)
 			lastSeq = ev.Seq
 		}
 		flusher.Flush()
+	}
+
+	// Only a session still running in this process can produce new events.
+	// For a replayed one the backlog above is the whole story, so close cleanly
+	// rather than holding a connection open that will never deliver anything.
+	if !running {
+		return
 	}
 
 	events := s.store.Subscribe(live.ID)
