@@ -323,3 +323,72 @@ func mustJSON(v any) json.RawMessage {
 	b, _ := json.Marshal(v)
 	return b
 }
+
+// A model that ignores an error and retries the identical call must not be
+// allowed to consume the entire turn budget. Found by running Titan against a
+// mock that never called read() before editing: the same refusal repeated 11
+// times, wasting every turn and, on a paid endpoint, real money.
+func TestRepeatedIdenticalFailureIsEscalatedThenAborted(t *testing.T) {
+	dir := tempDir(t)
+	// Editing an unread file always fails, so the same call fails identically.
+	badEdit := call("edit", map[string]string{
+		"path": filepath.Join(dir, "nope.go"), "old_string": "a", "new_string": "b",
+	})
+	var turns []scriptedTurn
+	for i := 0; i < 20; i++ {
+		turns = append(turns, scriptedTurn{calls: []model.ToolCall{badEdit}})
+	}
+
+	l, store := harnessIn(t, dir, turns, policy.ModeAuto, true)
+	l.Config.MaxTurns = 50 // deliberately generous: the guard should stop first
+
+	reason, err := l.Run(context.Background(), "edit a file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != TermRetryExhausted {
+		t.Fatalf("want retry_exhausted, got %s after %d turns", reason, l.Usage().Turns)
+	}
+	if l.Usage().Turns >= 50 {
+		t.Fatalf("guard did not fire: burned %d turns", l.Usage().Turns)
+	}
+	t.Logf("aborted after %d turns instead of 50", l.Usage().Turns)
+
+	// The model should have been told plainly, before the abort.
+	evs, _ := store.Events("sess1")
+	var escalated bool
+	for _, ev := range evs {
+		if ev.Type == EvObservation {
+			var o Observation
+			json.Unmarshal(ev.Payload, &o)
+			if strings.Contains(o.Content, "Repeating it will not work") {
+				escalated = true
+			}
+		}
+	}
+	if !escalated {
+		t.Fatal("the model was never told the repeat was futile")
+	}
+}
+
+// A call that fails once and then succeeds must not count toward the limit.
+func TestFailureCounterResetsOnSuccess(t *testing.T) {
+	dir := tempDir(t)
+	p := filepath.Join(dir, "f.txt")
+
+	l, _ := harnessIn(t, dir, []scriptedTurn{
+		// read a missing file (fails), then create it, then read it (succeeds)
+		{calls: []model.ToolCall{call("read", map[string]string{"path": p})}},
+		{calls: []model.ToolCall{call("write", map[string]string{"path": p, "content": "hi"})}},
+		{calls: []model.ToolCall{call("read", map[string]string{"path": p})}},
+		{text: "done"},
+	}, policy.ModeAuto, true)
+
+	reason, err := l.Run(context.Background(), "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != TermCompleted {
+		t.Fatalf("an intermittent failure should not abort: got %s", reason)
+	}
+}

@@ -55,6 +55,11 @@ type Loop struct {
 	messages []model.Message
 	usage    Usage
 	turns    int
+
+	// repeatedFailures counts consecutive identical tool calls that returned an
+	// error. A model that ignores an error message and retries verbatim will
+	// otherwise burn the entire turn budget on one mistake.
+	repeatedFailures map[string]int
 }
 
 type Usage struct {
@@ -273,7 +278,35 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 			return terminal, true, nil
 		}
 	}
+
+	// If one call has failed identically far past the point of escalation, the
+	// model is stuck. Ending is better than spending the remaining budget.
+	for key, n := range l.repeatedFailures {
+		if n >= repeatedFailureAbort {
+			l.messages = append(l.messages, model.Message{
+				Role: model.RoleUser,
+				Content: fmt.Sprintf(
+					"Stopping: the same call failed %d times without adaptation (%s).",
+					n, truncateKey(key)),
+			})
+			return TermRetryExhausted, true, nil
+		}
+	}
 	return "", false, nil
+}
+
+const (
+	// After this many identical failures the error message is escalated.
+	repeatedFailureLimit = 3
+	// After this many, the loop gives up rather than burning the budget.
+	repeatedFailureAbort = 6
+)
+
+func truncateKey(k string) string {
+	if len(k) > 80 {
+		return k[:80] + "…"
+	}
+	return k
 }
 
 // execute runs one tool call through policy, approval, and the tool itself.
@@ -336,6 +369,25 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 	start := time.Now()
 	result := tool.Run(ctx, l.Session, call.Args)
 	elapsed := time.Since(start)
+
+	// An identical call that keeps failing means the model is not reading the
+	// error. Escalate the message rather than letting it consume every turn:
+	// the error text alone has demonstrably not worked.
+	if result.IsError {
+		if l.repeatedFailures == nil {
+			l.repeatedFailures = map[string]int{}
+		}
+		key := call.Name + string(call.Args)
+		l.repeatedFailures[key]++
+		if n := l.repeatedFailures[key]; n >= repeatedFailureLimit {
+			result.Content = fmt.Sprintf(
+				"%s\n\n[This exact call has now failed %d times. Repeating it will not "+
+					"work. Read the error above and do something different — or explain "+
+					"what is blocking you and stop.]", result.Content, n)
+		}
+	} else {
+		delete(l.repeatedFailures, call.Name+string(call.Args))
+	}
 
 	// Tool output is untrusted: it may contain text that looks like
 	// instructions. The trust tag travels with the event (docs arch §6).
