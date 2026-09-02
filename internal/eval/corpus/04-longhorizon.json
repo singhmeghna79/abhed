@@ -1,0 +1,24 @@
+[
+  {
+    "id": "long-001-many-files",
+    "name": "Apply a consistent change across many files",
+    "category": "refactor",
+    "difficulty": "hard",
+    "stresses": "compaction; context budget",
+    "max_turns": 60,
+    "prompt": "Every handler file logs with fmt.Println. Replace those with log.Printf, keeping the same message.",
+    "files": {
+      "go.mod": "module example.com/demo\n\ngo 1.24\n",
+      "h1.go": "package demo\n\nimport \"fmt\"\n\nfunc H1() { fmt.Println(\"handling one\") }\n",
+      "h2.go": "package demo\n\nimport \"fmt\"\n\nfunc H2() { fmt.Println(\"handling two\") }\n",
+      "h3.go": "package demo\n\nimport \"fmt\"\n\nfunc H3() { fmt.Println(\"handling three\") }\n",
+      "h4.go": "package demo\n\nimport \"fmt\"\n\nfunc H4() { fmt.Println(\"handling four\") }\n"
+    },
+    "assertions": [
+      {"type": "file_contains", "path": "h1.go", "value": "log."},
+      {"type": "file_contains", "path": "h2.go", "value": "log."},
+      {"type": "file_contains", "path": "h3.go", "value": "log."},
+      {"type": "file_contains", "path": "h4.go", "value": "log."}
+    ]
+  }
+]

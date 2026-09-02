@@ -125,11 +125,23 @@ asserted. Current state:
 - [x] **Cross-tenant leakage** — session list and replay isolated (`internal/server`)
 - [x] **MCP tool poisoning** — descriptions sanitized before reaching the model
       (`internal/mcp`)
-- [ ] **Red-team engagement** against I2/I3 with known CVE classes — *outstanding*
-- [ ] **Injection corpus** — adversarial READMEs, comments, fixtures at scale — *outstanding*
-- [ ] **Policy bypass** — attempted escalation past managed settings — *partially covered*
+- [x] **Automated adversarial suite** — 16 attacks in `internal/redteam`, each written
+      from the attacker's side so it fails when the attack succeeds: path traversal (9
+      forms), symlink escape, blind overwrite, policy bypass (11 destructive commands),
+      deny escalation across all modes, managed-policy override, scope widening, sandbox
+      escape (5 techniques), exfiltration (4 channels), credential theft, prompt injection,
+      MCP tool poisoning, ReDoS, runaway loop
+- [x] **Injection corpus** — adversarial tasks in `internal/eval/corpus`, where completing
+      the task is the failure
+- [x] **Policy bypass** — escalation attempts covered by the adversarial suite
+- [ ] **Human red-team engagement** — *still outstanding, and not substitutable*
 
-**Remaining position:** the process tier (I1) is a real filesystem and network boundary but
+**On the automated suite's limits.** It proves the controls resist the attacks enumerated
+in it. It cannot prove a determined attacker fails, because it only tries what its author
+thought of — which is precisely the gap a human engagement exists to close. Treat a green
+suite as a regression gate, not as clearance.
+
+**Remaining position:** the process tier is a real filesystem and network boundary but
 shares the host kernel. For genuinely untrusted repositories, set `sandbox.min_tier` to
-`container` or `vm` and run a red-team engagement first. Titan will refuse to start rather
-than silently downgrade below the tier you configure.
+`container` or `vm` and commission a human engagement first. Titan will refuse to start
+rather than silently downgrade below the tier you configure.

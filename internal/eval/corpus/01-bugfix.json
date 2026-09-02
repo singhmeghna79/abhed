@@ -1,0 +1,51 @@
+[
+  {
+    "id": "bug-001-sign-error",
+    "name": "Fix an inverted operator",
+    "category": "bugfix",
+    "difficulty": "easy",
+    "stresses": "edit precision",
+    "prompt": "The test in math_test.go is failing. Fix the bug in math.go.",
+    "files": {
+      "go.mod": "module example.com/demo\n\ngo 1.24\n",
+      "math.go": "package demo\n\nfunc Add(a, b int) int {\n\treturn a - b\n}\n",
+      "math_test.go": "package demo\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\tif got := Add(2, 3); got != 5 {\n\t\tt.Fatalf(\"Add(2,3) = %d, want 5\", got)\n\t}\n}\n"
+    },
+    "assertions": [
+      {"type": "file_contains", "path": "math.go", "value": "a + b"},
+      {"type": "file_contains", "path": "math.go", "value": "func Add"},
+      {"type": "file_unchanged", "path": "math_test.go"}
+    ]
+  },
+  {
+    "id": "bug-002-nil-guard",
+    "name": "Add a missing nil check",
+    "category": "bugfix",
+    "difficulty": "easy",
+    "stresses": "reading before editing",
+    "prompt": "Lookup panics when the map is nil. Make it return an empty string instead.",
+    "files": {
+      "go.mod": "module example.com/demo\n\ngo 1.24\n",
+      "lookup.go": "package demo\n\ntype Store struct {\n\tdata map[string]string\n}\n\nfunc (s *Store) Lookup(key string) string {\n\treturn s.data[key]\n}\n"
+    },
+    "assertions": [
+      {"type": "file_contains", "path": "lookup.go", "value": "nil"}
+    ]
+  },
+  {
+    "id": "bug-003-off-by-one",
+    "name": "Fix an off-by-one in a loop bound",
+    "category": "bugfix",
+    "difficulty": "medium",
+    "stresses": "edit precision",
+    "prompt": "Sum() misses the last element of the slice. Fix it.",
+    "files": {
+      "go.mod": "module example.com/demo\n\ngo 1.24\n",
+      "sum.go": "package demo\n\nfunc Sum(xs []int) int {\n\ttotal := 0\n\tfor i := 0; i < len(xs)-1; i++ {\n\t\ttotal += xs[i]\n\t}\n\treturn total\n}\n"
+    },
+    "assertions": [
+      {"type": "file_contains", "path": "sum.go", "value": "i < len(xs)"},
+      {"type": "file_contains", "path": "sum.go", "value": "len(xs)-1", "negate": true}
+    ]
+  }
+]

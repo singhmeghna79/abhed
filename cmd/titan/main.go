@@ -24,6 +24,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/eval"
 	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
@@ -74,6 +75,12 @@ func main() {
 		os.Exit(doctor(workspace))
 	case "index":
 		os.Exit(buildIndexCmd(workspace))
+	case "eval":
+		evalFlags := flag.NewFlagSet("eval", flag.ExitOnError)
+		corpus := evalFlags.String("corpus", "internal/eval/corpus", "task corpus directory")
+		jsonOut := evalFlags.String("json", "", "write the full report to this path")
+		_ = evalFlags.Parse(flag.Args()[1:])
+		os.Exit(evalCmd(workspace, *corpus, *jsonOut))
 	case "serve":
 		// Re-parse the remaining args so `titan serve -addr :9000` works: Go's
 		// flag package stops at the first non-flag argument.
@@ -450,6 +457,128 @@ func serveCmd(workspace, addr string) int {
 
 	if err := srv.ListenAndServe(ctx); err != nil && err.Error() != "http: Server closed" {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// evalCmd runs the evaluation corpus against the configured model.
+//
+// Per docs P1 the harness is the dominant variable in agent success, so this is
+// how a harness change is judged. Per P10 the report carries behavioural flags
+// alongside the score, because identical pass rates hide different behaviour.
+func evalCmd(workspace, corpusDir, jsonPath string) int {
+	cfg, err := config.Load(workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	provider, err := cfg.Provider()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+
+	tasks, err := eval.LoadTasks(corpusDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	fmt.Printf("running %d tasks against %s\n\n", len(tasks), provider.Model)
+
+	adapter := buildAdapter(provider)
+	workRoot, err := os.MkdirTemp("", "titan-eval-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	defer os.RemoveAll(workRoot)
+
+	runner := func(ctx context.Context, ws string, task eval.Task) ([]agent.Event, eval.Result, error) {
+		sb, err := buildSandbox(cfg, ws)
+		if err != nil {
+			return nil, eval.Result{}, err
+		}
+		sess, err := tools.NewSession(ws)
+		if err != nil {
+			return nil, eval.Result{}, err
+		}
+		registry := tools.NewRegistry(
+			tools.Read{}, tools.Write{}, tools.Edit{},
+			tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
+		)
+
+		pol := policy.New(policy.ModeAuto)
+		must(pol.AddDeny(cfg.Permissions.Deny...))
+		must(pol.AddAllow("bash(go *)", "bash(npm *)", "bash(python *)", "bash(cat *)", "bash(ls*)"))
+
+		store := agent.NewMemStore()
+		sessionID := "eval-" + task.ID
+		rec := agent.NewRecorder(store, sessionID, "")
+
+		loopCfg := agent.DefaultConfig()
+		loopCfg.SystemPrompt = agent.BuildSystemPrompt(agent.BuildOptions{
+			Profile: "main", Workspace: ws,
+			Model: provider.Model, ContextWindow: provider.ContextWindow,
+		})
+		if task.MaxTurns > 0 {
+			loopCfg.MaxTurns = task.MaxTurns
+		} else {
+			loopCfg.MaxTurns = 30
+		}
+
+		loop := agent.NewLoop(adapter, registry, pol, agent.AutoApprove{Yes: true}, sess, rec, loopCfg)
+		loop.Compactor = agent.NewCompactor(adapter, loopCfg.CompactAt)
+
+		runCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
+
+		reason, runErr := loop.Run(runCtx, task.Prompt)
+		usage := loop.Usage()
+		events, _ := store.Events(sessionID)
+
+		return events, eval.Result{
+			Turns: usage.Turns, TokensIn: usage.InputTokens, TokensOut: usage.OutputTokens,
+			CacheHitRate: usage.CacheHitRate(), Compactions: usage.Compactions,
+			Terminal: string(reason),
+		}, runErr
+	}
+
+	results, err := eval.Run(context.Background(), tasks, workRoot, runner)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+
+	for _, r := range results {
+		status := "PASS"
+		if !r.Passed {
+			status = "FAIL"
+		}
+		fmt.Printf("  %-4s %-28s %2d turns  %6d tok\n", status, r.TaskID, r.Turns, r.TokensIn)
+		for _, f := range r.Flags {
+			marker := "flag"
+			if f.Blocking {
+				marker = "BLOCK"
+			}
+			fmt.Printf("       %s %s: %s\n", marker, f.Kind, f.Detail)
+		}
+		for _, f := range r.Failures {
+			fmt.Printf("       %s\n", f)
+		}
+	}
+
+	summary := eval.Summarize(results, provider.Model)
+	fmt.Printf("\n%s", summary.Render())
+
+	if jsonPath != "" {
+		data, _ := json.MarshalIndent(summary, "", "  ")
+		os.WriteFile(jsonPath, append(data, '\n'), 0o644)
+		fmt.Printf("\nreport written to %s\n", jsonPath)
+	}
+
+	// A non-zero exit lets CI gate on the eval, which is the point.
+	if summary.Passed < summary.Tasks {
 		return 1
 	}
 	return 0

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "multi-001-rename",
+    "name": "Rename a symbol across files",
+    "category": "refactor",
+    "difficulty": "medium",
+    "stresses": "search then edit; context management",
+    "prompt": "Rename the function GetUser to FetchUser everywhere it appears.",
+    "files": {
+      "go.mod": "module example.com/demo\n\ngo 1.24\n",
+      "user.go": "package demo\n\ntype User struct{ Name string }\n\nfunc GetUser(id string) *User {\n\treturn &User{Name: id}\n}\n",
+      "handler.go": "package demo\n\nfunc Handle(id string) string {\n\tu := GetUser(id)\n\treturn u.Name\n}\n",
+      "service.go": "package demo\n\nfunc Service(ids []string) []string {\n\tvar out []string\n\tfor _, id := range ids {\n\t\tout = append(out, GetUser(id).Name)\n\t}\n\treturn out\n}\n"
+    },
+    "assertions": [
+      {"type": "file_contains", "path": "user.go", "value": "func FetchUser"},
+      {"type": "file_contains", "path": "handler.go", "value": "FetchUser(id)"},
+      {"type": "file_contains", "path": "service.go", "value": "FetchUser(id)"},
+      {"type": "file_contains", "path": "user.go", "value": "GetUser", "negate": true},
+      {"type": "file_contains", "path": "handler.go", "value": "GetUser", "negate": true},
+      {"type": "file_contains", "path": "service.go", "value": "GetUser", "negate": true}
+    ]
+  },
+  {
+    "id": "multi-002-add-field",
+    "name": "Add a struct field and its constructor argument",
+    "category": "feature",
+    "difficulty": "medium",
+    "stresses": "coordinated multi-file edit",
+    "prompt": "Add an Email field to the User struct and set it from a new parameter on NewUser.",
+    "files": {
+      "go.mod": "module example.com/demo\n\ngo 1.24\n",
+      "user.go": "package demo\n\ntype User struct {\n\tName string\n}\n\nfunc NewUser(name string) *User {\n\treturn &User{Name: name}\n}\n"
+    },
+    "assertions": [
+      {"type": "file_contains", "path": "user.go", "value": "Email"},
+      {"type": "file_contains", "path": "user.go", "value": "func NewUser"}
+    ]
+  }
+]
