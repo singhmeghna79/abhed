@@ -278,9 +278,16 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	appCfg config.Config, provider config.ProviderConfig, workspace string) int {
 
 	s := r.Style()
-	fmt.Printf("%s %s  %s\n", s.Bold("titan"), s.Dim(version),
-		s.Dim(fmt.Sprintf("%s · %s", provider.Model, workspace)))
-	fmt.Printf("%s\n\n", s.Dim("Type a task, or /help for commands. Ctrl-C interrupts, Ctrl-D exits."))
+	sandboxLabel := "none"
+	if sb, err := buildSandbox(appCfg, workspace); err == nil {
+		sandboxLabel = string(sb.Tier())
+		if !appCfg.Sandbox.AllowNetwork {
+			sandboxLabel += " · no network"
+		}
+	}
+	fmt.Print(ui.Banner(s, version, provider.Model, workspace,
+		sandboxLabel, storageLabel(appCfg)))
+	fmt.Printf("\n%s\n\n", s.Dim("Type a task, or /help. Ctrl-C interrupts, Ctrl-D exits."))
 
 	in := bufio.NewReader(os.Stdin)
 	turn := 0
@@ -293,7 +300,7 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	}
 
 	for {
-		fmt.Printf("%s ", s.Cyan("›"))
+		fmt.Print(ui.Prompt(s))
 		line, err := in.ReadString('\n')
 		if err != nil {
 			fmt.Println()
@@ -695,7 +702,9 @@ func serveCmd(workspace, addr string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	fmt.Printf("titan %s serving on http://localhost%s\n", version, addr)
+	bs := ui.NewStyle(os.Stdout)
+	fmt.Printf("%s %s %s  http://localhost%s\n", bs.Cyan(ui.Glyph),
+		bs.Bold("TITAN"), bs.Dim(version), addr)
 	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n  storage   %s\n",
 		workspace, provider.Model, sb.Tier(), storageLabel(cfg))
 	fmt.Printf("  auth      %s\n", authLabel(cfg))
@@ -1079,6 +1088,8 @@ func doctor(workspace string) int {
 		return 1
 	}
 
+	fmt.Printf("%s %s\n\n", ui.NewStyle(os.Stdout).Cyan(ui.Glyph),
+		ui.NewStyle(os.Stdout).Bold("titan doctor"))
 	fmt.Printf("workspace   %s\n", workspace)
 	fmt.Printf("provider    %s (%s)\n", cfg.Model.Default, provider.Type)
 	fmt.Printf("endpoint    %s\n", provider.BaseURL)

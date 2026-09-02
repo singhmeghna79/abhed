@@ -71,9 +71,13 @@ button,select,textarea,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:3px}
 
 /* ---------------------------------------------------------------- chrome */
-.top{height:46px;display:flex;align-items:center;gap:14px;padding:0 16px;
-  background:var(--surface);border-bottom:1px solid var(--line);flex:none}
-.brand{display:flex;align-items:baseline;gap:8px}
+.top{height:48px;display:flex;align-items:center;gap:14px;padding:0 16px;
+  background:var(--surface);border-bottom:1px solid var(--line);flex:none;
+  box-shadow:0 1px 0 rgba(0,0,0,.04),0 2px 8px -6px rgba(0,0,0,.28);
+  position:relative;z-index:3}
+.brand{display:flex;align-items:center;gap:8px}
+.mark{width:19px;height:19px;fill:var(--accent);flex:none;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
 .brand b{font-size:14px;font-weight:650;letter-spacing:-.01em}
 .brand span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .top .spacer{flex:1}
@@ -155,7 +159,14 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   height:100%;gap:8px;color:var(--muted);text-align:center}
 .empty .k{font-family:var(--mono);font-size:12px}
-.empty .s{font-size:12px;max-width:34ch;line-height:1.6}
+.empty .s{font-size:12.5px;max-width:36ch;line-height:1.65}
+.mark-lg{width:40px;height:40px;fill:var(--accent);opacity:.28;margin-bottom:2px}
+.empty .ex{display:flex;flex-direction:column;gap:6px;margin-top:16px;width:100%;
+  max-width:330px}
+.chip{background:var(--surface);border:1px solid var(--line);border-radius:7px;
+  padding:8px 11px;font-size:12px;color:var(--ink-2);cursor:pointer;text-align:left;
+  transition:border-color .14s,transform .14s}
+.chip:hover{border-color:var(--accent);transform:translateY(-1px);color:var(--ink)}
 
 /* turn grouping: a vertical spine ties a turn's calls together */
 .turn{position:relative;padding-left:20px;margin-bottom:4px}
@@ -163,9 +174,12 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   width:1px;background:var(--line)}
 .turn:last-child::before{display:none}
 
-.said{background:var(--raised);border:1px solid var(--line);border-radius:8px;
-  padding:11px 14px;margin:0 0 12px;white-space:pre-wrap;line-height:1.6;
-  overflow-wrap:anywhere}
+.said{background:var(--raised);border:1px solid var(--line);border-radius:9px;
+  padding:12px 15px;margin:0 0 12px;white-space:pre-wrap;line-height:1.65;
+  overflow-wrap:anywhere;box-shadow:0 1px 2px rgba(0,0,0,.05);
+  animation:rise .22s cubic-bezier(.2,.7,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.said{animation:none}}
 .said.user{background:var(--accent-soft);border-color:var(--accent-line)}
 .said .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--muted);margin-bottom:6px}
@@ -206,6 +220,16 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .note{font-family:var(--mono);font-size:10.5px;color:var(--muted);
   border-top:1px dashed var(--line);padding-top:9px;margin:14px 0 4px;
   display:flex;gap:14px;flex-wrap:wrap}
+.thinking{display:flex;align-items:center;gap:9px;font-family:var(--mono);
+  font-size:11.5px;color:var(--muted);padding:9px 0 2px}
+.thinking .bars{display:flex;gap:2.5px;align-items:flex-end;height:12px}
+.thinking .bars i{width:2.5px;height:4px;background:var(--accent);border-radius:1px;
+  animation:pulse 1.05s ease-in-out infinite}
+.thinking .bars i:nth-child(2){animation-delay:.13s}
+.thinking .bars i:nth-child(3){animation-delay:.26s}
+.thinking .bars i:nth-child(4){animation-delay:.39s}
+@keyframes pulse{0%,100%{height:4px;opacity:.45}50%{height:12px;opacity:1}}
+@media (prefers-reduced-motion:reduce){.thinking .bars i{animation:none;height:8px}}
 .note b{color:var(--ink-2);font-weight:500;font-variant-numeric:tabular-nums}
 
 /* ---------------------------------------------------------------- inspector */
@@ -235,7 +259,18 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 <body>
 
 <div class="top">
-  <div class="brand"><b>Titan</b><span id="ver">console</span></div>
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+      <!-- Doric column: capital, fluted shaft, base. The same mark the CLI
+           draws in box characters. -->
+      <rect x="3"  y="3"  width="18" height="3"   rx="1"/>
+      <rect x="9"  y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
+      <rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>
+      <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
+      <rect x="3"  y="18" width="18" height="3"   rx="1"/>
+    </svg>
+    <b>Titan</b><span id="ver">console</span>
+  </div>
   <div class="stat"><span class="led" id="led"></span><span id="health">connecting</span></div>
   <div class="spacer"></div>
   <div class="stat">model <b id="mdl">—</b></div>
@@ -275,9 +310,17 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     </div>
     <div class="transcript" id="tx">
       <div class="empty">
-        <div class="k">Titan</div>
-        <div class="s">Ask a question or describe a change. Pick a session on the left to
-          replay what it did.</div>
+        <svg class="mark-lg" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="3" rx="1"/>
+          <rect x="9" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
+          <rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>
+          <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
+          <rect x="3" y="18" width="18" height="3" rx="1"/>
+        </svg>
+        <div class="k">Ready</div>
+        <div class="s">Ask a question, or describe a change. Select a session on the
+          left to replay exactly what it did.</div>
+        <div class="ex" id="examples"></div>
       </div>
     </div>
   </main>
@@ -439,6 +482,7 @@ function render(ev){
     }
 
     case 'agent.message': {
+      hideThinking();
       if(!(p.text || '').trim()) break;
       const b = node('said');
       b.append(node('who','titan'), document.createTextNode(p.text));
@@ -447,6 +491,7 @@ function render(ev){
     }
 
     case 'action.requested': {
+      hideThinking();
       const wrap = node('call');
       const hdr = node('hdr');
       const tool = node('tool', p.tool);
@@ -477,6 +522,7 @@ function render(ev){
       body.appendChild(document.createTextNode(clip(p.content || '', 4000)));
       wrap.appendChild(body);
 
+      if(live) showThinking('working');
       if(p.duration_ms !== undefined){
         const hdr = wrap.querySelector('.hdr');
         if(hdr && !hdr.querySelector('.ms')){
@@ -502,6 +548,7 @@ function render(ev){
     }
 
     case 'session.ended': {
+      hideThinking();
       live = false;
       $('stop').hidden = true;
       stats.reason = p.reason;
@@ -660,7 +707,7 @@ $('go').onclick = async () => {
     b.append(node('who','you'), document.createTextNode(prompt));
     $('tx').appendChild(b);
     newTurn();
-    $('tx').appendChild(node('note','waiting for the model…'));
+    showThinking('waiting for the model');
   }catch(e){
     alert(e.message);
   }finally{
@@ -690,7 +737,62 @@ async function whoami(){
   }catch{}
 }
 
-whoami(); health(); refresh();
+// A first-run console that only says "ask something" teaches nothing. These
+// are the three shapes Titan handles, so the examples double as documentation.
+const EXAMPLES = [
+  ['Explain a concept',  'What is z/OS and where is it used?'],
+  ['Understand code',    'What does the Valid function do in this codebase?'],
+  ['Make a change',      'The tests in pkg/auth are failing. Find the bug and fix it.'],
+];
+
+function drawExamples(){
+  const box = $('examples');
+  if(!box) return;
+  box.textContent = '';
+  for(const [label, text] of EXAMPLES){
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.type = 'button';
+    const strong = document.createElement('div');
+    strong.style.cssText = 'font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;' +
+      'text-transform:uppercase;color:var(--muted);margin-bottom:3px';
+    strong.textContent = label;
+    b.append(strong, document.createTextNode(text));
+    b.onclick = () => { $('q').value = text; $('q').focus(); };
+    box.appendChild(b);
+  }
+}
+
+// A live indicator while the model is working. A cold 30B model can take ~30s
+// for its first token, and a static line is indistinguishable from a hang.
+function showThinking(what){
+  hideThinking();
+  const el = node('thinking');
+  el.id = 'thinking';
+  const bars = node('bars');
+  for(let i=0;i<4;i++) bars.appendChild(document.createElement('i'));
+  const label = document.createElement('span');
+  label.textContent = what || 'thinking';
+  const clock = document.createElement('span');
+  clock.style.cssText = 'color:var(--muted);font-variant-numeric:tabular-nums';
+  el.append(bars, label, clock);
+  $('tx').appendChild(el);
+
+  const t0 = Date.now();
+  el.dataset.timer = setInterval(() => {
+    clock.textContent = ((Date.now()-t0)/1000).toFixed(1) + 's';
+  }, 100);
+  $('tx').scrollTop = $('tx').scrollHeight;
+}
+
+function hideThinking(){
+  const el = $('thinking');
+  if(!el) return;
+  clearInterval(Number(el.dataset.timer));
+  el.remove();
+}
+
+drawExamples(); whoami(); health(); refresh();
 setInterval(health, 10000);
 setInterval(refresh, 5000);
 </script>
