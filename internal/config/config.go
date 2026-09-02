@@ -19,6 +19,7 @@ type Config struct {
 	Context     ContextConfig     `json:"context"`
 	Limits      LimitsConfig      `json:"limits"`
 	Sandbox     SandboxConfig     `json:"sandbox"`
+	MCP         MCPConfig         `json:"mcp"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -51,6 +52,22 @@ type PermissionsConfig struct {
 type ContextConfig struct {
 	CompactAt   float64  `json:"compact_at"`
 	MemoryFiles []string `json:"memory_files"`
+}
+
+// MCPConfig registers Model Context Protocol servers. A server not listed here
+// does not run: discovery does not imply trust (docs §03 T4).
+type MCPConfig struct {
+	Servers []MCPServerConfig `json:"servers,omitempty"`
+}
+
+type MCPServerConfig struct {
+	Name       string   `json:"name"`
+	Command    string   `json:"command"`
+	Args       []string `json:"args,omitempty"`
+	Env        []string `json:"env,omitempty"`
+	Enabled    bool     `json:"enabled"`
+	AllowTools []string `json:"allow_tools,omitempty"`
+	Digest     string   `json:"digest,omitempty"`
 }
 
 // SandboxConfig controls execution isolation. Defaults deny egress, because a

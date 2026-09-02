@@ -23,6 +23,7 @@ import (
 
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
@@ -125,6 +126,19 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		cfg.Limits.MaxSubagents,
 		cfg.Limits.NestedSubagents,
 	)
+
+	// MCP servers extend the tool surface. Every remote tool is namespaced and
+	// routes through the policy engine, since Titan cannot know what it does.
+	gateway := mcp.NewGateway()
+	defer gateway.Close()
+	if mcpErrs := gateway.Connect(context.Background(), mcpConfigs(cfg)); len(mcpErrs) > 0 {
+		for _, e := range mcpErrs {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", e)
+		}
+	}
+	for _, t := range gateway.Tools() {
+		registry.Add(t)
+	}
 
 	systemPrompt := agent.BuildSystemPrompt(agent.BuildOptions{
 		Profile:       "main",
@@ -322,6 +336,17 @@ func printUsage(r *ui.Renderer, u agent.Usage) {
 	fmt.Printf("%s\n", s.Dim(line))
 }
 
+func mcpConfigs(cfg config.Config) []mcp.ServerConfig {
+	out := make([]mcp.ServerConfig, 0, len(cfg.MCP.Servers))
+	for _, s := range cfg.MCP.Servers {
+		out = append(out, mcp.ServerConfig{
+			Name: s.Name, Command: s.Command, Args: s.Args, Env: s.Env,
+			Enabled: s.Enabled, AllowTools: s.AllowTools, Digest: s.Digest,
+		})
+	}
+	return out
+}
+
 // buildSandbox selects an execution backend meeting the configured minimum
 // tier. Select never silently downgrades, so a failure here is a real
 // configuration problem the operator must see.
@@ -387,6 +412,17 @@ func doctor(workspace string) int {
 	}
 	if files := agent.DiscoverMemoryFiles(workspace); len(files) > 0 {
 		fmt.Printf("memory      %s\n", strings.Join(files, ", "))
+	}
+	if servers := cfg.MCP.Servers; len(servers) > 0 {
+		gw := mcp.NewGateway()
+		gw.Connect(context.Background(), mcpConfigs(cfg))
+		status := gw.Status()
+		gw.Close()
+		if len(status) > 0 {
+			fmt.Printf("mcp         %s\n", strings.Join(status, ", "))
+		} else {
+			fmt.Printf("mcp         %d configured, none connected\n", len(servers))
+		}
 	}
 	fmt.Println()
 

@@ -1,0 +1,249 @@
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
+
+	"github.com/yuvrajsingh/titan/internal/tools"
+)
+
+// ServerConfig describes a registered MCP server.
+//
+// A server not in the registry does not run. Discovery does not imply trust,
+// which is the whole point of an enterprise gateway (docs §03 §5).
+type ServerConfig struct {
+	Name    string   `json:"name"`
+	Command string   `json:"command"`
+	Args    []string `json:"args,omitempty"`
+	Env     []string `json:"env,omitempty"`
+	// Enabled is false by default so adding a server to config is not the same
+	// as authorizing it.
+	Enabled bool `json:"enabled"`
+	// AllowTools optionally restricts which of the server's tools are exposed.
+	// Empty means all of them, which is the riskier choice.
+	AllowTools []string `json:"allow_tools,omitempty"`
+	// Digest pins the server artifact. Air-gapped installs must set this;
+	// a tag or floating command is not reproducible (docs/ops/air-gap.md).
+	Digest string `json:"digest,omitempty"`
+}
+
+// Gateway manages registered servers and exposes their tools to the agent.
+type Gateway struct {
+	mu      sync.RWMutex
+	clients map[string]*Client
+	configs map[string]ServerConfig
+}
+
+func NewGateway() *Gateway {
+	return &Gateway{clients: make(map[string]*Client), configs: make(map[string]ServerConfig)}
+}
+
+// Connect starts and initializes the enabled servers. A server that fails to
+// start is reported but does not prevent the others from working: one broken
+// integration should not take down the agent.
+func (g *Gateway) Connect(ctx context.Context, configs []ServerConfig) []error {
+	var errs []error
+	for _, cfg := range configs {
+		if !cfg.Enabled {
+			continue
+		}
+		if err := g.connectOne(ctx, cfg); err != nil {
+			errs = append(errs, fmt.Errorf("mcp server %q: %w", cfg.Name, err))
+		}
+	}
+	return errs
+}
+
+func (g *Gateway) connectOne(ctx context.Context, cfg ServerConfig) error {
+	if cfg.Command == "" {
+		return fmt.Errorf("no command configured")
+	}
+	if !validServerName.MatchString(cfg.Name) {
+		return fmt.Errorf("invalid server name %q (letters, digits, _ and - only)", cfg.Name)
+	}
+
+	transport, err := NewStdioTransport(ctx, cfg.Command, cfg.Args, cfg.Env)
+	if err != nil {
+		return err
+	}
+	client := NewClient(cfg.Name, transport)
+	if err := client.Initialize(ctx); err != nil {
+		client.Close()
+		return err
+	}
+
+	g.mu.Lock()
+	g.clients[cfg.Name] = client
+	g.configs[cfg.Name] = cfg
+	g.mu.Unlock()
+	return nil
+}
+
+var validServerName = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// Tools returns the gateway's tools as agent-facing tools, namespaced by
+// server so a malicious server cannot shadow a native tool.
+func (g *Gateway) Tools() []tools.Tool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	var out []tools.Tool
+	names := make([]string, 0, len(g.clients))
+	for name := range g.clients {
+		names = append(names, name)
+	}
+	sort.Strings(names) // stable ordering keeps the prompt prefix cacheable
+
+	for _, server := range names {
+		client := g.clients[server]
+		cfg := g.configs[server]
+		for _, def := range client.Tools() {
+			if !allowed(cfg, def.Name) {
+				continue
+			}
+			out = append(out, &remoteTool{
+				client:      client,
+				server:      server,
+				remoteName:  def.Name,
+				description: sanitizeDescription(def.Description),
+				schema:      def.InputSchema,
+			})
+		}
+	}
+	return out
+}
+
+func allowed(cfg ServerConfig, tool string) bool {
+	if len(cfg.AllowTools) == 0 {
+		return true
+	}
+	for _, t := range cfg.AllowTools {
+		if t == tool {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Gateway) Close() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for _, c := range g.clients {
+		c.Close()
+	}
+	g.clients = map[string]*Client{}
+}
+
+// Status reports connected servers and their tool counts, for `titan doctor`.
+func (g *Gateway) Status() []string {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	var out []string
+	for name, c := range g.clients {
+		out = append(out, fmt.Sprintf("%s (%d tools)", name, len(c.Tools())))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// remoteTool adapts an MCP tool to Titan's tool interface.
+type remoteTool struct {
+	client      *Client
+	server      string
+	remoteName  string
+	description string
+	schema      json.RawMessage
+}
+
+// Name is namespaced: mcp__<server>__<tool>. Without this a server could
+// register a tool called "bash" and intercept the agent's own calls.
+func (t *remoteTool) Name() string {
+	return fmt.Sprintf("mcp__%s__%s", t.server, t.remoteName)
+}
+
+func (t *remoteTool) Description() string { return t.description }
+
+func (t *remoteTool) Schema() json.RawMessage {
+	if len(t.schema) == 0 {
+		return json.RawMessage(`{"type":"object","properties":{}}`)
+	}
+	return t.schema
+}
+
+// Mutates is conservatively true: Titan cannot know what a third-party server
+// does, so every MCP call routes through the policy engine for approval.
+func (t *remoteTool) Mutates() bool { return true }
+
+func (t *remoteTool) Run(ctx context.Context, _ *tools.Session, args json.RawMessage) tools.Result {
+	content, isErr, err := t.client.Call(ctx, t.remoteName, args)
+	if err != nil {
+		return tools.Result{
+			Content: fmt.Sprintf("MCP call to %s failed: %v", t.Name(), err),
+			IsError: true,
+		}
+	}
+	if content == "" {
+		content = "[no content returned]"
+	}
+	// The response is untrusted third-party data. The loop tags the observation
+	// accordingly; here we bound its size so one server cannot flood context.
+	const maxContent = 30000
+	truncated := false
+	if len(content) > maxContent {
+		content = content[:maxContent] + "\n\n[truncated]"
+		truncated = true
+	}
+	return tools.Result{Content: content, IsError: isErr, Truncated: truncated}
+}
+
+// sanitizeDescription defends against tool poisoning.
+//
+// A tool description is written by a third party and injected verbatim into the
+// model's context, which makes it an instruction-injection surface. This strips
+// the patterns that try to exploit that and bounds the length so one server
+// cannot dominate the prompt.
+func sanitizeDescription(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "(no description provided)"
+	}
+
+	// Neutralize instruction-injection phrasing aimed at the model rather than
+	// describing the tool.
+	for _, pattern := range injectionPatterns {
+		s = pattern.ReplaceAllString(s, "[redacted]")
+	}
+
+	// Collapse control characters that could forge message boundaries.
+	s = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return ' '
+		}
+		if r < 32 || r == 127 {
+			return -1
+		}
+		return r
+	}, s)
+	s = strings.Join(strings.Fields(s), " ")
+
+	const maxDesc = 1024
+	if len(s) > maxDesc {
+		s = s[:maxDesc] + "…"
+	}
+	return s
+}
+
+var injectionPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)ignore (all |any |the )?(previous|prior|above|preceding) instructions?`),
+	regexp.MustCompile(`(?i)disregard (all |any |the )?(previous|prior|above)`),
+	regexp.MustCompile(`(?i)you are now (a|an|in) `),
+	regexp.MustCompile(`(?i)</?(system|assistant|user)>`),
+	regexp.MustCompile(`(?i)\bnew instructions?\b`),
+	regexp.MustCompile(`(?i)do not (tell|inform|mention to) the user`),
+	regexp.MustCompile(`(?i)without (asking|informing|telling) the user`),
+}
