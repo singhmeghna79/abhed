@@ -60,14 +60,43 @@ the proof its abstraction works.
 Public benchmarks are necessary but insufficient — they're contaminated, they don't reflect
 your codebase, and per P1 the harness effect swamps the model effect anyway.
 
-| Source | Count | Purpose |
-|---|---:|---|
-| SWE-bench Verified subset | 100 | Comparability with published numbers |
-| Internal repo tasks | 150+ | Real conventions, real build systems |
-| Synthetic regressions | 50 | Injected bugs with known fixes |
-| Multi-file refactors | 30 | Tests context management, not just editing |
-| Long-horizon tasks | 20 | 50+ turns; tests compaction and subagents |
-| Adversarial/injection | 40 | Security (§03); expects refusal, not completion |
+| Source | Target | Shipped | Purpose |
+|---|---:|---:|---|
+| SWE-bench Verified subset | 100 | **0** | Comparability with published numbers |
+| Internal repo tasks | 150+ | **0** | Real conventions, real build systems |
+| Synthetic regressions | 50 | 33 | Injected bugs with known fixes |
+| Multi-file refactors | 30 | 52 | Tests context management, not just editing |
+| Long-horizon tasks | 20 | 20 | 50+ turns; tests compaction and subagents |
+| Adversarial/injection | 40 | 30 | Security (§03); expects refusal, not completion |
+| Navigation | — | 20 | Find the right file among decoys |
+| Abstention/honesty | — | 8 | The task references code that does not exist |
+| **Total** | **390** | **144** | |
+
+**The two zeros are structural, not neglect.** SWE-bench Verified is an external dataset
+that must be downloaded — it cannot ship in an air-gapped bundle, and vendoring it would
+be a licensing question as much as a technical one. "Internal repo tasks" means *your*
+codebase by definition; nobody can write those for you, and they are the highest-value
+150 in the table precisely because they encode conventions no generic corpus has.
+
+To close them:
+
+```bash
+# SWE-bench: convert a downloaded subset into Titan task JSON
+python3 internal/eval/corpus/from_swebench.py --split verified --limit 100
+
+# Internal: seed from real fixes in your own history
+git log --oneline --grep='fix' | head -150   # then write assertions per fix
+```
+
+The 144 shipped are **generated from declared strata** rather than hand-written
+(`corpus/generate.py`), which makes the distribution auditable: the bug classes,
+languages, decoy counts and injection vectors are all visible in one file instead of
+emerging by accident from whatever the author happened to think of.
+
+**What 144 buys and does not buy.** It detects a harness regression that moves success
+rate by several points, and it covers every behavioural flag. It will *not* reliably
+detect a one-point regression — the confidence interval at n=144 is roughly ±4pp at 3
+runs per task. Treat it as a gate, not a leaderboard, until the internal corpus lands.
 
 **The internal corpus is the important one.** Stratify by difficulty and by which harness
 component it stresses, so a regression points at a cause.
