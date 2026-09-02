@@ -16,9 +16,13 @@ import (
 type EventType string
 
 const (
-	EvSessionStarted  EventType = "session.started"
-	EvUserMessage     EventType = "user.message"
-	EvAgentMessage    EventType = "agent.message"
+	EvSessionStarted EventType = "session.started"
+	EvUserMessage    EventType = "user.message"
+	EvAgentMessage   EventType = "agent.message"
+	// EvAgentDelta carries a fragment of the model's reply as it arrives.
+	// The complete text still lands in EvAgentMessage, so a replayed session
+	// reads identically whether or not the deltas were observed live.
+	EvAgentDelta      EventType = "agent.delta"
 	EvActionRequested EventType = "action.requested"
 	EvActionApproved  EventType = "action.approved"
 	EvActionDenied    EventType = "action.denied"
@@ -123,6 +127,12 @@ type Observation struct {
 
 type Message struct {
 	Text string `json:"text"`
+}
+
+// Delta is one streamed fragment of an agent message.
+type Delta struct {
+	Text string `json:"text"`
+	Seq  int    `json:"n"` // ordinal within this message, for ordering
 }
 
 type SessionEnded struct {

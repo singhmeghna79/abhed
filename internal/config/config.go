@@ -21,6 +21,7 @@ type Config struct {
 	Sandbox     SandboxConfig     `json:"sandbox"`
 	MCP         MCPConfig         `json:"mcp"`
 	Retrieval   RetrievalConfig   `json:"retrieval"`
+	WebSearch   WebSearchConfig   `json:"web_search"`
 	Storage     StorageConfig     `json:"storage"`
 	Auth        AuthConfig        `json:"auth"`
 
@@ -80,6 +81,25 @@ type AuthConfig struct {
 	// CookieSecure should be true anywhere but local HTTP development.
 	CookieSecure bool `json:"cookie_secure,omitempty"`
 	SessionHours int  `json:"session_hours,omitempty"`
+}
+
+// WebSearchConfig controls the agent's access to the public web.
+//
+// OFF by default: Titan is built to run air-gapped, and this is the one tool
+// that deliberately crosses the boundary. Enabling it is a decision an operator
+// makes, not a default they inherit.
+type WebSearchConfig struct {
+	Enabled bool `json:"enabled"`
+	// Provider: duckduckgo (free, no key, the default) | brave | tavily |
+	// serper | searxng (self-hosted).
+	Provider string `json:"provider,omitempty"`
+	// APIKeyEnv names the environment variable holding the key, so a
+	// credential never sits in a config file.
+	APIKeyEnv string `json:"api_key_env,omitempty"`
+	APIKey    string `json:"api_key,omitempty"`
+	// BaseURL points at a self-hosted instance or an egress broker.
+	BaseURL    string `json:"base_url,omitempty"`
+	MaxResults int    `json:"max_results,omitempty"`
 }
 
 // StorageConfig selects the event store. Memory is fine for a CLI session;
@@ -189,6 +209,9 @@ func Default() Config {
 			MaxMemoryMB:  4096,
 			MaxProcs:     512,
 		},
+		// Off by default: Titan runs air-gapped, and web search is the one tool
+		// that deliberately crosses the boundary.
+		WebSearch: WebSearchConfig{Enabled: false, Provider: "duckduckgo", MaxResults: 5},
 	}
 }
 
@@ -309,6 +332,12 @@ func (c Config) Validate() error {
 	}
 	if c.Auth.Mode == "oidc" && c.Auth.Issuer == "" {
 		return fmt.Errorf("auth.mode is oidc but auth.issuer is not set")
+	}
+	switch strings.ToLower(c.WebSearch.Provider) {
+	case "", "duckduckgo", "ddg", "brave", "tavily", "serper", "searxng":
+	default:
+		return fmt.Errorf("unknown web_search.provider %q "+
+			"(want duckduckgo, brave, tavily, serper or searxng)", c.WebSearch.Provider)
 	}
 	switch c.Storage.Driver {
 	case "memory", "postgres", "":

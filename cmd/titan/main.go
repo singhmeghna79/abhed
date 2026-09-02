@@ -35,6 +35,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/store"
 	"github.com/yuvrajsingh/titan/internal/tools"
 	"github.com/yuvrajsingh/titan/internal/ui"
+	"github.com/yuvrajsingh/titan/internal/websearch"
 )
 
 var version = "0.1.0-dev"
@@ -159,6 +160,12 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		}
 	}
 	for _, t := range gateway.Tools() {
+		registry.Add(t)
+	}
+
+	if t, err := buildWebSearch(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
+	} else if t != nil {
 		registry.Add(t)
 	}
 
@@ -656,6 +663,7 @@ func serveCmd(workspace, addr string) int {
 			fmt.Printf("            JWKS reachable, tokens will be verified\n")
 		}
 	}
+	fmt.Printf("web search  %s\n", webSearchLabel(cfg))
 	fmt.Printf("storage     %s\n", storageLabel(cfg))
 	if cfg.Storage.Driver == "postgres" {
 		st, closeFn, err := openStore(context.Background(), cfg)
@@ -669,6 +677,11 @@ func serveCmd(workspace, addr string) int {
 			}
 			closeFn()
 		}
+	}
+	if t, err := buildWebSearch(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
+	} else if t != nil {
+		registry.Add(t)
 	}
 	if cfg.Retrieval.Enabled {
 		if ix, err := openIndex(context.Background(), cfg, workspace); err == nil {
@@ -1039,6 +1052,39 @@ func mcpConfigs(cfg config.Config) []mcp.ServerConfig {
 	return out
 }
 
+// buildWebSearch constructs the web search tool when enabled. Returns nil, nil
+// when the operator has left it off, which is the default.
+func buildWebSearch(cfg config.Config) (tools.Tool, error) {
+	if !cfg.WebSearch.Enabled {
+		return nil, nil
+	}
+	key := cfg.WebSearch.APIKey
+	if key == "" && cfg.WebSearch.APIKeyEnv != "" {
+		key = os.Getenv(cfg.WebSearch.APIKeyEnv)
+	}
+	p, err := websearch.New(websearch.Config{
+		Provider:   cfg.WebSearch.Provider,
+		APIKey:     key,
+		BaseURL:    cfg.WebSearch.BaseURL,
+		MaxResults: cfg.WebSearch.MaxResults,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &websearch.Tool{Provider: p, Limit: cfg.WebSearch.MaxResults}, nil
+}
+
+func webSearchLabel(cfg config.Config) string {
+	if !cfg.WebSearch.Enabled {
+		return "disabled"
+	}
+	p := cfg.WebSearch.Provider
+	if p == "" {
+		p = "duckduckgo"
+	}
+	return p + " (agent can reach the public internet)"
+}
+
 // buildSandbox selects an execution backend meeting the configured minimum
 // tier. Select never silently downgrades, so a failure here is a real
 // configuration problem the operator must see.
@@ -1115,6 +1161,7 @@ func doctor(workspace string) int {
 			fmt.Printf("            JWKS reachable, tokens will be verified\n")
 		}
 	}
+	fmt.Printf("web search  %s\n", webSearchLabel(cfg))
 	fmt.Printf("storage     %s\n", storageLabel(cfg))
 	if cfg.Storage.Driver == "postgres" {
 		st, closeFn, err := openStore(context.Background(), cfg)

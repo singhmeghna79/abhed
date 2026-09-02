@@ -387,6 +387,8 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 const $ = id => document.getElementById(id);
 
 let current = null;      // session id being viewed
+let streamEl = null;     // bubble currently receiving streamed text
+let streamBody = null;   // its text node
 let es = null;           // EventSource
 let lastSeq = 0;         // highest seq rendered, for reconnect de-duplication
 let live = false;        // is the viewed session still running
@@ -465,6 +467,7 @@ function ago(iso){
 function openSession(id){
   if(es){ es.close(); es = null; }
   current = id; lastSeq = 0; live = true; turnEl = null;
+  streamEl = null; streamBody = null;
   calls.clear();
   Object.assign(stats, {turns:0, tin:0, tout:0, cached:0, tools:{}, reason:null, compactions:0});
 
@@ -712,7 +715,6 @@ async function send(){
         {method:'POST', body: JSON.stringify({prompt})});
       $('q').value = ''; autogrow();
       live = true;
-      appendUser(prompt);
       showThinking('waiting for the model');
       if(!es) connect(current);
     }else{
@@ -720,7 +722,6 @@ async function send(){
         {method:'POST', body: JSON.stringify({prompt, mode: $('mode').value})});
       $('q').value = ''; autogrow();
       openSession(r.session_id);
-      appendUser(prompt);
       showThinking('waiting for the model');
     }
   }catch(e){
@@ -729,14 +730,6 @@ async function send(){
     $('go').disabled = false;
     $('q').focus();
   }
-}
-
-function appendUser(text){
-  const b = node('said user');
-  b.append(node('who','you'), document.createTextNode(text));
-  $('tx').appendChild(b);
-  newTurn();
-  $('tx').scrollTop = $('tx').scrollHeight;
 }
 
 $('new').onclick = () => {

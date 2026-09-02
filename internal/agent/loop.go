@@ -225,6 +225,8 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	}
 
 	var text strings.Builder
+	var pending strings.Builder // un-flushed delta fragment
+	deltaN := 0
 	var calls []model.ToolCall
 	var streamErr error
 
@@ -232,6 +234,20 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 		switch chunk.Type {
 		case model.ChunkText:
 			text.WriteString(chunk.Text)
+			// Emit the fragment immediately. Waiting for the full reply makes a
+			// 30-second answer feel like a hang; streaming makes the same wall
+			// time feel responsive because the first token arrives in ~1s.
+			//
+			// Deltas are coalesced into whole words before emission: one event
+			// per token would flood the stream and the store with no gain a
+			// reader can perceive.
+			pending.WriteString(chunk.Text)
+			if flushable(pending.String()) {
+				deltaN++
+				l.Recorder.Record(EvAgentDelta, ActorAgent, Trusted,
+					Delta{Text: pending.String(), Seq: deltaN})
+				pending.Reset()
+			}
 		case model.ChunkReasoning:
 			// Reasoning is observed but never fed back as history: it is not
 			// part of the conversation the model should condition on.
@@ -247,6 +263,13 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 				l.usage.ColdPrefillTokens += chunk.Usage.InputTokens - chunk.Usage.CachedInputTokens
 			}
 		}
+	}
+
+	if pending.Len() > 0 {
+		deltaN++
+		l.Recorder.Record(EvAgentDelta, ActorAgent, Trusted,
+			Delta{Text: pending.String(), Seq: deltaN})
+		pending.Reset()
 	}
 
 	if ctx.Err() != nil {
@@ -448,6 +471,23 @@ func (l *Loop) finish(reason TerminalReason) TerminalReason {
 }
 
 func (l *Loop) Usage() Usage { return l.usage }
+
+// flushable reports whether a buffered fragment ends at a natural boundary.
+// Coalescing to word and punctuation boundaries keeps the event count roughly
+// an order of magnitude below one-per-token while still reading as live text.
+func flushable(s string) bool {
+	if len(s) >= 24 {
+		return true
+	}
+	if s == "" {
+		return false
+	}
+	switch s[len(s)-1] {
+	case ' ', '\n', '\t', '.', ',', ':', ';', '!', '?', ')', ']', '}':
+		return true
+	}
+	return false
+}
 
 func toolDefs(r *tools.Registry) []model.ToolDef {
 	defs := r.Definitions()
