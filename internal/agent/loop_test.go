@@ -392,3 +392,94 @@ func TestFailureCounterResetsOnSuccess(t *testing.T) {
 		t.Fatalf("an intermittent failure should not abort: got %s", reason)
 	}
 }
+
+// A follow-up must see the whole prior conversation. Without this the second
+// message is a fresh session, and "now add a test for it" has no referent.
+func TestContinueKeepsConversationHistory(t *testing.T) {
+	dir := tempDir(t)
+	l, _ := harnessIn(t, dir, []scriptedTurn{
+		{text: "The bug is a missing nil guard."},
+		{text: "Added a test for the nil case."},
+	}, policy.ModeAuto, true)
+
+	if _, err := l.Run(context.Background(), "what is the bug?"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.Continue(context.Background(), "now add a test for it"); err != nil {
+		t.Fatal(err)
+	}
+
+	// The adapter should have seen the first exchange on the second call.
+	a := l.Adapter.(*scriptedAdapter)
+	last := a.gotRequests[len(a.gotRequests)-1]
+
+	var sawFirstQuestion, sawFirstAnswer, sawFollowUp bool
+	for _, m := range last.Messages {
+		switch {
+		case strings.Contains(m.Content, "what is the bug?"):
+			sawFirstQuestion = true
+		case strings.Contains(m.Content, "missing nil guard"):
+			sawFirstAnswer = true
+		case strings.Contains(m.Content, "now add a test"):
+			sawFollowUp = true
+		}
+	}
+	if !sawFirstQuestion || !sawFirstAnswer {
+		t.Fatalf("follow-up lost prior context: q=%v a=%v", sawFirstQuestion, sawFirstAnswer)
+	}
+	if !sawFollowUp {
+		t.Fatal("follow-up prompt missing from the request")
+	}
+}
+
+// MaxTurns bounds the CONVERSATION, not each exchange — otherwise a long
+// back-and-forth silently exceeds the operator's budget.
+func TestContinueRespectsOverallTurnCap(t *testing.T) {
+	dir := tempDir(t)
+	var turns []scriptedTurn
+	for i := 0; i < 20; i++ {
+		turns = append(turns, scriptedTurn{calls: []model.ToolCall{
+			call("glob", map[string]string{"pattern": "*"}),
+		}})
+	}
+	l, _ := harnessIn(t, dir, turns, policy.ModeAuto, true)
+	l.Config.MaxTurns = 4
+
+	if _, err := l.Run(context.Background(), "first"); err != nil {
+		t.Fatal(err)
+	}
+	reason, err := l.Continue(context.Background(), "second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != TermMaxTurns {
+		t.Fatalf("expected the cap to apply across exchanges, got %s", reason)
+	}
+	if l.Usage().Turns > 5 {
+		t.Fatalf("turn cap leaked: %d turns", l.Usage().Turns)
+	}
+}
+
+// Read-tracking must survive a follow-up, or the second exchange cannot edit a
+// file the first one read.
+func TestContinueKeepsReadTracking(t *testing.T) {
+	dir := tempDir(t)
+	p := filepath.Join(dir, "a.go")
+	os.WriteFile(p, []byte("package a\n\nconst X = 1\n"), 0o644)
+
+	l, _ := harnessIn(t, dir, []scriptedTurn{
+		{calls: []model.ToolCall{call("read", map[string]string{"path": p})}},
+		{text: "read it"},
+		{calls: []model.ToolCall{call("edit", map[string]string{
+			"path": p, "old_string": "X = 1", "new_string": "X = 2"})}},
+		{text: "edited"},
+	}, policy.ModeAuto, true)
+
+	l.Run(context.Background(), "read the file")
+	l.Continue(context.Background(), "now change X to 2")
+
+	got, _ := os.ReadFile(p)
+	if !strings.Contains(string(got), "X = 2") {
+		t.Fatalf("follow-up edit was refused — read tracking did not persist: %q", got)
+	}
+}

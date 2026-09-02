@@ -42,7 +42,7 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
   --running-bg:#E3EEF8; --done-bg:#E3F3EA; --waiting-bg:#FAF0DC; --error-bg:#FBE9E7;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
-  --rail:296px; --inspector:304px;
+  --rail:272px; --drawer:420px;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
@@ -95,22 +95,61 @@ button,select,textarea,input{font:inherit;color:inherit}
 .top a.ghost{text-decoration:none;line-height:1.6}
 
 /* ---------------------------------------------------------------- shell */
-.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) var(--inspector);
-  height:calc(100vh - 46px)}
+.shell{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) 0;
+  height:calc(100vh - 48px);transition:grid-template-columns .18s ease}
+.shell.open{grid-template-columns:var(--rail) minmax(0,1fr) var(--drawer)}
+@media (prefers-reduced-motion:reduce){.shell{transition:none}}
 .rail{background:var(--surface);border-right:1px solid var(--line);
   display:flex;flex-direction:column;min-height:0}
 .stage{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
-.inspector{background:var(--surface);border-left:1px solid var(--line);
-  overflow-y:auto;min-height:0}
+/* The drawer opens only when there is something to look at: a file the agent
+   read or wrote, or output worth reading in full. Closed by default, so the
+   conversation gets the width it deserves. */
+.drawer{background:var(--surface);border-left:1px solid var(--line);
+  overflow:hidden;min-height:0;display:flex;flex-direction:column}
+.shell:not(.open) .drawer{border-left:0}
+.drawer-head{height:38px;display:flex;align-items:center;gap:8px;padding:0 10px 0 15px;
+  border-bottom:1px solid var(--line);flex:none;font-family:var(--mono);font-size:11px}
+.drawer-head .name{color:var(--ink);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;flex:1}
+.drawer-head .kind{color:var(--muted);flex:none}
+.drawer-body{flex:1;overflow:auto;min-height:0}
+.drawer-body pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:11.5px;
+  line-height:1.6;color:var(--ink-2);white-space:pre;tab-size:4}
+.drawer-body .ln{color:var(--muted);user-select:none;display:inline-block;
+  width:3.2em;text-align:right;padding-right:1.1em}
+.x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;
+  line-height:1;padding:2px 6px;border-radius:4px;flex:none}
+.x:hover{background:var(--sunken);color:var(--ink)}
+.openfile{display:block;margin:0 0 7px;background:var(--surface);
+  border:1px solid var(--line);border-radius:5px;padding:3px 9px;
+  font-family:var(--mono);font-size:10.5px;color:var(--accent);cursor:pointer}
+.openfile:hover{border-color:var(--accent);background:var(--accent-soft)}
 
 /* ---------------------------------------------------------------- composer */
-.composer{padding:12px;border-bottom:1px solid var(--line);flex:none}
-textarea{width:100%;min-height:70px;max-height:180px;resize:vertical;
-  background:var(--sunken);border:1px solid var(--line);border-radius:6px;
-  padding:9px 10px;font-size:13px;line-height:1.5}
+.composer{padding:11px;border-bottom:1px solid var(--line);flex:none}
+.new{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  padding:8px 12px;font-size:12.5px;font-weight:550;cursor:pointer;color:var(--ink);
+  transition:border-color .14s,background .14s}
+.new:hover{border-color:var(--accent);background:var(--accent-soft)}
+.new span{font-size:15px;line-height:1;color:var(--accent)}
+
+/* The dock is the chat input: under the conversation, grows with the text,
+   never scrolls away. */
+.dock{flex:none;padding:10px 22px 16px;
+  background:linear-gradient(to bottom,transparent,var(--bg) 24%)}
+.dockwrap{max-width:760px;margin:0 auto;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;
+  box-shadow:0 2px 12px -6px rgba(0,0,0,.3)}
+.dockwrap:focus-within{border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft),0 2px 12px -6px rgba(0,0,0,.3)}
+.dockrow{display:flex;align-items:center;gap:9px;margin-top:7px}
+.dockhint{flex:1;font-family:var(--mono);font-size:10px;color:var(--muted)}
+textarea{width:100%;min-height:22px;max-height:180px;resize:none;background:none;
+  border:0;padding:0;font-size:13.5px;line-height:1.6;display:block}
 textarea::placeholder{color:var(--muted)}
-textarea:focus{outline:none;border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft)}
+textarea:focus{outline:none}
 .composer .row{display:flex;gap:8px;margin-top:8px;align-items:stretch}
 select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   padding:0 26px 0 9px;font-size:12px;font-family:var(--mono);cursor:pointer;
@@ -118,8 +157,10 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     linear-gradient(135deg,currentColor 50%,transparent 50%);
   background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;
   background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-.go{flex:1;background:var(--accent);border:1px solid var(--accent);color:#fff;
-  border-radius:6px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+.go{width:28px;height:28px;flex:none;background:var(--accent);border:0;color:#fff;
+  border-radius:50%;font-size:14px;line-height:1;cursor:pointer;display:grid;
+  place-items:center;transition:transform .12s}
+.go:hover:not(:disabled){transform:scale(1.06)}
 .go:hover:not(:disabled){filter:brightness(1.08)}
 .go:disabled{opacity:.45;cursor:not-allowed}
 .hint{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:7px}
@@ -155,7 +196,8 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .ghost{background:none;border:1px solid var(--line);border-radius:5px;
   padding:3px 9px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);cursor:pointer}
 .ghost:hover{background:var(--sunken);border-color:var(--line-strong)}
-.transcript{flex:1;overflow-y:auto;padding:18px 22px 40px;min-height:0}
+.transcript{flex:1;overflow-y:auto;padding:22px 22px 8px;min-height:0}
+.transcript > *{max-width:760px;margin-left:auto;margin-right:auto}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   height:100%;gap:8px;color:var(--muted);text-align:center}
 .empty .k{font-family:var(--mono);font-size:12px}
@@ -285,19 +327,9 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   <!-- session rail -->
   <aside class="rail">
     <div class="composer">
-      <textarea id="q" placeholder="Ask a question, or describe a change…"></textarea>
-      <div class="row">
-        <select id="mode" title="Permission mode">
-          <option value="default">default</option>
-          <option value="plan">plan</option>
-          <option value="accept-edits">accept-edits</option>
-          <option value="auto">auto</option>
-        </select>
-        <button class="go" id="go">Run</button>
-      </div>
-      <div class="hint">plan is read-only · ⌘↵ to run</div>
+      <button class="new" id="new" type="button"><span>+</span> New chat</button>
     </div>
-    <div class="rail-head"><span>Sessions</span><span id="count"></span></div>
+    <div class="rail-head"><span>Chats</span><span id="count"></span></div>
     <div class="list" id="list"></div>
   </aside>
 
@@ -323,11 +355,30 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
         <div class="ex" id="examples"></div>
       </div>
     </div>
+    <div class="dock">
+      <div class="dockwrap">
+        <textarea id="q" rows="1" placeholder="Ask anything, or describe a change…"></textarea>
+        <div class="dockrow">
+          <select id="mode" title="Permission mode">
+            <option value="default">default</option>
+            <option value="plan">plan</option>
+            <option value="accept-edits">accept-edits</option>
+            <option value="auto">auto</option>
+          </select>
+          <span class="dockhint">Enter sends · Shift+Enter for a new line</span>
+          <button class="go" id="go" type="button" title="Send">↑</button>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <!-- run inspector -->
-  <aside class="inspector" id="insp">
-    <div class="insp-empty">Run metrics appear here once a session is selected.</div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <span class="name" id="dname"></span>
+      <span class="kind" id="dkind"></span>
+      <button class="x" id="dclose" type="button" title="Close" aria-label="Close">×</button>
+    </div>
+    <div class="drawer-body" id="dbody"></div>
   </aside>
 </div>
 
@@ -420,7 +471,6 @@ function openSession(id){
   $('tx').textContent = '';
   $('sid').textContent = id;
   $('stop').hidden = false;
-  drawInspector();
   refresh();
   connect(id);
 }
@@ -439,8 +489,7 @@ function connect(id){
     if(ev.seq <= lastSeq) return;
     lastSeq = ev.seq;
     render(ev);
-    drawInspector();
-  };
+    };
 
   es.onerror = () => {
     if(!es) return;
@@ -514,6 +563,19 @@ function render(ev){
       else if(ev.trust === 'untrusted') cls += ' untrusted';
 
       const body = node(cls);
+      // Anything worth reading in full opens in the drawer rather than
+      // stretching the conversation column.
+      const owner = calls.get(p.call_id);
+      const isFile = ['read','write','edit'].includes(p.tool);
+      const long = (p.content || '').split('\n').length > 12;
+      if((isFile || long) && !p.is_error){
+        const b = document.createElement('button');
+        b.className = 'openfile'; b.type = 'button';
+        b.textContent = isFile ? 'Open file' : 'View output';
+        const label = owner ? (owner.querySelector('.arg') || {}).textContent || p.tool : p.tool;
+        b.onclick = () => openDrawer(label, p.tool, p.content || '', isFile);
+        body.appendChild(b);
+      }
       if(ev.trust === 'untrusted' && !p.is_error){
         // Provenance is a first-class concept in Titan: tool output is data,
         // never instruction. Saying so in the UI keeps that visible.
@@ -634,89 +696,125 @@ function approval(p){
   ($('tx')).appendChild(card);
 }
 
-/* ------------------------------------------------------------------ inspector */
-function drawInspector(){
-  const el = $('insp');
-  if(!current){ el.innerHTML = '<div class="insp-empty">Run metrics appear here once a session is selected.</div>'; return; }
-  el.textContent = '';
-
-  // Run
-  const run = node('insp-sec');
-  run.appendChild(Object.assign(document.createElement('h3'), {textContent:'Run'}));
-  run.append(
-    row('status', stats.reason || (live ? 'running' : 'idle')),
-    row('turns', stats.turns),
-    row('compactions', stats.compactions));
-  el.appendChild(run);
-
-  // Tokens — the numbers that decide capacity on owned GPUs.
-  const tok = node('insp-sec');
-  tok.appendChild(Object.assign(document.createElement('h3'), {textContent:'Tokens'}));
-  tok.append(
-    row('input', stats.tin.toLocaleString()),
-    row('output', stats.tout.toLocaleString()),
-    row('cached', stats.cached.toLocaleString()));
-  const rate = stats.tin ? stats.cached / stats.tin : 0;
-  tok.appendChild(row('cache hit', (rate*100).toFixed(0) + '%'));
-  const meter = node('meter');
-  meter.appendChild(Object.assign(document.createElement('i'),
-    {style:'width:' + Math.round(rate*100) + '%'}));
-  tok.appendChild(meter);
-  if(stats.tin && !stats.cached){
-    tok.appendChild(node('insp-empty',
-      'This endpoint reports no prefix caching. Every turn pays full prefill.'));
-  }
-  el.appendChild(tok);
-
-  // Tool tallies
-  const names = Object.keys(stats.tools).sort((a,b) => stats.tools[b]-stats.tools[a]);
-  if(names.length){
-    const t = node('insp-sec');
-    t.appendChild(Object.assign(document.createElement('h3'), {textContent:'Tool calls'}));
-    for(const n of names){
-      const line = node('tally');
-      line.append(Object.assign(document.createElement('span'), {textContent:n}),
-                  Object.assign(document.createElement('span'), {textContent:stats.tools[n]}));
-      t.appendChild(line);
-    }
-    el.appendChild(t);
-  }
-}
-
-function row(k, v){
-  const d = document.createElement('dl');
-  d.className = 'kv';
-  d.append(Object.assign(document.createElement('dt'), {textContent:k}),
-           Object.assign(document.createElement('dd'), {textContent:String(v)}));
-  return d;
-}
-
 /* ------------------------------------------------------------------ actions */
-$('go').onclick = async () => {
+$('go').onclick = send;
+
+// The first message opens a session; every later one continues it. That
+// distinction is what makes "now add a test for it" resolve against what came
+// before, instead of starting a fresh conversation each time.
+async function send(){
   const prompt = $('q').value.trim();
   if(!prompt) return;
   $('go').disabled = true;
   try{
-    const r = await api('/v1/sessions',
-      {method:'POST', body: JSON.stringify({prompt, mode: $('mode').value})});
-    $('q').value = '';
-    openSession(r.session_id);
-    // Render the prompt immediately: a cold local model can take ~30s for its
-    // first token, and an empty pane reads as failure.
-    const b = node('said user');
-    b.append(node('who','you'), document.createTextNode(prompt));
-    $('tx').appendChild(b);
-    newTurn();
-    showThinking('waiting for the model');
+    if(current && !live){
+      await api('/v1/sessions/' + current + '/messages',
+        {method:'POST', body: JSON.stringify({prompt})});
+      $('q').value = ''; autogrow();
+      live = true;
+      appendUser(prompt);
+      showThinking('waiting for the model');
+      if(!es) connect(current);
+    }else{
+      const r = await api('/v1/sessions',
+        {method:'POST', body: JSON.stringify({prompt, mode: $('mode').value})});
+      $('q').value = ''; autogrow();
+      openSession(r.session_id);
+      appendUser(prompt);
+      showThinking('waiting for the model');
+    }
   }catch(e){
-    alert(e.message);
+    $('tx').appendChild(node('note', e.message));
   }finally{
     $('go').disabled = false;
+    $('q').focus();
   }
+}
+
+function appendUser(text){
+  const b = node('said user');
+  b.append(node('who','you'), document.createTextNode(text));
+  $('tx').appendChild(b);
+  newTurn();
+  $('tx').scrollTop = $('tx').scrollHeight;
+}
+
+$('new').onclick = () => {
+  if(es){ es.close(); es = null; }
+  current = null; live = false; lastSeq = 0; turnEl = null;
+  calls.clear();
+  Object.assign(stats, {turns:0, tin:0, tout:0, cached:0, tools:{}, reason:null, compactions:0});
+  $('sid').textContent = 'new chat';
+  $('stop').hidden = true;
+  closeDrawer();
+  drawEmpty();
+  refresh();
+  $('q').focus();
 };
 
+// The textarea grows with its content, like every chat input people know.
+function autogrow(){
+  const t = $('q');
+  t.style.height = 'auto';
+  t.style.height = Math.min(t.scrollHeight, 180) + 'px';
+}
+$('q').addEventListener('input', autogrow);
+
+/* ---------------------------------------------------------------- drawer */
+function openDrawer(name, kind, body, numbered){
+  $('dname').textContent = name;
+  $('dkind').textContent = kind || '';
+  const pre = document.createElement('pre');
+  if(numbered){
+    // read() returns numbered lines; keep the gutter separate so the code
+    // itself stays selectable and copyable.
+    for(const line of body.split('\n')){
+      const m = line.match(/^\s*(\d+)\t(.*)$/);
+      if(m){
+        const g = document.createElement('span');
+        g.className = 'ln'; g.textContent = m[1];
+        pre.append(g, document.createTextNode(m[2] + '\n'));
+      }else{
+        pre.append(document.createTextNode(line + '\n'));
+      }
+    }
+  }else{
+    pre.textContent = body;
+  }
+  const host = $('dbody');
+  host.textContent = '';
+  host.appendChild(pre);
+  document.querySelector('.shell').classList.add('open');
+  $('drawer').setAttribute('aria-hidden','false');
+}
+
+function closeDrawer(){
+  document.querySelector('.shell').classList.remove('open');
+  $('drawer').setAttribute('aria-hidden','true');
+}
+$('dclose').onclick = closeDrawer;
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDrawer(); });
+
+function drawEmpty(){
+  const tx = $('tx');
+  tx.textContent = '';
+  const wrap = node('empty');
+  wrap.innerHTML =
+    '<svg class="mark-lg" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect x="3" y="3" width="18" height="3" rx="1"/>' +
+    '<rect x="9" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>' +
+    '<rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>' +
+    '<rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>' +
+    '<rect x="3" y="18" width="18" height="3" rx="1"/></svg>' +
+    '<div class="k">Ready</div>' +
+    '<div class="s">Ask a question, or describe a change. Follow-ups continue ' +
+    'the same conversation.</div><div class="ex" id="examples"></div>';
+  tx.appendChild(wrap);
+  drawExamples();
+}
+
 $('q').addEventListener('keydown', e => {
-  if((e.metaKey || e.ctrlKey) && e.key === 'Enter') $('go').click();
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
 });
 
 $('stop').onclick = async () => {

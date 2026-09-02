@@ -73,6 +73,8 @@ type liveSession struct {
 	Created   time.Time
 	Prompt    string
 	State     string // running | waiting_approval | done
+	Turns     int    // exchanges in this conversation
+	cancel    context.CancelFunc
 	approvals chan approvalReply
 	pending   *pendingApproval
 	mu        sync.Mutex
@@ -118,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sessions", s.listSessions)
 	mux.HandleFunc("GET /v1/sessions/{id}/events", s.streamEvents)
 	mux.HandleFunc("GET /v1/sessions/{id}/replay", s.replaySession)
+	mux.HandleFunc("POST /v1/sessions/{id}/messages", s.postMessage)
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
 	mux.HandleFunc("POST /v1/sessions/{id}/approve", s.approveAction)
 	mux.HandleFunc("GET /v1/health", s.health)
@@ -302,6 +305,8 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	live.Cancel = cancel
+	live.cancel = cancel
+	live.Turns = 1
 
 	s.mu.Lock()
 	s.running[sessionID] = live
@@ -488,12 +493,78 @@ func (s *Server) replaySession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, events)
 }
 
+// postMessage continues an existing conversation.
+//
+// This is what makes the console a chat rather than a series of one-shots: the
+// Loop is retained per session, so a follow-up resolves against everything that
+// came before — including which files have been read, which is what lets the
+// second message edit what the first one looked at.
+func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	live, ok := s.session(id, tenantOf(r.Context()))
+	if !ok {
+		writeError(w, http.StatusNotFound,
+			"session not found — it may have ended with this server process")
+		return
+	}
+
+	var req createRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Prompt) == "" {
+		writeError(w, http.StatusBadRequest, "prompt is required")
+		return
+	}
+
+	live.mu.Lock()
+	busy := live.State == "running" || live.State == "waiting_approval"
+	if !busy {
+		live.State = "running"
+		live.Turns++
+	}
+	live.mu.Unlock()
+
+	if busy {
+		writeError(w, http.StatusConflict,
+			"this session is still working — interrupt it before sending another message")
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	live.mu.Lock()
+	live.cancel = cancel
+	live.mu.Unlock()
+
+	go func() {
+		defer cancel()
+		reason, err := live.Loop.Continue(ctx, req.Prompt)
+		live.mu.Lock()
+		live.State = "done"
+		live.mu.Unlock()
+		if err != nil {
+			s.log.Error("follow-up failed", "session", id, "error", err)
+			return
+		}
+		s.log.Info("follow-up ended", "session", id, "reason", reason)
+	}()
+
+	writeJSON(w, http.StatusAccepted, map[string]string{"session_id": id})
+}
+
 func (s *Server) interruptSession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	live, ok := s.session(id, tenantOf(r.Context()))
 	if !ok {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
+	}
+	live.mu.Lock()
+	c := live.cancel
+	live.mu.Unlock()
+	if c != nil {
+		c()
 	}
 	live.Cancel()
 	w.WriteHeader(http.StatusNoContent)

@@ -103,7 +103,24 @@ func NewLoop(a model.Adapter, reg *tools.Registry, pol *policy.Engine,
 	}
 }
 
+// Continue runs another exchange on the SAME conversation.
+//
+// Run and Continue differ only in that Run is the first call. The message
+// history, the read-tracking that makes editing safe, and the accumulated
+// usage all persist on the Loop, so a follow-up like "now add a test for it"
+// resolves against everything that came before.
+//
+// The turn counter is NOT reset: MaxTurns bounds the whole conversation, not
+// each exchange, so a long back-and-forth cannot quietly exceed the budget an
+// operator set.
+func (l *Loop) Continue(ctx context.Context, userPrompt string) (TerminalReason, error) {
+	return l.Run(ctx, userPrompt)
+}
+
 // Run executes turns until termination and returns the reason.
+//
+// Calling it again on the same Loop continues the conversation rather than
+// starting over; see Continue.
 func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, error) {
 	if _, err := l.Recorder.Record(EvUserMessage, ActorUser, Trusted, Message{Text: userPrompt}); err != nil {
 		return TermError, err
