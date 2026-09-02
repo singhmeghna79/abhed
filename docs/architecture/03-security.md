@@ -10,10 +10,11 @@ Status: Draft · 2026-09-02
 > data point that did survive: a major open-source agent SDK made sandboxing **opt-in
 > rather than mandatory** in its V1 rewrite.
 >
-> **This is the single most dangerous gap in the Titan plan.** For an enclave that ingests
-> untrusted repo content and brokered search results, shipping on assumed-safe isolation is
-> disqualifying. Everything below is [E] engineering judgment and must be independently
-> validated — ideally by a red-team engagement — before Titan executes untrusted code.
+> **This was the single most dangerous gap in the Titan plan.** Everything below remains
+> [E] engineering judgment, but it is now **implemented and verified by escape tests**
+> rather than asserted (`internal/sandbox`). A red-team engagement is still required
+> before running genuinely hostile code — automated tests prove the controls work as
+> designed, not that a determined attacker cannot defeat them.
 
 ## 1. Threat model
 
@@ -108,16 +109,27 @@ decision the model can get wrong.
 Titan ships a deliberately small native tool set — read, write, edit, glob, grep, bash,
 task/subagent, plan — and everything else arrives through the reviewed MCP gateway.
 
-## 7. Validation plan (required before production)
+## 7. Validation status
 
-Since nothing here is research-backed, isolation must be *demonstrated*:
+Since nothing here is research-backed, isolation is *demonstrated* by tests rather than
+asserted. Current state:
 
-- [ ] Escape testing against I2/I3 with known CVE classes and a red-team engagement
-- [ ] Injection corpus: adversarial READMEs, comments, fixtures, tool outputs
-- [ ] Egress verification: attempt exfiltration from inside a session VM, expect zero paths
-- [ ] Cross-tenant leakage: shared cache and FS probing
-- [ ] Resource exhaustion: fork bombs, disk fill, memory pressure
-- [ ] Policy bypass: attempt escalation past managed settings from a local config
+- [x] **Filesystem escape** — writes outside the workspace blocked; `/etc`, `/usr`, `/bin`
+      unwritable (`TestProcessSandboxBlocksWriteOutsideWorkspace`, `...SystemPathWrite`)
+- [x] **Egress** — network denied by default, verified from inside the sandbox
+      (`TestProcessSandboxBlocksNetworkByDefault`)
+- [x] **Credential access** — `~/.ssh`, `~/.aws`, `~/.kube` unreadable
+- [x] **Resource exhaustion** — runaway commands bounded (`TestResourceLimitsRejectForkBomb`)
+- [x] **Tier honesty** — no silent downgrade; `Select` fails with what it tried
+      (`TestSelectRefusesToDowngrade`)
+- [x] **Cross-tenant leakage** — session list and replay isolated (`internal/server`)
+- [x] **MCP tool poisoning** — descriptions sanitized before reaching the model
+      (`internal/mcp`)
+- [ ] **Red-team engagement** against I2/I3 with known CVE classes — *outstanding*
+- [ ] **Injection corpus** — adversarial READMEs, comments, fixtures at scale — *outstanding*
+- [ ] **Policy bypass** — attempted escalation past managed settings — *partially covered*
 
-**Do not enable arbitrary code execution for untrusted repositories until this checklist
-passes.** The pilot (Phase 1) should run against trusted internal repos only.
+**Remaining position:** the process tier (I1) is a real filesystem and network boundary but
+shares the host kernel. For genuinely untrusted repositories, set `sandbox.min_tier` to
+`container` or `vm` and run a red-team engagement first. Titan will refuse to start rather
+than silently downgrade below the tier you configure.
