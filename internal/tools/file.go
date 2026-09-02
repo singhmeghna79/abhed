@@ -197,6 +197,7 @@ func (Write) Run(_ context.Context, s *Session, raw json.RawMessage) Result {
 		}
 	}
 
+	s.recordChange(path)
 	if err := atomicWrite(path, []byte(a.Content), mode); err != nil {
 		return errf("Write failed for %s: %v", a.Path, err)
 	}

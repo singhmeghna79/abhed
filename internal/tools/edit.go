@@ -63,6 +63,7 @@ func (Edit) Run(_ context.Context, s *Session, raw json.RawMessage) Result {
 	if os.IsNotExist(err) {
 		// Empty old_string on a missing file is equivalent to a create.
 		if a.OldString == "" {
+			s.recordChange(path)
 			if err := atomicWrite(path, []byte(a.NewString), 0o644); err != nil {
 				return errf("Create failed for %s: %v", a.Path, err)
 			}
@@ -112,6 +113,7 @@ func (Edit) Run(_ context.Context, s *Session, raw json.RawMessage) Result {
 	}
 
 	mode := info.Mode().Perm()
+	s.recordChange(path)
 	if err := atomicWrite(path, []byte(updated), mode); err != nil {
 		return errf("Write failed for %s: %v", a.Path, err)
 	}

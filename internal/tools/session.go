@@ -16,8 +16,30 @@ type Session struct {
 	Root string // absolute workspace root; nothing outside it is reachable
 	Cwd  string // persists across bash calls (shell state does not)
 
+	// Checkpoint records a file's content immediately before the agent changes
+	// it, backing /undo. Set by the caller; nil disables checkpointing.
+	//
+	// It lives on the Session rather than in each tool so that every mutating
+	// tool gets it by construction — a new tool cannot forget to call it.
+	Checkpoint func(path string, before []byte, existed bool)
+
 	mu    sync.Mutex
 	reads map[string]string // abs path -> content hash at time of read
+}
+
+// snapshot captures a file's current content before it is modified. Called by
+// the mutating tools through recordChange.
+func (s *Session) recordChange(path string) {
+	if s.Checkpoint == nil {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// A missing file is a valid checkpoint: undo means "delete it again".
+		s.Checkpoint(path, nil, false)
+		return
+	}
+	s.Checkpoint(path, data, true)
 }
 
 func NewSession(root string) (*Session, error) {

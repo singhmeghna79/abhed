@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -277,7 +278,12 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	in := bufio.NewReader(os.Stdin)
 	turn := 0
 	// Session-level state the slash commands operate on.
-	sessionState := &cliState{store: store, appCfg: appCfg}
+	undo := agent.NewUndoLog()
+	sess.Checkpoint = undo.Record
+	sessionState := &cliState{
+		store: store, appCfg: appCfg, undo: undo,
+		workspace: sess.Root, adapter: adapter, provider: provider,
+	}
 
 	for {
 		fmt.Printf("%s ", s.Cyan("›"))
@@ -318,6 +324,7 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 		sessionState.loop = loop
 		sessionState.sessionID = sessionID
+		undo.BeginTurn()
 		_, runErr := loop.Run(taskCtx, line)
 		cancelTask()
 		sessionState.accumulate(loop.Usage())
@@ -344,6 +351,12 @@ type cliState struct {
 	loop      *agent.Loop
 	sessionID string
 	total     agent.Usage
+	undo      *agent.UndoLog
+	workspace string
+	adapter   model.Adapter
+	provider  config.ProviderConfig
+	// transcript accumulates the session for /export.
+	transcript []agent.Event
 }
 
 func (c *cliState) accumulate(u agent.Usage) {
@@ -366,10 +379,16 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 
 	case "/help":
 		fmt.Println(s.Dim(`  /mode <name>      default | accept-edits | plan | auto
+  /undo             revert the last turn's file changes
+  /diff             files changed this session
   /cost             tokens, cache hit rate, compactions this session
-  /compact [hint]   compact the context now, optionally guided
-  /sessions         list recent sessions (requires a durable store)
+  /compact [hint]   compact the context now
+  /clear            clear the context, keep the workspace
+  /memory           show the TITAN.md files in effect
+  /model [name]     show or switch the configured provider
+  /sessions         list recent sessions (durable store)
   /resume <id>      replay a past session's transcript
+  /export [path]    write the transcript to a JSON file
   /cwd              show the workspace root
   /quit             exit`))
 
@@ -458,6 +477,109 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 		for _, ev := range events {
 			r.Event(ev)
 		}
+
+	case "/undo":
+		restored, err := st.undo.Undo()
+		for _, line := range restored {
+			fmt.Printf("  %s\n", line)
+		}
+		if err != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), err)
+			return false
+		}
+		fmt.Printf("  %s\n", s.Dim(fmt.Sprintf("%d turn(s) still undoable", st.undo.Pending())))
+
+	case "/diff":
+		changed := st.undo.Changed()
+		if len(changed) == 0 {
+			fmt.Println(s.Dim("  no files changed this session"))
+			return false
+		}
+		for _, path := range changed {
+			rel := path
+			if r, err := filepath.Rel(sess.Root, path); err == nil && !strings.HasPrefix(r, "..") {
+				rel = r
+			}
+			before, existed, _ := st.undo.Original(path)
+			after, readErr := os.ReadFile(path)
+			switch {
+			case !existed:
+				fmt.Printf("  %s %s\n", s.Green("+"), rel)
+			case readErr != nil:
+				fmt.Printf("  %s %s (deleted)\n", s.Red("-"), rel)
+			default:
+				added, removed := lineDelta(string(before), string(after))
+				fmt.Printf("  %s %s  %s %s\n", s.Yellow("~"), rel,
+					s.Green(fmt.Sprintf("+%d", added)), s.Red(fmt.Sprintf("-%d", removed)))
+			}
+		}
+
+	case "/clear":
+		st.loop = nil
+		st.total = agent.Usage{}
+		st.transcript = nil
+		fmt.Println(s.Dim("  context cleared; the workspace is untouched"))
+
+	case "/memory":
+		files := agent.DiscoverMemoryFiles(sess.Root)
+		if len(files) == 0 {
+			path := filepath.Join(sess.Root, "TITAN.md")
+			fmt.Printf("  %s\n", s.Dim("no memory file yet; create "+path))
+			fmt.Printf("  %s\n", s.Dim("it is re-injected on every request, so keep it short"))
+			return false
+		}
+		for _, f := range files {
+			data, err := os.ReadFile(f)
+			if err != nil {
+				continue
+			}
+			fmt.Printf("  %s %s\n", s.Bold(f), s.Dim(fmt.Sprintf("(%d bytes)", len(data))))
+			for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+				fmt.Printf("    %s\n", line)
+			}
+		}
+
+	case "/model":
+		if len(fields) < 2 {
+			fmt.Printf("  current: %s\n", st.provider.Model)
+			names := make([]string, 0, len(st.appCfg.Model.Providers))
+			for name := range st.appCfg.Model.Providers {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			fmt.Printf("  configured providers: %s\n", strings.Join(names, ", "))
+			return false
+		}
+		p, found := st.appCfg.Model.Providers[fields[1]]
+		if !found {
+			fmt.Printf("  %s no provider %q in config\n", s.Red("✕"), fields[1])
+			return false
+		}
+		st.appCfg.Model.Default = fields[1]
+		st.provider = p
+		fmt.Printf("  %s\n", s.Dim("switched to "+p.Model+"; restart titan for it to take effect"))
+		fmt.Printf("  %s\n", s.Dim("(mid-session switching would invalidate the prefix cache)"))
+
+	case "/export":
+		path := filepath.Join(sess.Root, fmt.Sprintf("titan-session-%s.json", st.sessionID))
+		if len(fields) > 1 {
+			path = fields[1]
+		}
+		events, err := st.store.Events(st.sessionID)
+		if err != nil || len(events) == 0 {
+			fmt.Println(s.Dim("  no transcript to export yet"))
+			return false
+		}
+		data, err := json.MarshalIndent(events, "", "  ")
+		if err != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), err)
+			return false
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), err)
+			return false
+		}
+		fmt.Printf("  wrote %d events to %s\n", len(events), path)
 
 	case "/cwd":
 		fmt.Printf("  %s\n", sess.Root)
@@ -767,6 +889,27 @@ func recordSession(ctx context.Context, st server.EventStore, id string, cfg con
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "titan: could not persist session: %v\n", err)
 	}
+}
+
+// lineDelta counts added and removed lines between two versions, for /diff.
+func lineDelta(before, after string) (added, removed int) {
+	b := strings.Split(before, "\n")
+	a := strings.Split(after, "\n")
+	counts := map[string]int{}
+	for _, line := range b {
+		counts[line]++
+	}
+	for _, line := range a {
+		if counts[line] > 0 {
+			counts[line]--
+		} else {
+			added++
+		}
+	}
+	for _, n := range counts {
+		removed += n
+	}
+	return added, removed
 }
 
 func mustCwd() string {
