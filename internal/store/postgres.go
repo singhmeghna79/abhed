@@ -117,6 +117,17 @@ func (p *Postgres) CreateSession(ctx context.Context, s SessionRecord) error {
 	if s.Tenant == "" {
 		s.Tenant = p.tenant
 	}
+	// The pooled connection sets app.tenant_id from the store's configured
+	// tenant, and row-level security enforces that every written row matches
+	// it. A caller passing a different tenant is therefore not a row RLS should
+	// silently drop — it is a configuration error, and saying so is far more
+	// useful than "new row violates row-level security policy".
+	if s.Tenant != p.tenant {
+		return fmt.Errorf(
+			"cannot write session for tenant %q: this store is scoped to tenant %q. "+
+				"Set storage.tenant to match the tenant your requests carry, or run a "+
+				"store per tenant", s.Tenant, p.tenant)
+	}
 	_, err := p.pool.Exec(ctx, `
 		INSERT INTO sessions (id, tenant_id, user_id, workspace, model,
 		                      prompt_hash, harness_version, mode, parent_id, started_at)

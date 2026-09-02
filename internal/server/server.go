@@ -236,8 +236,12 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	// Events reference sessions, so the session row must exist first.
 	if s.sessions != nil {
 		if err := s.sessions.CreateSession(r.Context(), store.SessionRecord{
-			ID:        sessionID,
-			Tenant:    tenantOf(r.Context()),
+			ID: sessionID,
+			// Leave Tenant empty so the store applies its own configured
+			// tenant. With auth.mode=none every request is "default", which
+			// would otherwise collide with a store scoped to a real tenant and
+			// fail row-level security on the very first session.
+			Tenant:    storeTenant(s.opts.Config, tenantOf(r.Context())),
 			User:      userOf(r.Context()),
 			Workspace: s.opts.Workspace,
 			Model:     s.opts.Adapter.Profile().Name,
@@ -543,6 +547,18 @@ func (l *liveSession) Approve(ctx context.Context, tool string, args json.RawMes
 		// Fail closed: an unanswered approval must not become an approval.
 		return false, nil
 	}
+}
+
+// storeTenant reconciles the request's tenant with the store's configured one.
+// When authentication is off there is no meaningful per-request tenant, so the
+// configured one wins; with real auth the token's tenant is authoritative.
+func storeTenant(cfg config.Config, requestTenant string) string {
+	if cfg.Auth.Mode == "none" || cfg.Auth.Mode == "" {
+		if cfg.Storage.Tenant != "" {
+			return cfg.Storage.Tenant
+		}
+	}
+	return requestTenant
 }
 
 func orDefaultStr(v, fallback string) string {
