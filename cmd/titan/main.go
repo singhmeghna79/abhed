@@ -28,6 +28,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
+	"github.com/yuvrajsingh/titan/internal/server"
 	"github.com/yuvrajsingh/titan/internal/tools"
 	"github.com/yuvrajsingh/titan/internal/ui"
 )
@@ -36,15 +37,16 @@ var version = "0.1.0-dev"
 
 func main() {
 	var (
-		prompt   = flag.String("p", "", "run headless with this prompt and exit")
-		mode     = flag.String("mode", "", "permission mode: default|accept-edits|plan|auto|bypass")
-		modelID  = flag.String("model", "", "provider name from config")
-		workdir  = flag.String("C", "", "workspace directory (default: current)")
-		maxTurns = flag.Int("max-turns", 0, "override the turn limit")
-		format   = flag.String("output-format", "text", "text|json")
-		allow    = flag.String("allow", "", "comma-separated allow rules, e.g. 'bash(go test*)'")
-		deny     = flag.String("deny", "", "comma-separated deny rules")
-		showVer  = flag.Bool("version", false, "print version and exit")
+		prompt     = flag.String("p", "", "run headless with this prompt and exit")
+		mode       = flag.String("mode", "", "permission mode: default|accept-edits|plan|auto|bypass")
+		modelID    = flag.String("model", "", "provider name from config")
+		workdir    = flag.String("C", "", "workspace directory (default: current)")
+		maxTurns   = flag.Int("max-turns", 0, "override the turn limit")
+		format     = flag.String("output-format", "text", "text|json")
+		allow      = flag.String("allow", "", "comma-separated allow rules, e.g. 'bash(go test*)'")
+		deny       = flag.String("deny", "", "comma-separated deny rules")
+		showVer    = flag.Bool("version", false, "print version and exit")
+		listenAddr = flag.String("addr", ":8080", "listen address for `titan serve`")
 	)
 	flag.Parse()
 
@@ -70,6 +72,13 @@ func main() {
 		os.Exit(doctor(workspace))
 	case "index":
 		os.Exit(buildIndexCmd(workspace))
+	case "serve":
+		// Re-parse the remaining args so `titan serve -addr :9000` works: Go's
+		// flag package stops at the first non-flag argument.
+		serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
+		serveAddr := serveFlags.String("addr", *listenAddr, "listen address")
+		_ = serveFlags.Parse(flag.Args()[1:])
+		os.Exit(serveCmd(workspace, *serveAddr))
 	}
 
 	os.Exit(run(workspace, *prompt, *mode, *modelID, *maxTurns, *format, *allow, *deny))
@@ -346,6 +355,64 @@ func printUsage(r *ui.Renderer, u agent.Usage) {
 		line += fmt.Sprintf(" · %d compaction(s)", u.Compactions)
 	}
 	fmt.Printf("%s\n", s.Dim(line))
+}
+
+// serveCmd starts server mode: web console, REST API, and SSE streaming over
+// the same event stream the CLI consumes.
+func serveCmd(workspace, addr string) int {
+	cfg, err := config.Load(workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	provider, err := cfg.Provider()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+
+	sb, err := buildSandbox(cfg, workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	registry := tools.NewRegistry(
+		tools.Read{}, tools.Write{}, tools.Edit{},
+		tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
+	)
+
+	gateway := mcp.NewGateway()
+	defer gateway.Close()
+	gateway.Connect(context.Background(), mcpConfigs(cfg))
+	for _, t := range gateway.Tools() {
+		registry.Add(t)
+	}
+	if cfg.Retrieval.Enabled {
+		if ix, err := openIndex(context.Background(), cfg, workspace); err == nil {
+			registry.Add(&index.SearchTool{Index: ix})
+		}
+	}
+
+	srv := server.New(server.Options{
+		Addr:      addr,
+		Workspace: workspace,
+		Config:    cfg,
+		Adapter:   buildAdapter(provider),
+		Registry:  registry,
+	})
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	fmt.Printf("titan %s serving on http://localhost%s\n", version, addr)
+	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n",
+		workspace, provider.Model, sb.Tier())
+
+	if err := srv.ListenAndServe(ctx); err != nil && err.Error() != "http: Server closed" {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
 // openIndex builds the retrieval index for this workspace.
