@@ -64,8 +64,11 @@ type SandboxConfig struct {
 }
 
 type LimitsConfig struct {
-	MaxTurns        int  `json:"max_turns"`
-	MaxTokens       int  `json:"max_tokens"`
+	MaxTurns  int `json:"max_turns"`
+	MaxTokens int `json:"max_tokens"`
+	// MaxBudgetTokens caps total spend across a session AND its subagents.
+	// Zero means unlimited.
+	MaxBudgetTokens int  `json:"max_budget_tokens"`
 	MaxSubagents    int  `json:"max_subagents"`
 	NestedSubagents bool `json:"nested_subagents"`
 }
@@ -103,7 +106,8 @@ func Default() Config {
 			MemoryFiles: []string{"TITAN.md", "TITAN.local.md"},
 		},
 		Limits: LimitsConfig{
-			MaxTurns: 100, MaxTokens: 8192, MaxSubagents: 20, NestedSubagents: false,
+			MaxTurns: 100, MaxTokens: 8192, MaxBudgetTokens: 0,
+			MaxSubagents: 20, NestedSubagents: false,
 		},
 		Sandbox: SandboxConfig{
 			MinTier:      "process",

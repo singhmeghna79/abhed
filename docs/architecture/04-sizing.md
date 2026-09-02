@@ -83,10 +83,31 @@ Three consequences that should change your build:
 
 1. **Prefix caching is not an optimization, it is a precondition.** Without it the
    re-injected-memory-file pattern (P4) costs 17× more GPU time. Verify hit rates in
-   production; do not assume the serving engine delivers them.
-2. **Compaction is a capacity event.** It invalidates the prefix by construction, so each
-   compaction pays cold prefill again. Track compactions/hour as a capacity metric.
+   production; do not assume the serving engine delivers them. Measure with
+   `titan-bench` (below) rather than trusting this table.
+2. **Compaction costs less than first assumed — if you place the prefix correctly.**
+   An earlier draft of this document claimed compaction "invalidates the prefix by
+   construction." **Measurement showed that is wrong for Titan's architecture.** Because
+   the system prompt and `TITAN.md` live in the *system* message, outside the compacted
+   history, compaction discards the conversation tail while the cached prefix survives.
+   Measured penalty: ~1.0×, not the large cold-prefill hit predicted.
+   This holds only while the prefix stays outside the summarized region — an
+   implementation that compacts the memory file into the summary loses the property.
 3. **MoE wins the agent workload** by ~6× on prefill at equal quality tier (P9).
+
+### Measured vs computed
+
+`cmd/titan-bench` measures all of this on a real endpoint:
+
+```
+titan-bench -base-url http://gpu:8000/v1 -model Qwen/Qwen3-32B -turns 40
+```
+
+It reports cache hit rate, prefill savings, cold vs warm TTFT, and the compaction
+penalty, and it says plainly when an endpoint reports no cached tokens at all — which
+means the capacity model here does not hold for that stack. **Savings scale with turn
+count**, so a short run legitimately shows less than the 17× computed for 40 turns:
+an 8-turn validation run measured 7.6× prefill savings and 13.7× TTFT speedup.
 
 ## 5. Quantization [E — unverified, must be measured]
 

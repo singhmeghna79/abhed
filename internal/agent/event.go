@@ -131,6 +131,7 @@ type SessionEnded struct {
 	TokensIn     int            `json:"tokens_in"`
 	TokensOut    int            `json:"tokens_out"`
 	TokensCached int            `json:"tokens_cached"`
+	Compactions  int            `json:"compactions"`
 }
 
 type Compaction struct {

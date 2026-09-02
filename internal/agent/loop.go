@@ -43,13 +43,14 @@ func DefaultConfig() Config {
 // normally on a response with no tool calls, and abnormally through roughly
 // ten other exits — each a distinct, logged terminal event (docs §02).
 type Loop struct {
-	Adapter  model.Adapter
-	Tools    *tools.Registry
-	Policy   *policy.Engine
-	Approver Approver
-	Session  *tools.Session
-	Recorder *Recorder
-	Config   Config
+	Adapter   model.Adapter
+	Tools     *tools.Registry
+	Policy    *policy.Engine
+	Approver  Approver
+	Session   *tools.Session
+	Recorder  *Recorder
+	Config    Config
+	Compactor *Compactor
 
 	messages []model.Message
 	usage    Usage
@@ -61,6 +62,12 @@ type Usage struct {
 	OutputTokens int
 	CachedTokens int
 	Turns        int
+	// Compactions is a capacity metric, not a curiosity: each one invalidates
+	// the prefix cache and pays cold prefill again (docs P8).
+	Compactions int
+	// ColdPrefillTokens counts input tokens that missed the cache. This is the
+	// quantity the 17x prefix-cache claim is about, measured rather than assumed.
+	ColdPrefillTokens int
 }
 
 // CacheHitRate reports the fraction of input tokens served from the prefix
@@ -71,6 +78,16 @@ func (u Usage) CacheHitRate() float64 {
 		return 0
 	}
 	return float64(u.CachedTokens) / float64(u.InputTokens)
+}
+
+// PrefillSavings estimates the multiple by which prefix caching reduced prefill
+// work this session: total input tokens over the tokens actually prefilled cold.
+// This is the measured analogue of the computed 17x in docs/architecture/04-sizing.md.
+func (u Usage) PrefillSavings() float64 {
+	if u.ColdPrefillTokens == 0 {
+		return 0
+	}
+	return float64(u.InputTokens) / float64(u.ColdPrefillTokens)
 }
 
 func NewLoop(a model.Adapter, reg *tools.Registry, pol *policy.Engine,
@@ -97,6 +114,14 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 		}
 		l.turns++
 
+		if err := l.maybeCompact(ctx); err != nil {
+			// Compaction failure is not fatal on its own; the turn may still
+			// fit. If it does not, the model call will say so.
+			l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, map[string]string{
+				"error": err.Error(),
+			})
+		}
+
 		reason, done, err := l.turn(ctx)
 		if err != nil {
 			l.finish(TermError)
@@ -107,6 +132,59 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 		}
 	}
 }
+
+// maybeCompact summarizes history when it approaches the context limit.
+//
+// The system prompt and memory file are re-injected whole rather than
+// summarized: compaction discarding the operating rules is exactly the failure
+// docs P4 warns about.
+func (l *Loop) maybeCompact(ctx context.Context) error {
+	if l.Compactor == nil {
+		return nil
+	}
+	should, used, err := l.Compactor.ShouldCompact(l.Config.SystemPrompt, l.messages, toolDefs(l.Tools))
+	if err != nil || !should {
+		return err
+	}
+
+	l.Recorder.Record(EvCompactStarted, ActorSystem, Trusted, Compaction{
+		BeforeTokens: used, Trigger: "auto",
+	})
+
+	compacted, info, err := l.Compactor.Compact(ctx, "auto", l.Config.SystemPrompt, l.messages, used)
+	if err != nil {
+		return err
+	}
+	if len(compacted) == len(l.messages) {
+		return nil // nothing was summarized
+	}
+
+	l.messages = compacted
+	l.usage.Compactions++
+	l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, info)
+	return nil
+}
+
+// Compact forces compaction now, for the /compact command.
+func (l *Loop) Compact(ctx context.Context) (Compaction, error) {
+	if l.Compactor == nil {
+		return Compaction{}, fmt.Errorf("compaction is not configured")
+	}
+	used, _ := l.Adapter.CountTokens(model.Request{
+		System: l.Config.SystemPrompt, Messages: l.messages,
+	})
+	compacted, info, err := l.Compactor.Compact(ctx, "manual", l.Config.SystemPrompt, l.messages, used)
+	if err != nil {
+		return Compaction{}, err
+	}
+	l.messages = compacted
+	l.usage.Compactions++
+	l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, info)
+	return info, nil
+}
+
+// Messages exposes the current history for inspection and testing.
+func (l *Loop) Messages() []model.Message { return l.messages }
 
 // turn runs one round trip: model output plus any tool executions.
 func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
@@ -144,6 +222,7 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 				l.usage.InputTokens += chunk.Usage.InputTokens
 				l.usage.OutputTokens += chunk.Usage.OutputTokens
 				l.usage.CachedTokens += chunk.Usage.CachedInputTokens
+				l.usage.ColdPrefillTokens += chunk.Usage.InputTokens - chunk.Usage.CachedInputTokens
 			}
 		}
 	}
@@ -283,6 +362,7 @@ func (l *Loop) finish(reason TerminalReason) TerminalReason {
 		TokensIn:     l.usage.InputTokens,
 		TokensOut:    l.usage.OutputTokens,
 		TokensCached: l.usage.CachedTokens,
+		Compactions:  l.usage.Compactions,
 	})
 	return reason
 }

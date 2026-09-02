@@ -118,6 +118,14 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
 	)
 
+	// Subagents share the parent's budget, so a fan-out cannot multiply spend
+	// invisibly. Each spawn re-prefills its own prefix (docs P3).
+	budget := agent.NewBudget(
+		int64(cfg.Limits.MaxBudgetTokens),
+		cfg.Limits.MaxSubagents,
+		cfg.Limits.NestedSubagents,
+	)
+
 	systemPrompt := agent.BuildSystemPrompt(agent.BuildOptions{
 		Profile:       "main",
 		Workspace:     workspace,
@@ -132,10 +140,18 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	loopCfg.MaxTokens = cfg.Limits.MaxTokens
 	loopCfg.CompactAt = cfg.Context.CompactAt
 
+	factory := &agent.SubagentFactory{
+		Adapter: adapter, Tools: registry, Policy: pol,
+		Approver: agent.AutoApprove{Yes: true}, // subagent tools are policed by pol
+		Session:  sess, Budget: budget, Config: loopCfg, Workspace: workspace,
+	}
+	registry.Add(agent.Task{Spawn: factory.Spawn, Profiles: agent.Profiles})
+
 	headless := prompt != ""
 	jsonOut := format == "json"
 
 	store := agent.NewMemStore()
+	factory.Store = store
 	renderer := ui.NewRenderer(os.Stdout, jsonOut)
 
 	var approver agent.Approver
@@ -178,6 +194,7 @@ func runOnce(ctx context.Context, store *agent.MemStore, r *ui.Renderer, jsonOut
 	}()
 
 	loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
+	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	reason, err := loop.Run(ctx, prompt)
 
 	store.Unsubscribe(sessionID, events)
@@ -241,6 +258,7 @@ func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
 		// task without killing the session.
 		taskCtx, cancelTask := context.WithCancel(ctx)
 		loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
+		loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 		_, runErr := loop.Run(taskCtx, line)
 		cancelTask()
 
@@ -296,7 +314,10 @@ func printUsage(r *ui.Renderer, u agent.Usage) {
 	// Cache hit rate is a UX metric as much as a capacity one (docs P8), so it
 	// is shown rather than hidden in telemetry.
 	if u.InputTokens > 0 && u.CachedTokens > 0 {
-		line += fmt.Sprintf(" · %.0f%% cached", u.CacheHitRate()*100)
+		line += fmt.Sprintf(" · %.0f%% cached (%.1fx prefill)", u.CacheHitRate()*100, u.PrefillSavings())
+	}
+	if u.Compactions > 0 {
+		line += fmt.Sprintf(" · %d compaction(s)", u.Compactions)
 	}
 	fmt.Printf("%s\n", s.Dim(line))
 }
