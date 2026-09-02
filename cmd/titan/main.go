@@ -23,6 +23,7 @@ import (
 
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
@@ -67,6 +68,8 @@ func main() {
 		return
 	case "doctor":
 		os.Exit(doctor(workspace))
+	case "index":
+		os.Exit(buildIndexCmd(workspace))
 	}
 
 	os.Exit(run(workspace, *prompt, *mode, *modelID, *maxTurns, *format, *allow, *deny))
@@ -138,6 +141,15 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 	for _, t := range gateway.Tools() {
 		registry.Add(t)
+	}
+
+	// Retrieval is tier 2: an accelerator over grep, not a replacement.
+	if cfg.Retrieval.Enabled {
+		if ix, err := openIndex(context.Background(), cfg, workspace); err != nil {
+			fmt.Fprintf(os.Stderr, "titan: index unavailable, falling back to grep: %v\n", err)
+		} else {
+			registry.Add(&index.SearchTool{Index: ix})
+		}
 	}
 
 	systemPrompt := agent.BuildSystemPrompt(agent.BuildOptions{
@@ -336,6 +348,49 @@ func printUsage(r *ui.Renderer, u agent.Usage) {
 	fmt.Printf("%s\n", s.Dim(line))
 }
 
+// openIndex builds the retrieval index for this workspace.
+func openIndex(ctx context.Context, cfg config.Config, workspace string) (*index.Index, error) {
+	ix := index.New(workspace)
+	opts := index.DefaultBuildOptions()
+
+	if cfg.Retrieval.Embed && cfg.Retrieval.EmbedBaseURL != "" {
+		provider, _ := cfg.Provider()
+		ix = ix.WithEmbedder(index.NewOpenAIEmbedder(
+			cfg.Retrieval.EmbedBaseURL, provider.APIKey,
+			cfg.Retrieval.EmbedModel, cfg.Retrieval.EmbedDims))
+		opts.Embed = true
+	}
+	if err := ix.Build(ctx, opts); err != nil {
+		return nil, err
+	}
+	return ix, nil
+}
+
+// buildIndexCmd implements `titan index`, so a large repo can be indexed once
+// rather than on every session start.
+func buildIndexCmd(workspace string) int {
+	cfg, err := config.Load(workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	fmt.Printf("indexing %s...\n", workspace)
+	start := time.Now()
+
+	ix, err := openIndex(context.Background(), cfg, workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	docs, terms, vectors, _ := ix.Stats()
+	fmt.Printf("  %d chunks · %d terms · %d vectors · %s\n",
+		docs, terms, vectors, time.Since(start).Round(time.Millisecond))
+	if vectors == 0 {
+		fmt.Printf("  (symbol + BM25 tiers only; set retrieval.embed to add the vector tier)\n")
+	}
+	return 0
+}
+
 func mcpConfigs(cfg config.Config) []mcp.ServerConfig {
 	out := make([]mcp.ServerConfig, 0, len(cfg.MCP.Servers))
 	for _, s := range cfg.MCP.Servers {
@@ -412,6 +467,14 @@ func doctor(workspace string) int {
 	}
 	if files := agent.DiscoverMemoryFiles(workspace); len(files) > 0 {
 		fmt.Printf("memory      %s\n", strings.Join(files, ", "))
+	}
+	if cfg.Retrieval.Enabled {
+		if ix, err := openIndex(context.Background(), cfg, workspace); err == nil {
+			d, t, v, _ := ix.Stats()
+			fmt.Printf("index       %d chunks · %d terms · %d vectors\n", d, t, v)
+		} else {
+			fmt.Printf("index       UNAVAILABLE — %v\n", err)
+		}
 	}
 	if servers := cfg.MCP.Servers; len(servers) > 0 {
 		gw := mcp.NewGateway()

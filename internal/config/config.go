@@ -20,6 +20,7 @@ type Config struct {
 	Limits      LimitsConfig      `json:"limits"`
 	Sandbox     SandboxConfig     `json:"sandbox"`
 	MCP         MCPConfig         `json:"mcp"`
+	Retrieval   RetrievalConfig   `json:"retrieval"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -52,6 +53,20 @@ type PermissionsConfig struct {
 type ContextConfig struct {
 	CompactAt   float64  `json:"compact_at"`
 	MemoryFiles []string `json:"memory_files"`
+}
+
+// RetrievalConfig controls the on-prem index. Retrieval is an accelerator over
+// agentic grep, not a replacement: the evidence favouring one over the other is
+// contested, so Titan builds both and measures (docs §02 §4).
+type RetrievalConfig struct {
+	// Enabled builds an index at startup and exposes the search tool.
+	Enabled bool `json:"enabled"`
+	// Embed adds the vector tier. Off by default - the symbol and BM25 tiers
+	// answer most code questions without the cost of embedding a monorepo.
+	Embed        bool   `json:"embed"`
+	EmbedBaseURL string `json:"embed_base_url,omitempty"`
+	EmbedModel   string `json:"embed_model,omitempty"`
+	EmbedDims    int    `json:"embed_dims,omitempty"`
 }
 
 // MCPConfig registers Model Context Protocol servers. A server not listed here
