@@ -18,6 +18,7 @@ type Config struct {
 	Permissions PermissionsConfig `json:"permissions"`
 	Context     ContextConfig     `json:"context"`
 	Limits      LimitsConfig      `json:"limits"`
+	Sandbox     SandboxConfig     `json:"sandbox"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -50,6 +51,16 @@ type PermissionsConfig struct {
 type ContextConfig struct {
 	CompactAt   float64  `json:"compact_at"`
 	MemoryFiles []string `json:"memory_files"`
+}
+
+// SandboxConfig controls execution isolation. Defaults deny egress, because a
+// successful prompt injection then has no channel to exfiltrate through.
+type SandboxConfig struct {
+	MinTier       string   `json:"min_tier"` // none|process|container|vm
+	AllowNetwork  bool     `json:"allow_network"`
+	ReadOnlyPaths []string `json:"read_only_paths,omitempty"`
+	MaxMemoryMB   int      `json:"max_memory_mb"`
+	MaxProcs      int      `json:"max_procs"`
 }
 
 type LimitsConfig struct {
@@ -93,6 +104,12 @@ func Default() Config {
 		},
 		Limits: LimitsConfig{
 			MaxTurns: 100, MaxTokens: 8192, MaxSubagents: 20, NestedSubagents: false,
+		},
+		Sandbox: SandboxConfig{
+			MinTier:      "process",
+			AllowNetwork: false,
+			MaxMemoryMB:  4096,
+			MaxProcs:     512,
 		},
 	}
 }
@@ -199,6 +216,11 @@ func (c Config) Validate() error {
 	}
 	if c.Context.CompactAt <= 0 || c.Context.CompactAt > 1 {
 		return fmt.Errorf("context.compact_at must be between 0 and 1, got %v", c.Context.CompactAt)
+	}
+	switch c.Sandbox.MinTier {
+	case "none", "process", "container", "vm", "":
+	default:
+		return fmt.Errorf("unknown sandbox.min_tier %q (want none|process|container|vm)", c.Sandbox.MinTier)
 	}
 	return nil
 }

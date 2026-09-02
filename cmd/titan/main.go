@@ -25,6 +25,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/config"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/titan/internal/sandbox"
 	"github.com/yuvrajsingh/titan/internal/tools"
 	"github.com/yuvrajsingh/titan/internal/ui"
 )
@@ -104,9 +105,17 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	must(pol.AddAllow(splitRules(allowFlag)...))
 	must(pol.AddDeny(splitRules(denyFlag)...))
 
+	sb, err := buildSandbox(cfg, workspace)
+	if err != nil {
+		fail(err)
+	}
+	if sb.Tier() == sandbox.TierNone {
+		fmt.Fprintf(os.Stderr, "titan: warning: %s\n", sb.Describe())
+	}
+
 	registry := tools.NewRegistry(
 		tools.Read{}, tools.Write{}, tools.Edit{},
-		tools.Glob{}, tools.Grep{}, tools.Bash{},
+		tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
 	)
 
 	systemPrompt := agent.BuildSystemPrompt(agent.BuildOptions{
@@ -292,6 +301,25 @@ func printUsage(r *ui.Renderer, u agent.Usage) {
 	fmt.Printf("%s\n", s.Dim(line))
 }
 
+// buildSandbox selects an execution backend meeting the configured minimum
+// tier. Select never silently downgrades, so a failure here is a real
+// configuration problem the operator must see.
+func buildSandbox(cfg config.Config, workspace string) (sandbox.Sandbox, error) {
+	p := sandbox.DefaultPolicy(workspace)
+	if cfg.Sandbox.MinTier != "" {
+		p.MinTier = sandbox.Tier(cfg.Sandbox.MinTier)
+	}
+	p.AllowNetwork = cfg.Sandbox.AllowNetwork
+	p.ReadOnlyPaths = cfg.Sandbox.ReadOnlyPaths
+	if cfg.Sandbox.MaxMemoryMB > 0 {
+		p.MaxMemoryMB = cfg.Sandbox.MaxMemoryMB
+	}
+	if cfg.Sandbox.MaxProcs > 0 {
+		p.MaxProcs = cfg.Sandbox.MaxProcs
+	}
+	return sandbox.Select(p)
+}
+
 func buildAdapter(p config.ProviderConfig) model.Adapter {
 	profile := model.Profile{
 		Name:            p.Model,
@@ -327,6 +355,15 @@ func doctor(workspace string) int {
 	fmt.Printf("endpoint    %s\n", provider.BaseURL)
 	fmt.Printf("model       %s\n", provider.Model)
 	fmt.Printf("mode        %s\n", orDefault(cfg.Permissions.Mode, "default"))
+	if sb, err := buildSandbox(cfg, workspace); err == nil {
+		label := string(sb.Tier())
+		if sb.Tier() == sandbox.TierNone {
+			label += "  ⚠"
+		}
+		fmt.Printf("sandbox     %s — %s\n", label, sb.Describe())
+	} else {
+		fmt.Printf("sandbox     UNAVAILABLE — %v\n", err)
+	}
 	if files := agent.DiscoverMemoryFiles(workspace); len(files) > 0 {
 		fmt.Printf("memory      %s\n", strings.Join(files, ", "))
 	}
