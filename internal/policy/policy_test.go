@@ -1,0 +1,148 @@
+package policy
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func args(kv map[string]string) json.RawMessage {
+	b, _ := json.Marshal(kv)
+	return b
+}
+
+// Deny is absolute - it must win even in the most permissive mode.
+func TestDenySurvivesBypass(t *testing.T) {
+	e := New(ModeBypass)
+	if err := e.AddDeny("bash(rm -rf *)"); err != nil {
+		t.Fatal(err)
+	}
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "rm -rf /tmp/x"}))
+	if res.Decision != Deny {
+		t.Fatalf("deny must survive bypass mode, got %s (%s)", res.Decision, res.Reason)
+	}
+}
+
+func TestDenyBeatsAllow(t *testing.T) {
+	e := New(ModeDefault)
+	e.AddAllow("bash(*)")
+	e.AddDeny("bash(git push --force*)")
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "git push --force origin main"}))
+	if res.Decision != Deny {
+		t.Fatalf("deny must be evaluated before allow, got %s", res.Decision)
+	}
+}
+
+// Destructive commands confirm in every mode, even auto.
+func TestDestructiveAlwaysAsksInAutoMode(t *testing.T) {
+	e := New(ModeAuto)
+	e.AddAllow("bash(*)")
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "rm -rf build"}))
+	if res.Decision != Ask {
+		t.Fatalf("destructive command must ask even in auto mode, got %s", res.Decision)
+	}
+	if !strings.Contains(res.Reason, "confirmation") {
+		t.Fatalf("reason should explain: %s", res.Reason)
+	}
+}
+
+func TestPlanModeBlocksMutations(t *testing.T) {
+	e := New(ModePlan)
+	e.AddAllow("*")
+	if res := e.Evaluate("edit", true, args(map[string]string{"path": "/a.go"})); res.Decision != Deny {
+		t.Fatalf("plan mode must block mutations, got %s", res.Decision)
+	}
+	if res := e.Evaluate("read", false, args(map[string]string{"path": "/a.go"})); res.Decision != Allow {
+		t.Fatalf("plan mode must allow reads, got %s", res.Decision)
+	}
+}
+
+func TestPerCommandScoping(t *testing.T) {
+	e := New(ModeDefault)
+	e.AddAllow("bash(npm test*)")
+
+	allowed := e.Evaluate("bash", true, args(map[string]string{"command": "npm test --watch"}))
+	if allowed.Decision != Allow {
+		t.Fatalf("scoped allow should match: %s", allowed.Reason)
+	}
+	// The same tool with a different command must NOT be allowed.
+	other := e.Evaluate("bash", true, args(map[string]string{"command": "npm publish"}))
+	if other.Decision == Allow {
+		t.Fatal("allowing `npm test` must not allow `npm publish`")
+	}
+}
+
+func TestReadOnlyToolsAllowedByDefault(t *testing.T) {
+	e := New(ModeDefault)
+	for _, tool := range []string{"read", "glob", "grep"} {
+		if res := e.Evaluate(tool, false, args(map[string]string{"path": "/a"})); res.Decision != Allow {
+			t.Errorf("%s should be allowed by default, got %s", tool, res.Decision)
+		}
+	}
+}
+
+func TestMutationsAskByDefault(t *testing.T) {
+	e := New(ModeDefault)
+	res := e.Evaluate("edit", true, args(map[string]string{"path": "/a.go"}))
+	if res.Decision != Ask {
+		t.Fatalf("mutations should ask, got %s", res.Decision)
+	}
+	if res.Scope == "" {
+		t.Fatal("approval prompt needs a scope suggestion")
+	}
+}
+
+func TestAcceptEditsMode(t *testing.T) {
+	e := New(ModeAcceptEdits)
+	if res := e.Evaluate("edit", true, args(map[string]string{"path": "/a.go"})); res.Decision != Allow {
+		t.Fatalf("edits should auto-approve, got %s", res.Decision)
+	}
+	// bash still asks - it has a wider blast radius than an edit.
+	if res := e.Evaluate("bash", true, args(map[string]string{"command": "npm install"})); res.Decision != Ask {
+		t.Fatalf("bash should still ask in accept-edits, got %s", res.Decision)
+	}
+}
+
+func TestManagedPolicyRefusesBypass(t *testing.T) {
+	e := New(ModeBypass)
+	e.Managed = true
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "echo hi"}))
+	if res.Decision != Ask {
+		t.Fatalf("managed policy must refuse bypass, got %s", res.Decision)
+	}
+	if !strings.Contains(res.Reason, "organization policy") {
+		t.Fatalf("reason should name the cause: %s", res.Reason)
+	}
+}
+
+func TestHookShortCircuits(t *testing.T) {
+	e := New(ModeBypass)
+	e.Hooks = append(e.Hooks, func(tool string, _ json.RawMessage) *Result {
+		if tool == "bash" {
+			return &Result{Deny, "blocked by hook", ""}
+		}
+		return nil
+	})
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "echo hi"}))
+	if res.Decision != Deny || res.Reason != "blocked by hook" {
+		t.Fatalf("hook should run first, got %s (%s)", res.Decision, res.Reason)
+	}
+}
+
+func TestScopeSuggestionIsNarrow(t *testing.T) {
+	e := New(ModeDefault)
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "npm install --save-dev vitest"}))
+	if res.Scope != "bash(npm install *)" {
+		t.Fatalf("scope should capture verb but not args, got %q", res.Scope)
+	}
+}
+
+func TestAskRuleOverridesAllow(t *testing.T) {
+	e := New(ModeDefault)
+	e.AddAllow("bash(*)")
+	e.AddAsk("bash(git push*)")
+	res := e.Evaluate("bash", true, args(map[string]string{"command": "git push origin main"}))
+	if res.Decision != Ask {
+		t.Fatalf("ask rules are evaluated before allow, got %s", res.Decision)
+	}
+}

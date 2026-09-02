@@ -1,0 +1,243 @@
+// Package policy implements Titan's permission model.
+//
+// Evaluation is ordered (docs P7):
+//
+//	Hooks → Deny rules → Ask rules → Permission mode → Allow rules → Callback
+//
+// Deny is absolute: a matching deny rule blocks the tool even in the most
+// permissive mode. Rules are scoped per-command, not per-tool, so allowing
+// `bash(npm test)` never allows `bash(rm -rf /)`.
+package policy
+
+import (
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/yuvrajsingh/titan/internal/tools"
+)
+
+type Mode string
+
+const (
+	ModeDefault     Mode = "default"      // ask before mutations
+	ModeAcceptEdits Mode = "accept-edits" // auto-approve edits, ask for bash
+	ModePlan        Mode = "plan"         // read-only
+	ModeAuto        Mode = "auto"         // approve by rule; hard blocks stand
+	ModeBypass      Mode = "bypass"       // dangerous; refusable by org policy
+)
+
+type Decision string
+
+const (
+	Allow Decision = "allow"
+	Ask   Decision = "ask"
+	Deny  Decision = "deny"
+)
+
+type Result struct {
+	Decision Decision
+	// Reason is shown to the user in the approval prompt and recorded in the
+	// audit log, so it must name the rule that fired.
+	Reason string
+	// Scope is the suggested "always allow" rule, e.g. `bash(npm install *)`.
+	Scope string
+}
+
+// Rule matches a tool call. Patterns are `tool` or `tool(arg-glob)`.
+type Rule struct {
+	raw     string
+	tool    string
+	pattern *regexp.Regexp // nil means "any argument"
+}
+
+func ParseRule(s string) (Rule, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return Rule{}, fmt.Errorf("empty rule")
+	}
+	r := Rule{raw: s, tool: s}
+
+	if i := strings.Index(s, "("); i > 0 && strings.HasSuffix(s, ")") {
+		r.tool = s[:i]
+		glob := s[i+1 : len(s)-1]
+		re, err := globToRegexp(glob)
+		if err != nil {
+			return Rule{}, fmt.Errorf("rule %q: %w", s, err)
+		}
+		r.pattern = re
+	}
+	return r, nil
+}
+
+func globToRegexp(glob string) (*regexp.Regexp, error) {
+	var b strings.Builder
+	b.WriteString("^")
+	for i := 0; i < len(glob); i++ {
+		switch c := glob[i]; c {
+		case '*':
+			b.WriteString(".*")
+		case '?':
+			b.WriteString(".")
+		case '.', '+', '(', ')', '|', '^', '$', '{', '}', '[', ']', '\\':
+			b.WriteByte('\\')
+			b.WriteByte(c)
+		default:
+			b.WriteByte(c)
+		}
+	}
+	b.WriteString("$")
+	return regexp.Compile(b.String())
+}
+
+func (r Rule) Matches(tool string, subject string) bool {
+	if r.tool != tool && r.tool != "*" {
+		return false
+	}
+	if r.pattern == nil {
+		return true
+	}
+	return r.pattern.MatchString(subject)
+}
+
+func (r Rule) String() string { return r.raw }
+
+// Hook runs before rule evaluation and can short-circuit the decision.
+type Hook func(tool string, args json.RawMessage) *Result
+
+type Engine struct {
+	Mode  Mode
+	Deny  []Rule
+	Ask   []Rule
+	Allow []Rule
+	Hooks []Hook
+
+	// Managed marks the engine as org-controlled: bypass mode is refused and
+	// local config cannot escalate past it (docs P7, §10 precedence).
+	Managed bool
+}
+
+func New(mode Mode) *Engine { return &Engine{Mode: mode} }
+
+func (e *Engine) AddDeny(patterns ...string) error  { return addAll(&e.Deny, patterns) }
+func (e *Engine) AddAsk(patterns ...string) error   { return addAll(&e.Ask, patterns) }
+func (e *Engine) AddAllow(patterns ...string) error { return addAll(&e.Allow, patterns) }
+
+func addAll(dst *[]Rule, patterns []string) error {
+	for _, p := range patterns {
+		r, err := ParseRule(p)
+		if err != nil {
+			return err
+		}
+		*dst = append(*dst, r)
+	}
+	return nil
+}
+
+// Subject extracts the string a rule matches against: the command for bash,
+// the path for file tools. This is what makes scoping per-command.
+func Subject(tool string, args json.RawMessage) string {
+	var m map[string]any
+	if err := json.Unmarshal(args, &m); err != nil {
+		return ""
+	}
+	for _, key := range []string{"command", "path", "pattern"} {
+		if v, found := m[key]; found {
+			if s, isStr := v.(string); isStr {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+// Evaluate applies the ordered decision flow.
+func (e *Engine) Evaluate(tool string, mutates bool, args json.RawMessage) Result {
+	subject := Subject(tool, args)
+
+	// 1. Hooks — arbitrary operator logic, evaluated first so it can veto.
+	for _, h := range e.Hooks {
+		if res := h(tool, args); res != nil {
+			return *res
+		}
+	}
+
+	// 2. Deny rules — absolute, survive every mode including bypass.
+	for _, r := range e.Deny {
+		if r.Matches(tool, subject) {
+			return Result{Deny, fmt.Sprintf("denied by rule %s", r), ""}
+		}
+	}
+
+	// 2b. Destructive commands always confirm, in every mode. There is no
+	// undo for these, so no mode auto-approves them (docs P7, §06).
+	if tool == "bash" {
+		if what, destructive := tools.IsDestructive(subject); destructive {
+			return Result{Ask, fmt.Sprintf("%s — always requires confirmation", what), ""}
+		}
+	}
+
+	// 3. Ask rules — force a prompt even if a later allow would match.
+	for _, r := range e.Ask {
+		if r.Matches(tool, subject) {
+			return Result{Ask, fmt.Sprintf("matched ask rule %s", r), suggestScope(tool, subject)}
+		}
+	}
+
+	// 4. Permission mode.
+	switch e.Mode {
+	case ModePlan:
+		if mutates {
+			return Result{Deny, "plan mode is read-only; no changes are applied", ""}
+		}
+		return Result{Allow, "read-only tool in plan mode", ""}
+	case ModeBypass:
+		if e.Managed {
+			return Result{Ask, "bypass mode is disabled by organization policy", ""}
+		}
+		return Result{Allow, "bypass mode", ""}
+	case ModeAcceptEdits:
+		if tool == "edit" || tool == "write" {
+			return Result{Allow, "edits auto-approved in accept-edits mode", ""}
+		}
+	case ModeAuto:
+		if !mutates {
+			return Result{Allow, "read-only tool in auto mode", ""}
+		}
+	}
+
+	// 5. Allow rules.
+	for _, r := range e.Allow {
+		if r.Matches(tool, subject) {
+			return Result{Allow, fmt.Sprintf("matched allow rule %s", r), ""}
+		}
+	}
+
+	// 6. Default: read-only tools proceed, mutations ask.
+	if !mutates {
+		return Result{Allow, "read-only tool", ""}
+	}
+	return Result{Ask, "mutating tool requires approval", suggestScope(tool, subject)}
+}
+
+// suggestScope proposes a narrow "always allow" rule for the approval prompt.
+// Narrow by construction: allowing `npm install *` must never allow `rm`.
+func suggestScope(tool, subject string) string {
+	if subject == "" {
+		return tool
+	}
+	if tool == "bash" {
+		fields := strings.Fields(subject)
+		if len(fields) == 0 {
+			return tool
+		}
+		// Two tokens capture the meaningful verb ("npm install", "git status").
+		prefix := fields[0]
+		if len(fields) > 1 && !strings.HasPrefix(fields[1], "-") {
+			prefix += " " + fields[1]
+		}
+		return fmt.Sprintf("%s(%s *)", tool, prefix)
+	}
+	return fmt.Sprintf("%s(%s)", tool, subject)
+}
