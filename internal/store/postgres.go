@@ -151,6 +151,16 @@ type SessionRecord struct {
 	Compactions    int
 }
 
+// CreateSubSession records a subagent's session row. Subagents are sessions in
+// their own right, so their events need a parent row like any other.
+func (p *Postgres) CreateSubSession(ctx context.Context, id, description string) error {
+	return p.CreateSession(ctx, SessionRecord{
+		ID: id, Tenant: p.tenant, User: "agent",
+		Workspace: description, Model: "subagent", Mode: "auto",
+		StartedAt: time.Now().UTC(),
+	})
+}
+
 // Append persists one event. It satisfies agent.Store.
 //
 // A duplicate (session_id, seq) is treated as success rather than an error:

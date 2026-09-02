@@ -209,8 +209,15 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 
 	var approver agent.Approver
 	if headless {
-		// No TTY to ask: policy alone decides, and anything needing approval
-		// is refused rather than silently allowed.
+		// No TTY to ask. In auto mode the operator has already delegated the
+		// decision to the policy engine, so anything reaching the approver is
+		// something policy chose not to allow outright — approving it here
+		// would defeat the mode's own rules. In every other mode a headless run
+		// cannot obtain consent, so it refuses.
+		//
+		// Either way the model must be told WHY, or it retries blindly: the
+		// first real run against a local model spent 20 turns re-phrasing the
+		// same rejected command.
 		approver = agent.AutoApprove{Yes: false}
 	} else {
 		approver = ui.NewApprover(os.Stdout)

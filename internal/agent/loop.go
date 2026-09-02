@@ -353,12 +353,23 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 		}
 		if !approved {
 			l.Recorder.Record(EvActionDenied, ActorUser, Trusted, map[string]string{
-				"call_id": call.ID, "reason": "rejected by user",
+				"call_id": call.ID, "reason": "rejected: " + decision.Reason,
 			})
-			return tools.Result{
-				Content: "The user rejected this action. Do not retry it; ask what they would prefer.",
-				IsError: true,
-			}, ""
+			// Say WHY, and name the rule that would have allowed it. A bare
+			// "rejected" makes the model re-phrase the same command forever:
+			// the first real run against a local model burned 20 turns doing
+			// exactly that, because `cd x && go test` did not match bash(go *).
+			msg := "This action was not approved"
+			if decision.Reason != "" {
+				msg += " (" + decision.Reason + ")"
+			}
+			msg += ".\n"
+			if decision.Scope != "" {
+				msg += "It would be permitted by the rule " + decision.Scope + ", which is not configured.\n"
+			}
+			msg += "Do not retry this call or a re-worded version of it. " +
+				"Use a different tool, or explain what you need and stop."
+			return tools.Result{Content: msg, IsError: true}, ""
 		}
 	}
 
