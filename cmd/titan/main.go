@@ -29,6 +29,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/policy"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
 	"github.com/yuvrajsingh/titan/internal/server"
+	"github.com/yuvrajsingh/titan/internal/store"
 	"github.com/yuvrajsingh/titan/internal/tools"
 	"github.com/yuvrajsingh/titan/internal/ui"
 )
@@ -387,11 +388,32 @@ func serveCmd(workspace, addr string) int {
 	for _, t := range gateway.Tools() {
 		registry.Add(t)
 	}
+	fmt.Printf("storage     %s\n", storageLabel(cfg))
+	if cfg.Storage.Driver == "postgres" {
+		st, closeFn, err := openStore(context.Background(), cfg)
+		if err != nil {
+			fmt.Printf("            UNAVAILABLE — %v\n", err)
+		} else {
+			if pg, ok := st.(*store.Postgres); ok {
+				if sessions, events, err := pg.Stats(context.Background()); err == nil {
+					fmt.Printf("            %d sessions · %d events persisted\n", sessions, events)
+				}
+			}
+			closeFn()
+		}
+	}
 	if cfg.Retrieval.Enabled {
 		if ix, err := openIndex(context.Background(), cfg, workspace); err == nil {
 			registry.Add(&index.SearchTool{Index: ix})
 		}
 	}
+
+	eventStore, closeStore, err := openStore(context.Background(), cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	defer closeStore()
 
 	srv := server.New(server.Options{
 		Addr:      addr,
@@ -399,20 +421,48 @@ func serveCmd(workspace, addr string) int {
 		Config:    cfg,
 		Adapter:   buildAdapter(provider),
 		Registry:  registry,
+		Store:     eventStore,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	fmt.Printf("titan %s serving on http://localhost%s\n", version, addr)
-	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n",
-		workspace, provider.Model, sb.Tier())
+	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n  storage   %s\n",
+		workspace, provider.Model, sb.Tier(), storageLabel(cfg))
 
 	if err := srv.ListenAndServe(ctx); err != nil && err.Error() != "http: Server closed" {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+// openStore selects the event store. Memory is fine for a CLI session; audit
+// and replay across restarts need Postgres.
+func openStore(ctx context.Context, cfg config.Config) (server.EventStore, func(), error) {
+	if cfg.Storage.Driver != "postgres" {
+		return agent.NewMemStore(), func() {}, nil
+	}
+	sc := store.DefaultConfig(cfg.Storage.DSN)
+	if cfg.Storage.Tenant != "" {
+		sc.Tenant = cfg.Storage.Tenant
+	}
+	if cfg.Storage.MaxConns > 0 {
+		sc.MaxConns = int32(cfg.Storage.MaxConns)
+	}
+	pg, err := store.Open(ctx, sc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("open event store: %w", err)
+	}
+	return pg, pg.Close, nil
+}
+
+func storageLabel(cfg config.Config) string {
+	if cfg.Storage.Driver == "postgres" {
+		return "postgres (durable, tenant=" + orDefault(cfg.Storage.Tenant, "default") + ")"
+	}
+	return "memory (sessions do not survive restart)"
 }
 
 // openIndex builds the retrieval index for this workspace.
@@ -534,6 +584,20 @@ func doctor(workspace string) int {
 	}
 	if files := agent.DiscoverMemoryFiles(workspace); len(files) > 0 {
 		fmt.Printf("memory      %s\n", strings.Join(files, ", "))
+	}
+	fmt.Printf("storage     %s\n", storageLabel(cfg))
+	if cfg.Storage.Driver == "postgres" {
+		st, closeFn, err := openStore(context.Background(), cfg)
+		if err != nil {
+			fmt.Printf("            UNAVAILABLE — %v\n", err)
+		} else {
+			if pg, ok := st.(*store.Postgres); ok {
+				if sessions, events, err := pg.Stats(context.Background()); err == nil {
+					fmt.Printf("            %d sessions · %d events persisted\n", sessions, events)
+				}
+			}
+			closeFn()
+		}
 	}
 	if cfg.Retrieval.Enabled {
 		if ix, err := openIndex(context.Background(), cfg, workspace); err == nil {

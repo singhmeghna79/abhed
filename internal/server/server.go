@@ -20,8 +20,25 @@ import (
 	"github.com/yuvrajsingh/titan/internal/config"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/titan/internal/store"
 	"github.com/yuvrajsingh/titan/internal/tools"
 )
+
+// EventStore is what the server needs from a store: durable append plus live
+// subscription. Both the in-memory and Postgres stores satisfy it, so server
+// code never branches on the backend.
+type EventStore interface {
+	agent.Store
+	Subscribe(sessionID string) <-chan agent.Event
+	Unsubscribe(sessionID string, ch <-chan agent.Event)
+}
+
+// SessionRecorder is implemented by durable stores that track session rows.
+// Optional: the memory store does not, and the server degrades gracefully.
+type SessionRecorder interface {
+	CreateSession(ctx context.Context, s store.SessionRecord) error
+	ListSessions(ctx context.Context, limit int) ([]store.SessionRecord, error)
+}
 
 type Options struct {
 	Addr      string
@@ -30,15 +47,18 @@ type Options struct {
 	Adapter   model.Adapter
 	Registry  *tools.Registry
 	Logger    *slog.Logger
+	// Store defaults to an in-memory store when nil.
+	Store EventStore
 }
 
 // Server holds live sessions and serves the API.
 type Server struct {
-	opts    Options
-	store   *agent.MemStore
-	log     *slog.Logger
-	mu      sync.RWMutex
-	running map[string]*liveSession
+	opts     Options
+	store    EventStore
+	sessions SessionRecorder // nil when the store is not durable
+	log      *slog.Logger
+	mu       sync.RWMutex
+	running  map[string]*liveSession
 }
 
 type liveSession struct {
@@ -72,12 +92,20 @@ func New(opts Options) *Server {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
-	return &Server{
+	st := opts.Store
+	if st == nil {
+		st = agent.NewMemStore()
+	}
+	s := &Server{
 		opts:    opts,
-		store:   agent.NewMemStore(),
+		store:   st,
 		log:     opts.Logger,
 		running: make(map[string]*liveSession),
 	}
+	if rec, ok := st.(SessionRecorder); ok {
+		s.sessions = rec
+	}
+	return s
 }
 
 func (s *Server) Handler() http.Handler {
@@ -181,6 +209,23 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionID := "s-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+	// Events reference sessions, so the session row must exist first.
+	if s.sessions != nil {
+		if err := s.sessions.CreateSession(r.Context(), store.SessionRecord{
+			ID:        sessionID,
+			Tenant:    tenantOf(r.Context()),
+			User:      userOf(r.Context()),
+			Workspace: s.opts.Workspace,
+			Model:     s.opts.Adapter.Profile().Name,
+			Mode:      orDefaultStr(req.Mode, s.opts.Config.Permissions.Mode),
+			StartedAt: time.Now().UTC(),
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "persist session: "+err.Error())
+			return
+		}
+	}
+
 	rec := agent.NewRecorder(s.store, sessionID, "")
 
 	sess, err := tools.NewSession(s.opts.Workspace)
@@ -253,6 +298,35 @@ type sessionSummary struct {
 
 func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 	tenant := tenantOf(r.Context())
+
+	// A durable store also returns sessions from before this process started,
+	// which is what makes audit useful after a restart.
+	if s.sessions != nil {
+		records, err := s.sessions.ListSessions(r.Context(), 200)
+		if err == nil {
+			out := make([]sessionSummary, 0, len(records))
+			for _, rec := range records {
+				state := "done"
+				if rec.EndedAt == nil {
+					state = "running"
+				}
+				s.mu.RLock()
+				if live, found := s.running[rec.ID]; found {
+					live.mu.Lock()
+					state = live.State
+					live.mu.Unlock()
+				}
+				s.mu.RUnlock()
+				out = append(out, sessionSummary{
+					ID: rec.ID, User: rec.User, Tenant: rec.Tenant,
+					Prompt: rec.Mode, State: state, Created: rec.StartedAt,
+				})
+			}
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
+		s.log.Warn("durable session list failed, falling back to in-process", "error", err)
+	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -345,13 +419,19 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 // audit and incident reconstruction work (docs P6).
 func (s *Server) replaySession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if _, ok := s.session(id, tenantOf(r.Context())); !ok {
+	// A durable store can replay a session this process never ran. RLS scopes
+	// the query to the caller's tenant, so a cross-tenant id returns nothing.
+	if _, ok := s.session(id, tenantOf(r.Context())); !ok && s.sessions == nil {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
 	events, err := s.store.Events(id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if len(events) == 0 {
+		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, events)
@@ -440,6 +520,13 @@ func (l *liveSession) Approve(ctx context.Context, tool string, args json.RawMes
 		// Fail closed: an unanswered approval must not become an approval.
 		return false, nil
 	}
+}
+
+func orDefaultStr(v, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
 }
 
 func writeSSE(w http.ResponseWriter, ev agent.Event) {

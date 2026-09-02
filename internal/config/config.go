@@ -21,6 +21,7 @@ type Config struct {
 	Sandbox     SandboxConfig     `json:"sandbox"`
 	MCP         MCPConfig         `json:"mcp"`
 	Retrieval   RetrievalConfig   `json:"retrieval"`
+	Storage     StorageConfig     `json:"storage"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -53,6 +54,19 @@ type PermissionsConfig struct {
 type ContextConfig struct {
 	CompactAt   float64  `json:"compact_at"`
 	MemoryFiles []string `json:"memory_files"`
+}
+
+// StorageConfig selects the event store. Memory is fine for a CLI session;
+// audit and replay across restarts need Postgres (docs §10).
+type StorageConfig struct {
+	// Driver is "memory" or "postgres".
+	Driver string `json:"driver"`
+	// DSN may also come from TITAN_DATABASE_URL, so a deployment need not put
+	// a credential in a config file.
+	DSN string `json:"dsn,omitempty"`
+	// Tenant scopes every row; row-level security enforces it.
+	Tenant   string `json:"tenant,omitempty"`
+	MaxConns int    `json:"max_conns,omitempty"`
 }
 
 // RetrievalConfig controls the on-prem index. Retrieval is an accelerator over
@@ -141,6 +155,7 @@ func Default() Config {
 			MaxTurns: 100, MaxTokens: 8192, MaxBudgetTokens: 0,
 			MaxSubagents: 20, NestedSubagents: false,
 		},
+		Storage: StorageConfig{Driver: "memory", Tenant: "default", MaxConns: 10},
 		Sandbox: SandboxConfig{
 			MinTier:      "process",
 			AllowNetwork: false,
@@ -210,6 +225,13 @@ func applyEnv(cfg *Config) {
 		p.APIKey = v
 	}
 	cfg.Model.Providers[name] = p
+
+	if v := os.Getenv("TITAN_DATABASE_URL"); v != "" {
+		cfg.Storage.DSN = v
+		if cfg.Storage.Driver == "" || cfg.Storage.Driver == "memory" {
+			cfg.Storage.Driver = "postgres"
+		}
+	}
 }
 
 // Provider returns the active provider with its API key resolved.
@@ -252,6 +274,14 @@ func (c Config) Validate() error {
 	}
 	if c.Context.CompactAt <= 0 || c.Context.CompactAt > 1 {
 		return fmt.Errorf("context.compact_at must be between 0 and 1, got %v", c.Context.CompactAt)
+	}
+	switch c.Storage.Driver {
+	case "memory", "postgres", "":
+	default:
+		return fmt.Errorf("unknown storage.driver %q (want memory or postgres)", c.Storage.Driver)
+	}
+	if c.Storage.Driver == "postgres" && c.Storage.DSN == "" && os.Getenv("TITAN_DATABASE_URL") == "" {
+		return fmt.Errorf("storage.driver is postgres but no DSN is set (use storage.dsn or TITAN_DATABASE_URL)")
 	}
 	switch c.Sandbox.MinTier {
 	case "none", "process", "container", "vm", "":
