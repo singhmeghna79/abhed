@@ -126,7 +126,7 @@ section{overflow-y:auto;padding:20px 26px}
 
 <script>
 const $ = id => document.getElementById(id);
-let current = null, es = null;
+let current = null, es = null, lastSeq = 0;
 
 async function api(path, opts) {
   const r = await fetch(path, {headers:{'Content-Type':'application/json'}, ...opts});
@@ -149,6 +149,9 @@ async function refresh() {
   try {
     const list = await api('/v1/sessions');
     const el = $('sessions');
+    // Only the session LIST is re-rendered here. The stream panel is never
+    // touched: an earlier version cleared it on every poll, which wiped output
+    // out from under an active session every few seconds.
     el.innerHTML = '';
     list.sort((a,b) => new Date(b.created) - new Date(a.created));
     for (const s of list) {
@@ -168,11 +171,33 @@ function open(id) {
   if (es) { es.close(); es = null; }
   current = id;
   $('stream').innerHTML = '';
+  lastSeq = 0;
   refresh();
+  connect(id);
+}
 
+// connect opens the event stream and keeps it open.
+//
+// EventSource fires onerror on any interruption — including the normal close
+// when a session ends. Without a reconnect the panel silently stops updating,
+// which looks exactly like "the agent did nothing" even while it is working.
+function connect(id) {
   es = new EventSource('/v1/sessions/' + id + '/events');
-  es.onmessage = e => render(JSON.parse(e.data));
-  es.onerror = () => { if (es) { es.close(); es = null; } };
+
+  es.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    if (ev.seq <= lastSeq) return;   // ignore replays after a reconnect
+    lastSeq = ev.seq;
+    render(ev);
+    if (ev.type === 'session.ended') { es.close(); es = null; }
+  };
+
+  es.onerror = () => {
+    if (!es) return;
+    es.close(); es = null;
+    // Retry unless the user moved to another session in the meantime.
+    setTimeout(() => { if (current === id && !es) connect(id); }, 1500);
+  };
 }
 
 function el(cls, text) {
@@ -270,8 +295,14 @@ $('start').onclick = async () => {
   try {
     const r = await api('/v1/sessions',
       {method:'POST', body: JSON.stringify({prompt, mode: $('mode').value})});
+    const sent = prompt;
     $('prompt').value = '';
     open(r.session_id);
+    // The first model call can take ~30s on a cold local model. Say so, rather
+    // than showing a blank panel that reads as failure.
+    const note = el('msg user', sent);
+    $('stream').appendChild(note);
+    $('stream').appendChild(el('end', 'waiting for the model…'));
   } catch (e) {
     alert(e.message);
   } finally {

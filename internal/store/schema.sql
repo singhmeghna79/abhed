@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   prompt_hash     TEXT        NOT NULL DEFAULT '',
   harness_version TEXT        NOT NULL DEFAULT '',
   mode            TEXT        NOT NULL DEFAULT 'default',
+  -- The opening request, kept so a session list is readable at a glance.
+  prompt          TEXT        NOT NULL DEFAULT '',
   parent_id       TEXT        REFERENCES sessions(id),
   started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   ended_at        TIMESTAMPTZ,
@@ -133,6 +135,9 @@ DROP POLICY IF EXISTS checkpoints_tenant_isolation ON checkpoints;
 CREATE POLICY checkpoints_tenant_isolation ON checkpoints
   USING (tenant_id = current_setting('app.tenant_id', true))
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true));
+
+-- Added after v1: existing deployments get the column without a migration step.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS prompt TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS schema_version (
   version    INT         PRIMARY KEY,

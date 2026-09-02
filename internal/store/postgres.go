@@ -130,11 +130,12 @@ func (p *Postgres) CreateSession(ctx context.Context, s SessionRecord) error {
 	}
 	_, err := p.pool.Exec(ctx, `
 		INSERT INTO sessions (id, tenant_id, user_id, workspace, model,
-		                      prompt_hash, harness_version, mode, parent_id, started_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10)
+		                      prompt_hash, harness_version, mode, parent_id, started_at, prompt)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULLIF($9,''),$10,$11)
 		ON CONFLICT (id) DO NOTHING`,
 		s.ID, s.Tenant, s.User, s.Workspace, s.Model,
-		s.PromptHash, s.HarnessVersion, s.Mode, s.ParentID, s.StartedAt)
+		s.PromptHash, s.HarnessVersion, s.Mode, s.ParentID, s.StartedAt,
+		truncatePrompt(s.Prompt))
 	if err != nil {
 		return fmt.Errorf("create session %s: %w", s.ID, err)
 	}
@@ -150,8 +151,11 @@ type SessionRecord struct {
 	PromptHash     string
 	HarnessVersion string
 	Mode           string
-	ParentID       string
-	StartedAt      time.Time
+	// Prompt is the opening request, kept so a session list is readable. It is
+	// truncated on write: the list needs a label, not a transcript.
+	Prompt    string
+	ParentID  string
+	StartedAt time.Time
 
 	EndedAt        *time.Time
 	TerminalReason string
@@ -220,6 +224,15 @@ func (p *Postgres) finalizeSession(ctx context.Context, ev agent.Event) {
 		ended.TokensIn, ended.TokensOut, ended.TokensCached, ended.Compactions)
 }
 
+// truncatePrompt bounds what goes in the label column.
+func truncatePrompt(s string) string {
+	const max = 300
+	if len(s) > max {
+		return s[:max] + "…"
+	}
+	return s
+}
+
 func (p *Postgres) Events(sessionID string) ([]agent.Event, error) {
 	return p.Since(sessionID, 0)
 }
@@ -262,7 +275,7 @@ func (p *Postgres) ListSessions(ctx context.Context, limit int) ([]SessionRecord
 		limit = 50
 	}
 	rows, err := p.pool.Query(ctx, `
-		SELECT id, tenant_id, user_id, workspace, model, mode,
+		SELECT id, tenant_id, user_id, workspace, model, mode, COALESCE(prompt,''),
 		       started_at, ended_at, COALESCE(terminal_reason,''),
 		       turns, tokens_in, tokens_out, tokens_cached, compactions
 		FROM sessions ORDER BY started_at DESC LIMIT $1`, limit)
@@ -274,7 +287,7 @@ func (p *Postgres) ListSessions(ctx context.Context, limit int) ([]SessionRecord
 	var out []SessionRecord
 	for rows.Next() {
 		var s SessionRecord
-		if err := rows.Scan(&s.ID, &s.Tenant, &s.User, &s.Workspace, &s.Model, &s.Mode,
+		if err := rows.Scan(&s.ID, &s.Tenant, &s.User, &s.Workspace, &s.Model, &s.Mode, &s.Prompt,
 			&s.StartedAt, &s.EndedAt, &s.TerminalReason,
 			&s.Turns, &s.TokensIn, &s.TokensOut, &s.TokensCached, &s.Compactions); err != nil {
 			return nil, err
@@ -287,11 +300,11 @@ func (p *Postgres) ListSessions(ctx context.Context, limit int) ([]SessionRecord
 func (p *Postgres) GetSession(ctx context.Context, id string) (SessionRecord, error) {
 	var s SessionRecord
 	err := p.pool.QueryRow(ctx, `
-		SELECT id, tenant_id, user_id, workspace, model, mode,
+		SELECT id, tenant_id, user_id, workspace, model, mode, COALESCE(prompt,''),
 		       started_at, ended_at, COALESCE(terminal_reason,''),
 		       turns, tokens_in, tokens_out, tokens_cached, compactions
 		FROM sessions WHERE id = $1`, id).Scan(
-		&s.ID, &s.Tenant, &s.User, &s.Workspace, &s.Model, &s.Mode,
+		&s.ID, &s.Tenant, &s.User, &s.Workspace, &s.Model, &s.Mode, &s.Prompt,
 		&s.StartedAt, &s.EndedAt, &s.TerminalReason,
 		&s.Turns, &s.TokensIn, &s.TokensOut, &s.TokensCached, &s.Compactions)
 	if errors.Is(err, pgx.ErrNoRows) {

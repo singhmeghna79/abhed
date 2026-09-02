@@ -246,6 +246,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 			Workspace: s.opts.Workspace,
 			Model:     s.opts.Adapter.Profile().Name,
 			Mode:      orDefaultStr(req.Mode, s.opts.Config.Permissions.Mode),
+			Prompt:    req.Prompt,
 			StartedAt: time.Now().UTC(),
 		}); err != nil {
 			writeError(w, http.StatusInternalServerError, "persist session: "+err.Error())
@@ -346,7 +347,7 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 				s.mu.RUnlock()
 				out = append(out, sessionSummary{
 					ID: rec.ID, User: rec.User, Tenant: rec.Tenant,
-					Prompt: rec.Mode, State: state, Created: rec.StartedAt,
+					Prompt: rec.Prompt, State: state, Created: rec.StartedAt,
 				})
 			}
 			writeJSON(w, http.StatusOK, out)
