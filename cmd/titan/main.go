@@ -194,7 +194,15 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	headless := prompt != ""
 	jsonOut := format == "json"
 
-	store := agent.NewMemStore()
+	// The CLI uses whatever the config selects. Previously this was hardcoded
+	// to memory, so a Postgres-configured deployment silently lost its CLI
+	// sessions while server sessions persisted — an inconsistency the user
+	// would only discover when an audit came up empty.
+	store, closeStore, err := openStore(context.Background(), cfg)
+	if err != nil {
+		fail(err)
+	}
+	defer closeStore()
 	factory.Store = store
 	renderer := ui.NewRenderer(os.Stdout, jsonOut)
 
@@ -211,16 +219,18 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	defer stop()
 
 	if headless {
-		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, prompt)
+		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, cfg, prompt)
 	}
-	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, provider, workspace)
+	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace)
 }
 
-func runOnce(ctx context.Context, store *agent.MemStore, r *ui.Renderer, jsonOut bool,
+func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonOut bool,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
-	approver agent.Approver, sess *tools.Session, cfg agent.Config, prompt string) int {
+	approver agent.Approver, sess *tools.Session, cfg agent.Config,
+	appCfg config.Config, prompt string) int {
 
 	sessionID := fmt.Sprintf("s-%d", time.Now().UnixNano())
+	recordSession(ctx, store, sessionID, appCfg, prompt)
 	rec := agent.NewRecorder(store, sessionID, "")
 
 	events := store.Subscribe(sessionID)
@@ -254,10 +264,10 @@ func runOnce(ctx context.Context, store *agent.MemStore, r *ui.Renderer, jsonOut
 	return reason.ExitCode()
 }
 
-func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
+func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
 	approver agent.Approver, sess *tools.Session, cfg agent.Config,
-	provider config.ProviderConfig, workspace string) int {
+	appCfg config.Config, provider config.ProviderConfig, workspace string) int {
 
 	s := r.Style()
 	fmt.Printf("%s %s  %s\n", s.Bold("titan"), s.Dim(version),
@@ -266,6 +276,8 @@ func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
 
 	in := bufio.NewReader(os.Stdin)
 	turn := 0
+	// Session-level state the slash commands operate on.
+	sessionState := &cliState{store: store, appCfg: appCfg}
 
 	for {
 		fmt.Printf("%s ", s.Cyan("›"))
@@ -279,7 +291,7 @@ func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
 			continue
 		}
 		if strings.HasPrefix(line, "/") {
-			if quit := handleCommand(line, r, pol, sess); quit {
+			if quit := handleCommand(ctx, line, r, pol, sess, sessionState); quit {
 				return 0
 			}
 			continue
@@ -287,6 +299,7 @@ func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
 
 		turn++
 		sessionID := fmt.Sprintf("s-%d-%d", time.Now().Unix(), turn)
+		recordSession(ctx, store, sessionID, appCfg, line)
 		rec := agent.NewRecorder(store, sessionID, "")
 
 		events := store.Subscribe(sessionID)
@@ -303,8 +316,11 @@ func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
 		taskCtx, cancelTask := context.WithCancel(ctx)
 		loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
 		loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
+		sessionState.loop = loop
+		sessionState.sessionID = sessionID
 		_, runErr := loop.Run(taskCtx, line)
 		cancelTask()
+		sessionState.accumulate(loop.Usage())
 
 		store.Unsubscribe(sessionID, events)
 		<-done
@@ -321,16 +337,42 @@ func interactive(ctx context.Context, store *agent.MemStore, r *ui.Renderer,
 	}
 }
 
-func handleCommand(line string, r *ui.Renderer, pol *policy.Engine, sess *tools.Session) bool {
+// cliState carries what the slash commands need across turns.
+type cliState struct {
+	store     server.EventStore
+	appCfg    config.Config
+	loop      *agent.Loop
+	sessionID string
+	total     agent.Usage
+}
+
+func (c *cliState) accumulate(u agent.Usage) {
+	c.total.InputTokens += u.InputTokens
+	c.total.OutputTokens += u.OutputTokens
+	c.total.CachedTokens += u.CachedTokens
+	c.total.ColdPrefillTokens += u.ColdPrefillTokens
+	c.total.Turns += u.Turns
+	c.total.Compactions += u.Compactions
+}
+
+func handleCommand(ctx context.Context, line string, r *ui.Renderer,
+	pol *policy.Engine, sess *tools.Session, st *cliState) bool {
 	s := r.Style()
 	fields := strings.Fields(line)
+
 	switch fields[0] {
 	case "/quit", "/exit":
 		return true
+
 	case "/help":
-		fmt.Println(s.Dim(`  /mode <name>   default | accept-edits | plan | auto
-  /cwd           show the workspace root
-  /quit          exit`))
+		fmt.Println(s.Dim(`  /mode <name>      default | accept-edits | plan | auto
+  /cost             tokens, cache hit rate, compactions this session
+  /compact [hint]   compact the context now, optionally guided
+  /sessions         list recent sessions (requires a durable store)
+  /resume <id>      replay a past session's transcript
+  /cwd              show the workspace root
+  /quit             exit`))
+
 	case "/mode":
 		if len(fields) < 2 {
 			fmt.Printf("  current mode: %s\n", pol.Mode)
@@ -344,10 +386,84 @@ func handleCommand(line string, r *ui.Renderer, pol *policy.Engine, sess *tools.
 		default:
 			fmt.Printf("  %s unknown mode %q\n", s.Red("✕"), fields[1])
 		}
+
+	case "/cost":
+		u := st.total
+		if u.InputTokens == 0 {
+			fmt.Println(s.Dim("  no usage yet this session"))
+			return false
+		}
+		fmt.Printf("  turns          %d\n", u.Turns)
+		fmt.Printf("  tokens in      %d\n", u.InputTokens)
+		fmt.Printf("  tokens out     %d\n", u.OutputTokens)
+		fmt.Printf("  cached         %d (%.0f%%)\n", u.CachedTokens, u.CacheHitRate()*100)
+		if savings := u.PrefillSavings(); savings > 0 {
+			fmt.Printf("  prefill saving %.1fx\n", savings)
+		}
+		fmt.Printf("  compactions    %d\n", u.Compactions)
+
+	case "/compact":
+		if st.loop == nil {
+			fmt.Println(s.Dim("  nothing to compact yet"))
+			return false
+		}
+		info, err := st.loop.Compact(ctx)
+		if err != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), err)
+			return false
+		}
+		fmt.Printf("  compacted %d → %d tokens\n", info.BeforeTokens, info.AfterTokens)
+
+	case "/sessions":
+		lister, ok := st.store.(interface {
+			ListSessions(context.Context, int) ([]store.SessionRecord, error)
+		})
+		if !ok {
+			fmt.Println(s.Dim("  session history needs storage.driver = postgres"))
+			return false
+		}
+		records, err := lister.ListSessions(ctx, 20)
+		if err != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), err)
+			return false
+		}
+		if len(records) == 0 {
+			fmt.Println(s.Dim("  no sessions recorded"))
+			return false
+		}
+		for _, rec := range records {
+			state := "running"
+			if rec.EndedAt != nil {
+				state = rec.TerminalReason
+			}
+			fmt.Printf("  %-22s %-10s %s  %s\n", rec.ID, state,
+				rec.StartedAt.Format("2006-01-02 15:04"), s.Dim(rec.User))
+		}
+
+	case "/resume":
+		if len(fields) < 2 {
+			fmt.Println(s.Dim("  usage: /resume <session-id>   (see /sessions)"))
+			return false
+		}
+		events, err := st.store.Events(fields[1])
+		if err != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), err)
+			return false
+		}
+		if len(events) == 0 {
+			fmt.Printf("  %s no events for session %s\n", s.Red("✕"), fields[1])
+			return false
+		}
+		fmt.Printf("%s\n", s.Dim(fmt.Sprintf("  replaying %d events from %s", len(events), fields[1])))
+		for _, ev := range events {
+			r.Event(ev)
+		}
+
 	case "/cwd":
 		fmt.Printf("  %s\n", sess.Root)
+
 	default:
-		fmt.Printf("  %s unknown command %s\n", s.Red("✕"), fields[0])
+		fmt.Printf("  %s unknown command %s — try /help\n", s.Red("✕"), fields[0])
 	}
 	return false
 }
@@ -623,6 +739,41 @@ func authLabel(cfg config.Config) string {
 	default:
 		return "none (single-tenant, no authentication)"
 	}
+}
+
+// recordSession creates the durable session row that events reference.
+// A no-op on the memory store, which has no session table.
+func recordSession(ctx context.Context, st server.EventStore, id string, cfg config.Config, prompt string) {
+	rec, ok := st.(interface {
+		CreateSession(context.Context, store.SessionRecord) error
+	})
+	if !ok {
+		return
+	}
+	user := os.Getenv("USER")
+	if user == "" {
+		user = "local"
+	}
+	provider, _ := cfg.Provider()
+	tenant := cfg.Storage.Tenant
+	if tenant == "" {
+		tenant = "default"
+	}
+	if err := rec.CreateSession(ctx, store.SessionRecord{
+		ID: id, Tenant: tenant, User: user,
+		Workspace: mustCwd(), Model: provider.Model,
+		Mode:      orDefault(cfg.Permissions.Mode, "default"),
+		StartedAt: time.Now().UTC(),
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "titan: could not persist session: %v\n", err)
+	}
+}
+
+func mustCwd() string {
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	return "."
 }
 
 // openStore selects the event store. Memory is fine for a CLI session; audit
