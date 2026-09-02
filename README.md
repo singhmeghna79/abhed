@@ -29,10 +29,20 @@ Better harness, better agent. Both compound.
 
 ```bash
 go build -o titan ./cmd/titan
-./titan init            # write .titan/config.json
-./titan doctor          # verify endpoint, tool-calling, sandbox, index, MCP
-./titan                 # interactive
+./titan init                # write .titan/config.json
+./titan doctor              # verify endpoint, tool-calling, sandbox, auth, storage, index, MCP
+./titan                     # interactive
 ./titan serve -addr :8080   # web console + API
+./titan eval                # run the evaluation corpus
+./titan index               # build the retrieval index
+```
+
+Air-gapped install:
+
+```bash
+scripts/build-bundle.sh -v 1.0.0 -k signing-key.pem   # on the build side
+scripts/verify-bundle.sh titan-1.0.0.tar.gz pub.pem   # on the enclave side
+tar -xzf titan-1.0.0.tar.gz && cd titan-1.0.0 && sudo ./install.sh
 ```
 
 Point it at anything OpenAI-compatible — vLLM, SGLang, TensorRT-LLM, llama.cpp,
@@ -69,9 +79,14 @@ go build -o titan-bench ./cmd/titan-bench
 | **Server mode** — REST, SSE, remote approvals, tenancy | ✅ tested |
 | **Web console** — self-contained, no CDN | ✅ tested |
 | **Prefix-cache benchmark** | ✅ validated |
-| Postgres store, OIDC, offline bundle, eval corpus | ⬜ next |
+| **Postgres store** — append-only + row-level security | ✅ integration-tested |
+| **OIDC** — full JWT verification against JWKS | ✅ attack-tested |
+| **Offline bundle** — signed, self-contained, verifiable | ✅ tamper-tested |
+| **Eval harness** — assertions + behavioural flags | ✅ tested |
+| **Adversarial suite** — 16 attacks | ✅ all blocked |
 
-`go test ./...` — 9 packages, 140+ tests.
+`go test ./... -short` — 13 packages, 190+ tests. Drop `-short` for the slow
+network-exfiltration checks; set `TITAN_TEST_DSN` for the Postgres integration tests.
 
 ## Architecture
 
@@ -134,15 +149,23 @@ The design pass ran 112 agents across 6 research angles with 3-vote adversarial
 verification: 15 verified findings, **6 refuted claims**, and **5 of 9 areas with
 zero surviving claims**. Those gaps are documented rather than papered over.
 
-**Measurement has already corrected the design twice.** The sizing doc claimed
+**Measurement and adversarial testing have corrected the design five times.** The sizing doc claimed
 compaction "invalidates the prefix by construction" — benchmarking showed that is
 false for Titan, because the system prompt and `TITAN.md` sit outside the
 compacted history, so the cached prefix survives. And an end-to-end run exposed a
-policy bug where `auto` mode rejected its own edits.
+policy bug where `auto` mode rejected its own edits. Three more surfaced later:
+row-level security was silently inert because a table owner bypasses it without
+`FORCE`; the auth middleware was ordered so it read identity before establishing
+it, making every request anonymous; and the bundle manifest listed its own digest,
+so per-file verification could never pass. Each was found by a test written to
+attack the thing rather than confirm it.
 
-**Sandboxing evidence was refuted, not confirmed** — so isolation is now proven by
-escape tests rather than assumption (see [validation status](docs/architecture/03-security.md)).
-A red-team engagement is still outstanding before running genuinely hostile code;
-for untrusted repositories set `sandbox.min_tier` to `container` or `vm`.
+**Sandboxing evidence was refuted, not confirmed** — so isolation is proven by an
+adversarial suite of 16 attacks rather than assumption (see
+[validation status](docs/architecture/03-security.md)). That suite proves the
+controls resist the attacks in it; it cannot prove a determined attacker fails,
+because it only tries what its author thought of. **A human red-team engagement
+remains outstanding and is not substitutable.** For untrusted repositories set
+`sandbox.min_tier` to `container` or `vm` and commission one first.
 
 Raw findings: [`docs/research/deep-research-findings.json`](docs/research/deep-research-findings.json)
