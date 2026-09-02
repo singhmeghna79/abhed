@@ -533,8 +533,32 @@ function render(ev){
       break;
     }
 
+    case 'agent.delta': {
+      // Stream into a bubble created on the first fragment. agent.message
+      // arrives afterwards with the complete text and closes the bubble
+      // rather than appending a second copy.
+      hideThinking();
+      if(!streamEl){
+        streamEl = node('said');
+        streamEl.append(node('who','titan'));
+        streamBody = document.createTextNode('');
+        streamEl.appendChild(streamBody);
+        (turnEl || tx).appendChild(streamEl);
+      }
+      streamBody.appendData(p.text || '');
+      break;
+    }
+
     case 'agent.message': {
       hideThinking();
+      if(streamEl){
+        // The deltas already rendered this. Reconcile against the
+        // authoritative text in case a fragment was dropped on reconnect,
+        // then close the bubble.
+        if((p.text || '') !== streamBody.data) streamBody.data = p.text || '';
+        streamEl = null; streamBody = null;
+        break;
+      }
       if(!(p.text || '').trim()) break;
       const b = node('said');
       b.append(node('who','titan'), document.createTextNode(p.text));
@@ -544,6 +568,8 @@ function render(ev){
 
     case 'action.requested': {
       hideThinking();
+      // A tool call ends the current streamed reply.
+      streamEl = null; streamBody = null;
       const wrap = node('call');
       const hdr = node('hdr');
       const tool = node('tool', p.tool);
