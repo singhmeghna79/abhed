@@ -227,6 +227,7 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	var text strings.Builder
 	var pending strings.Builder // un-flushed delta fragment
 	deltaN := 0
+	lastFlush := time.Now()
 	var calls []model.ToolCall
 	var streamErr error
 
@@ -242,11 +243,17 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 			// per token would flood the stream and the store with no gain a
 			// reader can perceive.
 			pending.WriteString(chunk.Text)
-			if flushable(pending.String()) {
+			// Emit on a natural boundary OR after a short interval, whichever
+			// comes first. Boundary alone is not enough: early tokens arrive
+			// faster than boundaries occur, so the first visible fragment ended
+			// up carrying seven tokens. A time floor also bounds the event rate
+			// on a fast endpoint, which pure per-token emission would not.
+			if flushable(pending.String()) || time.Since(lastFlush) > 40*time.Millisecond {
 				deltaN++
 				l.Recorder.Record(EvAgentDelta, ActorAgent, Trusted,
 					Delta{Text: pending.String(), Seq: deltaN})
 				pending.Reset()
+				lastFlush = time.Now()
 			}
 		case model.ChunkReasoning:
 			// Reasoning is observed but never fed back as history: it is not
@@ -472,15 +479,28 @@ func (l *Loop) finish(reason TerminalReason) TerminalReason {
 
 func (l *Loop) Usage() Usage { return l.usage }
 
-// flushable reports whether a buffered fragment ends at a natural boundary.
-// Coalescing to word and punctuation boundaries keeps the event count roughly
-// an order of magnitude below one-per-token while still reading as live text.
+// flushable reports whether a buffered fragment should be emitted now.
+//
+// The first version coalesced only on trailing whitespace and punctuation,
+// which collapsed a 21-token reply into 2 events: a fragment like "\n2" ends
+// on a digit, so it buffered until it hit the length cap. Streaming that the
+// user cannot see is not streaming.
+//
+// Leading whitespace counts too — "\n2" is a word boundary at its START — and
+// the length cap is small enough that even unbroken text emits several times a
+// second. The aim is text that visibly grows, not one event per token.
 func flushable(s string) bool {
-	if len(s) >= 24 {
-		return true
-	}
 	if s == "" {
 		return false
+	}
+	if len(s) >= 12 {
+		return true
+	}
+	// A fragment that BEGINS a new word or line can be emitted immediately:
+	// whatever preceded it is already complete.
+	switch s[0] {
+	case ' ', '\n', '\t':
+		return true
 	}
 	switch s[len(s)-1] {
 	case ' ', '\n', '\t', '.', ',', ':', ';', '!', '?', ')', ']', '}':

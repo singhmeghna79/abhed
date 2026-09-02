@@ -483,3 +483,50 @@ func TestContinueKeepsReadTracking(t *testing.T) {
 		t.Fatalf("follow-up edit was refused — read tracking did not persist: %q", got)
 	}
 }
+
+// Streaming that the user cannot see is not streaming. The first coalescing
+// rule collapsed a 21-token reply into 2 events, because a fragment like "\n2"
+// ends on a digit and buffered until the length cap.
+func TestFlushableEmitsFrequently(t *testing.T) {
+	// Simulate how a model actually chunks: one token at a time.
+	tokens := []string{"1", "\n2", "\n3", "\n4", "\n5", "\n6", "\n7", "\n8",
+		"\n9", "\n10", "\n11", "\n12", "\n13", "\n14", "\n15"}
+
+	var pending strings.Builder
+	flushes := 0
+	for _, tok := range tokens {
+		pending.WriteString(tok)
+		if flushable(pending.String()) {
+			flushes++
+			pending.Reset()
+		}
+	}
+	if pending.Len() > 0 {
+		flushes++
+	}
+
+	// One flush per token is wasteful; two for fifteen tokens is not streaming.
+	if flushes < 8 {
+		t.Fatalf("only %d flushes for %d tokens — the reply will appear in lumps",
+			flushes, len(tokens))
+	}
+	t.Logf("%d tokens produced %d stream events", len(tokens), flushes)
+}
+
+func TestFlushablePreservesAllText(t *testing.T) {
+	tokens := []string{"Hello", " there", ",", " streaming", " works", "."}
+	var pending, got strings.Builder
+	for _, tok := range tokens {
+		pending.WriteString(tok)
+		if flushable(pending.String()) {
+			got.WriteString(pending.String())
+			pending.Reset()
+		}
+	}
+	got.WriteString(pending.String())
+
+	want := strings.Join(tokens, "")
+	if got.String() != want {
+		t.Fatalf("coalescing lost or reordered text:\n got %q\nwant %q", got.String(), want)
+	}
+}
