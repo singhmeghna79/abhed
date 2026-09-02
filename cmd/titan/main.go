@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
 	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/mcp"
@@ -388,6 +389,14 @@ func serveCmd(workspace, addr string) int {
 	for _, t := range gateway.Tools() {
 		registry.Add(t)
 	}
+	fmt.Printf("auth        %s\n", authLabel(cfg))
+	if cfg.Auth.Mode == "oidc" {
+		if _, err := buildAuth(cfg); err != nil {
+			fmt.Printf("            UNAVAILABLE — %v\n", err)
+		} else {
+			fmt.Printf("            JWKS reachable, tokens will be verified\n")
+		}
+	}
 	fmt.Printf("storage     %s\n", storageLabel(cfg))
 	if cfg.Storage.Driver == "postgres" {
 		st, closeFn, err := openStore(context.Background(), cfg)
@@ -415,6 +424,12 @@ func serveCmd(workspace, addr string) int {
 	}
 	defer closeStore()
 
+	authMW, err := buildAuth(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+
 	srv := server.New(server.Options{
 		Addr:      addr,
 		Workspace: workspace,
@@ -422,6 +437,7 @@ func serveCmd(workspace, addr string) int {
 		Adapter:   buildAdapter(provider),
 		Registry:  registry,
 		Store:     eventStore,
+		Auth:      authMW,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -430,12 +446,54 @@ func serveCmd(workspace, addr string) int {
 	fmt.Printf("titan %s serving on http://localhost%s\n", version, addr)
 	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n  storage   %s\n",
 		workspace, provider.Model, sb.Tier(), storageLabel(cfg))
+	fmt.Printf("  auth      %s\n", authLabel(cfg))
 
 	if err := srv.ListenAndServe(ctx); err != nil && err.Error() != "http: Server closed" {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+// buildAuth constructs the identity layer. OIDC verifies tokens properly;
+// proxy mode trusts headers and is only safe behind a trusted proxy.
+func buildAuth(cfg config.Config) (*auth.Middleware, error) {
+	mw := &auth.Middleware{PublicPaths: []string{"/v1/health", "/"}}
+	switch cfg.Auth.Mode {
+	case "oidc":
+		v, err := auth.NewVerifier(auth.Config{
+			Issuer:      cfg.Auth.Issuer,
+			Audience:    cfg.Auth.Audience,
+			JWKSURL:     cfg.Auth.JWKSURL,
+			TenantClaim: cfg.Auth.TenantClaim,
+			GroupsClaim: cfg.Auth.GroupsClaim,
+		})
+		if err != nil {
+			return nil, err
+		}
+		// Fetch the JWKS eagerly so a misconfigured issuer fails at startup
+		// rather than on the first user request.
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := v.Refresh(ctx); err != nil {
+			return nil, fmt.Errorf("OIDC setup failed: %w", err)
+		}
+		mw.Verifier = v
+	case "proxy":
+		mw.TrustHeaders = true
+	}
+	return mw, nil
+}
+
+func authLabel(cfg config.Config) string {
+	switch cfg.Auth.Mode {
+	case "oidc":
+		return "oidc (issuer " + cfg.Auth.Issuer + ")"
+	case "proxy":
+		return "proxy headers (only safe behind a trusted proxy)"
+	default:
+		return "none (single-tenant, no authentication)"
+	}
 }
 
 // openStore selects the event store. Memory is fine for a CLI session; audit
@@ -584,6 +642,14 @@ func doctor(workspace string) int {
 	}
 	if files := agent.DiscoverMemoryFiles(workspace); len(files) > 0 {
 		fmt.Printf("memory      %s\n", strings.Join(files, ", "))
+	}
+	fmt.Printf("auth        %s\n", authLabel(cfg))
+	if cfg.Auth.Mode == "oidc" {
+		if _, err := buildAuth(cfg); err != nil {
+			fmt.Printf("            UNAVAILABLE — %v\n", err)
+		} else {
+			fmt.Printf("            JWKS reachable, tokens will be verified\n")
+		}
 	}
 	fmt.Printf("storage     %s\n", storageLabel(cfg))
 	if cfg.Storage.Driver == "postgres" {

@@ -39,6 +39,20 @@ func testServer(t *testing.T) *Server {
 	})
 }
 
+// proxyServer trusts X-Titan-* headers, the deployment shape where a trusted
+// reverse proxy has already authenticated the caller.
+func proxyServer(t *testing.T) *Server {
+	t.Helper()
+	cfg := config.Default()
+	cfg.Auth.Mode = "proxy"
+	return New(Options{
+		Workspace: t.TempDir(),
+		Config:    cfg,
+		Adapter:   stubAdapter{},
+		Registry:  tools.NewRegistry(tools.Read{}, tools.Glob{}),
+	})
+}
+
 func TestHealth(t *testing.T) {
 	s := testServer(t)
 	rec := httptest.NewRecorder()
@@ -66,7 +80,7 @@ func TestCreateSessionRequiresPrompt(t *testing.T) {
 // A session must be invisible to another tenant. This is the boundary that
 // makes multi-tenancy real rather than cosmetic.
 func TestTenantIsolation(t *testing.T) {
-	s := testServer(t)
+	s := proxyServer(t)
 	h := s.Handler()
 
 	rec := httptest.NewRecorder()
@@ -161,6 +175,34 @@ func TestApproveWithoutPendingIsConflict(t *testing.T) {
 		}
 	}
 	t.Log("approval channel accepted both; acceptable given buffering")
+}
+
+// With auth.mode = none, a caller cannot pick its own tenant by header.
+// Trusting headers by default would be an authentication bypass.
+func TestHeadersIgnoredWhenAuthModeIsNone(t *testing.T) {
+	s := testServer(t)
+	h := s.Handler()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/sessions", strings.NewReader(`{"prompt":"x"}`))
+	req.Header.Set("X-Titan-Tenant", "attacker-chosen")
+	req.Header.Set("X-Titan-User", "impersonated")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("create failed: %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/v1/sessions", nil)
+	req.Header.Set("X-Titan-Tenant", "attacker-chosen")
+	h.ServeHTTP(rec, req)
+	var list []sessionSummary
+	json.Unmarshal(rec.Body.Bytes(), &list)
+	for _, s := range list {
+		if s.Tenant == "attacker-chosen" || s.User == "impersonated" {
+			t.Fatal("headers were honoured in auth.mode=none — authentication bypass")
+		}
+	}
 }
 
 func TestUnknownSessionIs404(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
@@ -49,6 +50,8 @@ type Options struct {
 	Logger    *slog.Logger
 	// Store defaults to an in-memory store when nil.
 	Store EventStore
+	// Auth verifies callers. Nil means the mode from Config is used.
+	Auth *auth.Middleware
 }
 
 // Server holds live sessions and serves the API.
@@ -120,7 +123,27 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/health", s.health)
 	mux.HandleFunc("GET /", s.serveConsole)
 
-	return s.withMiddleware(mux)
+	// Order matters and is easy to get backwards: authentication must run
+	// BEFORE the layer that reads the identity, so it wraps closest to the
+	// outside. An inverted order silently yields anonymous identities.
+	var handler http.Handler = mux
+	if s.opts.Config.Auth.RequireGroup != "" {
+		handler = auth.RequireGroup(s.opts.Config.Auth.RequireGroup, handler)
+	}
+	handler = s.withMiddleware(handler)     // reads identity, logs
+	return s.authMiddleware().Wrap(handler) // establishes identity
+}
+
+// authMiddleware builds the identity layer from config unless one was injected.
+func (s *Server) authMiddleware() auth.Middleware {
+	if s.opts.Auth != nil {
+		return *s.opts.Auth
+	}
+	mw := auth.Middleware{PublicPaths: []string{"/v1/health", "/"}}
+	if s.opts.Config.Auth.Mode == "proxy" {
+		mw.TrustHeaders = true
+	}
+	return mw
 }
 
 // withMiddleware applies identity and logging. Authentication is delegated to
@@ -130,13 +153,13 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		user := r.Header.Get("X-Titan-User")
-		if user == "" {
-			user = "anonymous"
-		}
-		tenant := r.Header.Get("X-Titan-Tenant")
-		if tenant == "" {
-			tenant = "default"
+		// Identity comes from the auth layer, which has already verified it.
+		user, tenant := "anonymous", "default"
+		if id, ok := auth.FromContext(r.Context()); ok {
+			user, tenant = id.Subject, id.Tenant
+			if id.Email != "" {
+				user = id.Email
+			}
 		}
 		ctx := context.WithValue(r.Context(), ctxUser, user)
 		ctx = context.WithValue(ctx, ctxTenant, tenant)

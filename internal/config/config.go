@@ -22,6 +22,7 @@ type Config struct {
 	MCP         MCPConfig         `json:"mcp"`
 	Retrieval   RetrievalConfig   `json:"retrieval"`
 	Storage     StorageConfig     `json:"storage"`
+	Auth        AuthConfig        `json:"auth"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -54,6 +55,20 @@ type PermissionsConfig struct {
 type ContextConfig struct {
 	CompactAt   float64  `json:"compact_at"`
 	MemoryFiles []string `json:"memory_files"`
+}
+
+// AuthConfig controls how callers are identified. Default is "none", which is
+// single-tenant local development. Production should use "oidc"; "proxy" is
+// only safe when a trusted proxy is the sole route to the port.
+type AuthConfig struct {
+	Mode        string `json:"mode"` // none | proxy | oidc
+	Issuer      string `json:"issuer,omitempty"`
+	Audience    string `json:"audience,omitempty"`
+	JWKSURL     string `json:"jwks_url,omitempty"`
+	TenantClaim string `json:"tenant_claim,omitempty"`
+	GroupsClaim string `json:"groups_claim,omitempty"`
+	// RequireGroup gates all access on membership, above tenancy.
+	RequireGroup string `json:"require_group,omitempty"`
 }
 
 // StorageConfig selects the event store. Memory is fine for a CLI session;
@@ -156,6 +171,7 @@ func Default() Config {
 			MaxSubagents: 20, NestedSubagents: false,
 		},
 		Storage: StorageConfig{Driver: "memory", Tenant: "default", MaxConns: 10},
+		Auth:    AuthConfig{Mode: "none"},
 		Sandbox: SandboxConfig{
 			MinTier:      "process",
 			AllowNetwork: false,
@@ -274,6 +290,14 @@ func (c Config) Validate() error {
 	}
 	if c.Context.CompactAt <= 0 || c.Context.CompactAt > 1 {
 		return fmt.Errorf("context.compact_at must be between 0 and 1, got %v", c.Context.CompactAt)
+	}
+	switch c.Auth.Mode {
+	case "none", "proxy", "oidc", "":
+	default:
+		return fmt.Errorf("unknown auth.mode %q (want none, proxy or oidc)", c.Auth.Mode)
+	}
+	if c.Auth.Mode == "oidc" && c.Auth.Issuer == "" {
+		return fmt.Errorf("auth.mode is oidc but auth.issuer is not set")
 	}
 	switch c.Storage.Driver {
 	case "memory", "postgres", "":
