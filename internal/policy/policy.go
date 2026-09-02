@@ -205,6 +205,12 @@ func (e *Engine) Evaluate(tool string, mutates bool, args json.RawMessage) Resul
 		if !mutates {
 			return Result{Allow, "read-only tool in auto mode", ""}
 		}
+		// Auto mode approves in-workspace file mutations; the destructive-command
+		// and deny checks above still stand, so the dangerous cases never reach
+		// here. bash keeps asking because its blast radius is unbounded.
+		if tool == "edit" || tool == "write" {
+			return Result{Allow, "file edit auto-approved in auto mode", ""}
+		}
 	}
 
 	// 5. Allow rules.
