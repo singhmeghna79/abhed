@@ -23,6 +23,7 @@ type Config struct {
 	Model       ModelConfig       `json:"model"`
 	Permissions PermissionsConfig `json:"permissions"`
 	Context     ContextConfig     `json:"context"`
+	RAG         RAGConfig         `json:"rag,omitempty"`
 	Limits      LimitsConfig      `json:"limits"`
 	Sandbox     SandboxConfig     `json:"sandbox"`
 	MCP         MCPConfig         `json:"mcp"`
@@ -154,6 +155,37 @@ type RetrievalConfig struct {
 	EmbedDims    int    `json:"embed_dims,omitempty"`
 }
 
+// RAGConfig registers external retrieval corpora. Each becomes a rag_<name>
+// tool. Empty by default: reaching a corpus is a network egress and an
+// authorization decision, not something a default should make.
+type RAGConfig struct {
+	Corpora []RAGCorpusConfig `json:"corpora,omitempty"`
+}
+
+type RAGCorpusConfig struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url"`
+	Method      string `json:"method,omitempty"`
+
+	Headers    map[string]string `json:"headers,omitempty"`
+	HeadersEnv map[string]string `json:"headers_env,omitempty"`
+
+	QueryField string         `json:"query_field,omitempty"`
+	QueryParam string         `json:"query_param,omitempty"`
+	TopKField  string         `json:"top_k_field,omitempty"`
+	TopK       int            `json:"top_k,omitempty"`
+	Body       map[string]any `json:"body,omitempty"`
+
+	ResultsPath string `json:"results_path,omitempty"`
+	TextField   string `json:"text_field,omitempty"`
+	SourceField string `json:"source_field,omitempty"`
+	TitleField  string `json:"title_field,omitempty"`
+	ScoreField  string `json:"score_field,omitempty"`
+
+	Enabled bool `json:"enabled"`
+}
+
 // MCPConfig registers Model Context Protocol servers. A server not listed here
 // does not run: discovery does not imply trust (docs §03 T4).
 type MCPConfig struct {
@@ -161,13 +193,21 @@ type MCPConfig struct {
 }
 
 type MCPServerConfig struct {
-	Name       string   `json:"name"`
-	Command    string   `json:"command"`
-	Args       []string `json:"args,omitempty"`
-	Env        []string `json:"env,omitempty"`
-	Enabled    bool     `json:"enabled"`
-	AllowTools []string `json:"allow_tools,omitempty"`
-	Digest     string   `json:"digest,omitempty"`
+	Name string `json:"name"`
+	// Command spawns the server locally; URL reaches one that already runs.
+	// Exactly one of the two.
+	Command string   `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+	Env     []string `json:"env,omitempty"`
+	URL     string   `json:"url,omitempty"`
+	// Headers are sent on every request to a URL server. Prefer headers_env
+	// for anything secret: it names an environment variable to read instead
+	// of putting the credential in a file the agent itself can read.
+	Headers    map[string]string `json:"headers,omitempty"`
+	HeadersEnv map[string]string `json:"headers_env,omitempty"`
+	Enabled    bool              `json:"enabled"`
+	AllowTools []string          `json:"allow_tools,omitempty"`
+	Digest     string            `json:"digest,omitempty"`
 }
 
 // SandboxConfig controls execution isolation. Defaults deny egress, because a

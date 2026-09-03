@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -17,10 +18,20 @@ import (
 // A server not in the registry does not run. Discovery does not imply trust,
 // which is the whole point of an enterprise gateway (docs §03 §5).
 type ServerConfig struct {
-	Name    string   `json:"name"`
-	Command string   `json:"command"`
+	Name string `json:"name"`
+	// Command runs the server as a subprocess (stdio transport).
+	Command string   `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
 	Env     []string `json:"env,omitempty"`
+	// URL connects to a server that already runs somewhere else. Mutually
+	// exclusive with Command: a server is either spawned or reached, and
+	// accepting both would leave which one wins to chance.
+	URL string `json:"url,omitempty"`
+	// Headers are sent on every request to a URL server, for bearer tokens
+	// and the like. HeadersEnv reads a value from the environment instead, so
+	// a credential need not sit in a config file.
+	Headers    map[string]string `json:"headers,omitempty"`
+	HeadersEnv map[string]string `json:"headers_env,omitempty"`
 	// Enabled is false by default so adding a server to config is not the same
 	// as authorizing it.
 	Enabled bool `json:"enabled"`
@@ -60,14 +71,37 @@ func (g *Gateway) Connect(ctx context.Context, configs []ServerConfig) []error {
 }
 
 func (g *Gateway) connectOne(ctx context.Context, cfg ServerConfig) error {
-	if cfg.Command == "" {
-		return fmt.Errorf("no command configured")
-	}
 	if !validServerName.MatchString(cfg.Name) {
 		return fmt.Errorf("invalid server name %q (letters, digits, _ and - only)", cfg.Name)
 	}
+	if cfg.Command == "" && cfg.URL == "" {
+		return fmt.Errorf("no command or url configured")
+	}
+	if cfg.Command != "" && cfg.URL != "" {
+		return fmt.Errorf("set either command or url, not both: " +
+			"a server is spawned or reached, and which one wins should not be chance")
+	}
 
-	transport, err := NewStdioTransport(ctx, cfg.Command, cfg.Args, cfg.Env)
+	var transport Transport
+	var err error
+	if cfg.URL != "" {
+		headers := map[string]string{}
+		for k, v := range cfg.Headers {
+			headers[k] = v
+		}
+		// Environment-sourced headers win, so a config file can name the
+		// header without carrying the secret.
+		for k, envVar := range cfg.HeadersEnv {
+			if v := os.Getenv(envVar); v != "" {
+				headers[k] = v
+			} else {
+				return fmt.Errorf("header %s: environment variable %s is not set", k, envVar)
+			}
+		}
+		transport, err = NewHTTPTransport(ctx, HTTPConfig{URL: cfg.URL, Headers: headers})
+	} else {
+		transport, err = NewStdioTransport(ctx, cfg.Command, cfg.Args, cfg.Env)
+	}
 	if err != nil {
 		return err
 	}

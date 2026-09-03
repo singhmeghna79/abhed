@@ -31,6 +31,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/titan/internal/rag"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
 	"github.com/yuvrajsingh/titan/internal/server"
 	"github.com/yuvrajsingh/titan/internal/store"
@@ -170,6 +171,9 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		registry.Add(t)
 	}
 
+	for _, t := range buildRAG(cfg) {
+		registry.Add(t)
+	}
 	if t, err := buildWebSearch(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
 	} else if t != nil {
@@ -684,6 +688,9 @@ func serveCmd(workspace, addr string) int {
 			}
 			closeFn()
 		}
+	}
+	for _, t := range buildRAG(cfg) {
+		registry.Add(t)
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
@@ -1303,6 +1310,7 @@ func mcpConfigs(cfg config.Config) []mcp.ServerConfig {
 	for _, s := range cfg.MCP.Servers {
 		out = append(out, mcp.ServerConfig{
 			Name: s.Name, Command: s.Command, Args: s.Args, Env: s.Env,
+			URL: s.URL, Headers: s.Headers, HeadersEnv: s.HeadersEnv,
 			Enabled: s.Enabled, AllowTools: s.AllowTools, Digest: s.Digest,
 		})
 	}
@@ -1402,6 +1410,49 @@ func grantDirs(sess *tools.Session, cfg config.Config, flagDirs string) error {
 		}
 	}
 	return nil
+}
+
+// buildRAG constructs a tool per enabled corpus. A corpus that cannot be
+// configured is reported and skipped rather than failing startup: one broken
+// endpoint should not take the whole agent down.
+func buildRAG(cfg config.Config) []tools.Tool {
+	var out []tools.Tool
+	for _, c := range cfg.RAG.Corpora {
+		if !c.Enabled {
+			continue
+		}
+		headers := map[string]string{}
+		for k, v := range c.Headers {
+			headers[k] = v
+		}
+		for k, envVar := range c.HeadersEnv {
+			if v := os.Getenv(envVar); v != "" {
+				headers[k] = v
+			} else {
+				fmt.Fprintf(os.Stderr,
+					"titan: rag corpus %q needs %s in the environment; skipping\n",
+					c.Name, envVar)
+				headers = nil
+				break
+			}
+		}
+		if headers == nil {
+			continue
+		}
+		r, err := rag.New(rag.Config{
+			Name: c.Name, Description: c.Description, URL: c.URL, Method: c.Method,
+			Headers: headers, QueryField: c.QueryField, QueryParam: c.QueryParam,
+			TopKField: c.TopKField, TopK: c.TopK, Body: c.Body,
+			ResultsPath: c.ResultsPath, TextField: c.TextField,
+			SourceField: c.SourceField, TitleField: c.TitleField, ScoreField: c.ScoreField,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "titan: rag corpus %q: %v\n", c.Name, err)
+			continue
+		}
+		out = append(out, &rag.Tool{R: r})
+	}
+	return out
 }
 
 func buildAdapter(p config.ProviderConfig) model.Adapter {
