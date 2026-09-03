@@ -129,7 +129,16 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /login", lg.Start)
 		mux.HandleFunc("GET /auth/callback", lg.Callback)
 		mux.HandleFunc("GET /logout", lg.Logout)
+		mux.HandleFunc("GET /switch-user", lg.ForceReauth)
 		mux.HandleFunc("GET /v1/whoami", lg.Whoami)
+	} else {
+		// Sign-in is not configured. These routes still answer, because a 404
+		// leaves the console unable to tell "no auth here" from "the server is
+		// broken" — and a user who clicks Sign out deserves an explanation
+		// rather than a Go 404 page.
+		mux.HandleFunc("GET /v1/whoami", s.whoamiDisabled)
+		mux.HandleFunc("GET /login", s.authDisabledPage)
+		mux.HandleFunc("GET /logout", s.authDisabledPage)
 	}
 	mux.HandleFunc("GET /", s.serveConsole)
 
@@ -594,6 +603,24 @@ func (s *Server) approveAction(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusConflict, "no approval is pending for this session")
 	}
+}
+
+// whoamiDisabled reports that this deployment runs without authentication.
+// The console uses it to decide whether to show a user chip at all.
+func (s *Server) whoamiDisabled(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"authenticated": false,
+		"auth_mode":     orDefaultStr(s.opts.Config.Auth.Mode, "none"),
+		"reason":        "authentication is not configured on this server",
+	})
+}
+
+// authDisabledPage explains why /login and /logout do nothing here, and how to
+// turn them on. A bare 404 reads as a bug; this reads as a setting.
+func (s *Server) authDisabledPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(authDisabledHTML))
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {

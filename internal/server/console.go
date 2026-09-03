@@ -319,6 +319,8 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   <div class="stat">active <b id="active">0</b></div>
   <div class="stat" id="whobox" hidden>
     <span class="who-chip" id="who"></span>
+    <a class="ghost" id="switchuser" href="/switch-user"
+       title="Sign in as a different user">Switch</a>
     <a class="ghost" id="signout" href="/logout">Sign out</a>
   </div>
 </div>
@@ -844,14 +846,23 @@ $('stop').onclick = async () => {
 // Show who is signed in when authentication is configured. A 401 simply means
 // this deployment runs without it, which is a valid single-tenant setup.
 async function whoami(){
-  try{
-    const me = await api('/v1/whoami');
-    if(!me.authenticated) return;
-    $('who').textContent = me.email || me.name || me.subject;
-    $('who').title = 'tenant ' + me.tenant +
-      (me.groups && me.groups.length ? ' · ' + me.groups.join(', ') : '');
-    $('whobox').hidden = false;
-  }catch{}
+  let me = null;
+  try{ me = await api('/v1/whoami'); }catch{}
+
+  if(!me || !me.authenticated){
+    // No signed-in user. REMOVE the chip rather than hiding it: a hidden
+    // control is still in the document, and a Sign out link that leads
+    // nowhere is worse than no link at all. This is what produced a 404
+    // when auth was never configured.
+    const box = $('whobox');
+    if(box && box.parentNode) box.parentNode.removeChild(box);
+    return;
+  }
+
+  $('who').textContent = me.email || me.name || me.subject;
+  $('who').title = 'tenant ' + me.tenant +
+    (me.groups && me.groups.length ? ' · ' + me.groups.join(', ') : '');
+  $('whobox').hidden = false;
 }
 
 // A first-run console that only says "ask something" teaches nothing. These
@@ -915,3 +926,50 @@ setInterval(refresh, 5000);
 </script>
 </body>
 </html>`, "\x00", "")
+
+// authDisabledHTML is shown when someone reaches /login or /logout on a server
+// running without authentication. It says what is true and what to change,
+// rather than leaving a 404 that looks like a fault.
+const authDisabledHTML = `<!doctype html><meta charset="utf-8">
+<title>Sign-in not configured</title>
+<style>
+:root{color-scheme:light dark}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0B0E13;
+  color:#E8EDF4;font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+@media (prefers-color-scheme:light){body{background:#F5F7FA;color:#0F141B}}
+.card{max-width:520px;padding:30px 34px;border-radius:12px;background:#141922;
+  border:1px solid #252D3A}
+@media (prefers-color-scheme:light){.card{background:#fff;border-color:#DCE3EC}}
+h1{margin:0 0 10px;font-size:17px;display:flex;align-items:center;gap:9px}
+svg{width:19px;height:19px;fill:#4C8FD6}
+p{margin:0 0 12px;color:#8A96A8}
+pre{background:#0F141C;border:1px solid #252D3A;border-radius:7px;padding:12px 14px;
+  font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#BAC6D4;overflow-x:auto}
+@media (prefers-color-scheme:light){pre{background:#EDF1F6;border-color:#DCE3EC;color:#3A4757}}
+a{color:#4C8FD6}
+</style>
+<div class="card">
+  <h1><svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="3" y="3" width="18" height="3" rx="1"/>
+    <rect x="9" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
+    <rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>
+    <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
+    <rect x="3" y="18" width="18" height="3" rx="1"/></svg>
+    Sign-in is not configured</h1>
+  <p>This Titan server runs with <code>auth.mode: none</code> — a single-tenant
+     setup with no user accounts, so there is nobody to sign in or out as.</p>
+  <p>To enable sign-in, add an identity provider to your config:</p>
+  <pre>{
+  "auth": {
+    "mode": "oidc",
+    "issuer": "https://idp.internal/realms/engineering",
+    "audience": "titan",
+    "client_id": "titan-console",
+    "client_secret_env": "TITAN_OIDC_SECRET",
+    "redirect_url": "http://localhost:8420/auth/callback",
+    "tenant_claim": "org_id"
+  }
+}</pre>
+  <p>See <code>docs/ops/enabling-auth.md</code> for per-provider settings.</p>
+  <p><a href="/">← Back to Titan</a></p>
+</div>`

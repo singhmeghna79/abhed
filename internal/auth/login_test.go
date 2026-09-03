@@ -301,3 +301,72 @@ func TestWhoamiReportsSignedOut(t *testing.T) {
 		t.Fatalf("body should say authenticated:false, got %v", body)
 	}
 }
+
+// Clearing the local cookie is not enough to switch users: the IdP still holds
+// its own session, so "sign in" returns the same person without a prompt.
+// RP-initiated logout needs client_id, and post_logout_redirect_uri when one
+// is configured — providers ignore the request otherwise.
+func TestLogoutEndsTheIdPSession(t *testing.T) {
+	idp := newMockIDP(t)
+	v, _ := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "titan"})
+	l, err := NewLogin(LoginConfig{
+		Issuer: idp.srv.URL, ClientID: "titan-console",
+		RedirectURL:   "http://localhost:8420/auth/callback",
+		PostLogoutURL: "http://localhost:8420/",
+	}, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rec := httptest.NewRecorder()
+	l.Logout(rec, httptest.NewRequest("GET", "/logout", nil))
+	if rec.Code != http.StatusFound {
+		t.Fatalf("logout should redirect to the IdP, got %d", rec.Code)
+	}
+
+	loc, err := url.Parse(rec.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(loc.Path, "logout") {
+		t.Fatalf("logout did not reach the end_session endpoint: %s", loc)
+	}
+	q := loc.Query()
+	if q.Get("client_id") != "titan-console" {
+		t.Error("client_id missing — providers ignore logout without it")
+	}
+	if q.Get("post_logout_redirect_uri") != "http://localhost:8420/" {
+		t.Error("post_logout_redirect_uri missing — the user is stranded at the IdP")
+	}
+}
+
+// Switching users needs prompt=login: without it the IdP silently re-approves
+// the existing session and the "different user" is the same user.
+func TestSwitchUserForcesReauthentication(t *testing.T) {
+	idp := newMockIDP(t)
+	l := newLogin(t, idp)
+
+	rec := httptest.NewRecorder()
+	l.ForceReauth(rec, httptest.NewRequest("GET", "/switch-user", nil))
+	loc, _ := url.Parse(rec.Header().Get("Location"))
+	if got := loc.Query().Get("prompt"); got != "login" {
+		t.Fatalf("prompt=login missing (got %q) — the IdP will not re-ask for credentials", got)
+	}
+	// PKCE and state must still be present on the forced path.
+	if loc.Query().Get("code_challenge") == "" || loc.Query().Get("state") == "" {
+		t.Fatal("switch-user dropped PKCE or state")
+	}
+}
+
+// An arbitrary prompt value must not be forwarded to the IdP.
+func TestPromptParameterIsAllowlisted(t *testing.T) {
+	idp := newMockIDP(t)
+	l := newLogin(t, idp)
+
+	rec := httptest.NewRecorder()
+	l.Start(rec, httptest.NewRequest("GET", "/login?prompt=evil", nil))
+	loc, _ := url.Parse(rec.Header().Get("Location"))
+	if loc.Query().Get("prompt") != "" {
+		t.Fatalf("unrecognised prompt value was forwarded: %q", loc.Query().Get("prompt"))
+	}
+}

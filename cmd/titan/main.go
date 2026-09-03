@@ -885,13 +885,14 @@ func buildAuth(cfg config.Config) (*auth.Middleware, error) {
 			}
 			ttl := time.Duration(cfg.Auth.SessionHours) * time.Hour
 			lg, err := auth.NewLogin(auth.LoginConfig{
-				Issuer:       cfg.Auth.Issuer,
-				ClientID:     cfg.Auth.ClientID,
-				ClientSecret: secret,
-				RedirectURL:  cfg.Auth.RedirectURL,
-				Scopes:       cfg.Auth.Scopes,
-				Secure:       cfg.Auth.CookieSecure,
-				SessionTTL:   ttl,
+				Issuer:        cfg.Auth.Issuer,
+				ClientID:      cfg.Auth.ClientID,
+				ClientSecret:  secret,
+				RedirectURL:   cfg.Auth.RedirectURL,
+				PostLogoutURL: cfg.Auth.PostLogoutURL,
+				Scopes:        cfg.Auth.Scopes,
+				Secure:        cfg.Auth.CookieSecure,
+				SessionTTL:    ttl,
 			}, v)
 			if err != nil {
 				return nil, fmt.Errorf("browser sign-in setup failed: %w", err)

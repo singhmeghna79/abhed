@@ -40,7 +40,10 @@ type LoginConfig struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURL  string
-	Scopes       []string
+	// PostLogoutURL is where the IdP returns after ending its session.
+	// Providers require it to be pre-registered.
+	PostLogoutURL string
+	Scopes        []string
 	// Endpoints overrides discovery.
 	Endpoints *Endpoints
 	// CookieName holds the browser session. Defaults to titan_session.
@@ -182,6 +185,13 @@ func (l *Login) Start(w http.ResponseWriter, r *http.Request) {
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
 	}
+	// prompt=login forces a credential prompt even when the IdP has an active
+	// session, which is the only way to switch users. prompt=select_account
+	// offers a chooser where the provider supports one.
+	if p := r.URL.Query().Get("prompt"); p == "login" || p == "select_account" ||
+		p == "consent" || p == "none" {
+		q.Set("prompt", p)
+	}
 	http.Redirect(w, r, l.eps.Authorization+"?"+q.Encode(), http.StatusFound)
 }
 
@@ -305,11 +315,38 @@ func (l *Login) Logout(w http.ResponseWriter, r *http.Request) {
 		Name: l.cfg.CookieName, Value: "", Path: "/",
 		HttpOnly: true, Secure: l.cfg.Secure, MaxAge: -1,
 	})
+	// Ending the LOCAL session is not enough to switch users. The IdP still
+	// holds its own session, so clicking "sign in" again returns the same
+	// person without a prompt — which reads as logout being broken.
+	//
+	// RP-initiated logout needs post_logout_redirect_uri, and providers ignore
+	// it unless client_id is present too. Without both, Keycloak and Entra
+	// return the user straight back still authenticated.
 	if l.eps.EndSession != "" {
-		http.Redirect(w, r, l.eps.EndSession, http.StatusFound)
+		q := url.Values{"client_id": {l.cfg.ClientID}}
+		if l.cfg.PostLogoutURL != "" {
+			q.Set("post_logout_redirect_uri", l.cfg.PostLogoutURL)
+		}
+		sep := "?"
+		if strings.Contains(l.eps.EndSession, "?") {
+			sep = "&"
+		}
+		http.Redirect(w, r, l.eps.EndSession+sep+q.Encode(), http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// ForceReauth sends the user to the IdP with prompt=login, so they are asked
+// for credentials even if the provider still has them signed in.
+//
+// This is what "sign in as someone else" actually needs: logout clears Titan's
+// session, but only prompt=login makes the IdP stop auto-approving.
+func (l *Login) ForceReauth(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	q.Set("prompt", "login")
+	r.URL.RawQuery = q.Encode()
+	l.Start(w, r)
 }
 
 // FromCookie resolves a browser session to an identity.

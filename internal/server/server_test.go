@@ -278,3 +278,41 @@ func TestSSEFramesAreUnnamed(t *testing.T) {
 		t.Fatal("SSE frames have no id — reconnect cannot resume")
 	}
 }
+
+// With auth off, /login, /logout and /v1/whoami must still answer. A 404
+// leaves the console unable to distinguish "no auth here" from "server
+// broken", and a user who clicks Sign out gets a Go error page.
+func TestAuthRoutesAnswerWhenAuthIsDisabled(t *testing.T) {
+	s := testServer(t) // config default is auth.mode "none"
+	h := s.Handler()
+
+	for _, path := range []string{"/login", "/logout"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s returned %d; it should explain that auth is off", path, rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "not configured") {
+			t.Errorf("%s should say why it does nothing", path)
+		}
+		// The explanation must show how to fix it, not just state the problem.
+		if !strings.Contains(rec.Body.String(), "auth") ||
+			!strings.Contains(rec.Body.String(), "issuer") {
+			t.Errorf("%s should show the config needed to enable sign-in", path)
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/v1/whoami", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/v1/whoami returned %d; it should report the state, not 404", rec.Code)
+	}
+	var body map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["authenticated"] != false {
+		t.Fatalf("expected authenticated:false, got %v", body)
+	}
+	if body["reason"] == nil {
+		t.Error("whoami should say WHY there is no user")
+	}
+}

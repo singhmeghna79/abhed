@@ -73,11 +73,15 @@ type AuthConfig struct {
 
 	// Browser sign-in. Without these, OIDC still validates bearer tokens for
 	// API clients, but a person opening the console has no way to sign in.
-	ClientID        string   `json:"client_id,omitempty"`
-	ClientSecret    string   `json:"client_secret,omitempty"`
-	ClientSecretEnv string   `json:"client_secret_env,omitempty"`
-	RedirectURL     string   `json:"redirect_url,omitempty"`
-	Scopes          []string `json:"scopes,omitempty"`
+	ClientID        string `json:"client_id,omitempty"`
+	ClientSecret    string `json:"client_secret,omitempty"`
+	ClientSecretEnv string `json:"client_secret_env,omitempty"`
+	RedirectURL     string `json:"redirect_url,omitempty"`
+	// PostLogoutURL is where the IdP returns after ending its own session.
+	// Providers require it to be pre-registered, and ignore RP-initiated
+	// logout without it — which leaves the user still signed in.
+	PostLogoutURL string   `json:"post_logout_redirect_url,omitempty"`
+	Scopes        []string `json:"scopes,omitempty"`
 	// CookieSecure should be true anywhere but local HTTP development.
 	CookieSecure bool `json:"cookie_secure,omitempty"`
 	SessionHours int  `json:"session_hours,omitempty"`

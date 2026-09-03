@@ -68,6 +68,48 @@ browser URL bar is precisely what PKCE exists to protect, and it costs one hash.
 | Expired browser session refuses | `TestExpiredSessionRejected` |
 | Logout clears server-side state | `TestLogoutClearsSession` |
 
+## Signing in as a different user
+
+Clearing Titan's session is not enough. The IdP keeps its own session, so
+clicking "sign in" again silently returns the same person — which reads as
+logout being broken.
+
+Two controls, and they differ:
+
+| Route | Effect |
+|---|---|
+| `/logout` | Ends Titan's session **and** the IdP's, then returns to `post_logout_redirect_url` |
+| `/switch-user` | Sends `prompt=login`, forcing a credential prompt even with an active IdP session |
+
+Both appear in the console header once someone is signed in.
+
+**`post_logout_redirect_url` must be pre-registered with your provider.**
+Keycloak, Entra and Auth0 all ignore an RP-initiated logout whose redirect they
+do not recognise, leaving the user stranded at the IdP or still signed in.
+
+```json
+{
+  "auth": {
+    "mode": "oidc",
+    "redirect_url": "https://titan.internal/auth/callback",
+    "post_logout_redirect_url": "https://titan.internal/"
+  }
+}
+```
+
+Only `login`, `select_account`, `consent` and `none` are forwarded as `prompt`
+values; anything else in the query string is dropped rather than passed to the
+provider.
+
+## When authentication is off
+
+With `auth.mode: none` there are no user accounts, so `/login` and `/logout`
+return a page explaining that and showing the config to enable sign-in — rather
+than a 404, which reads as a fault. `/v1/whoami` answers
+`{"authenticated": false, "reason": "..."}`, and the console removes the user
+chip entirely rather than hiding it: a Sign out link that leads nowhere is worse
+than no link.
+
 ## API clients
 
 Bearer tokens work unchanged, and take precedence over a cookie:
