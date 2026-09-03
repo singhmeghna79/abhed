@@ -23,7 +23,10 @@ func (Read) Name() string  { return "read" }
 func (Read) Mutates() bool { return false }
 
 func (Read) Description() string {
-	return "Read a file from the filesystem. Returns numbered lines. Prefer this over `cat` via bash — output is bounded, numbered, and the read is tracked for edit safety."
+	return "Read a file from the filesystem. Returns numbered lines. Prefer this over `cat` via bash — output is bounded, numbered, and the read is tracked for edit safety. " +
+		"Handles PDF, Word (.docx), PowerPoint (.pptx) and Excel (.xlsx) directly: " +
+		"pass the path and the text is extracted for you. Do NOT use unzip, " +
+		"pdftotext or similar via bash for these — read handles them."
 }
 
 func (Read) Schema() json.RawMessage {
@@ -73,16 +76,38 @@ func (r Read) Run(_ context.Context, s *Session, raw json.RawMessage) Result {
 		return errf("Cannot read %s: %v", a.Path, err)
 	}
 
+	// Documents come before the binary check: a PDF or .docx IS binary on
+	// disk, but it is a document a person expects the agent to read.
+	var extracted DocumentKind
+	if kind := DetectKind(data, path); kind != KindPlain {
+		text, err := ExtractText(data, kind)
+		if err != nil {
+			return errf("Cannot read %s as a %s document: %v", a.Path, kind, err)
+		}
+		data = []byte(text)
+		extracted = kind
+	}
+
 	if isBinary(data) {
 		return errf("%s appears to be a binary file (%d bytes). Titan does not read binary content; use bash with an appropriate tool if you need to inspect it.", a.Path, len(data))
 	}
 
 	content := string(data)
-	// Track the full content, not the returned window: edit safety depends on
-	// knowing what the model saw of the actual file.
-	s.MarkRead(path, content)
+	if extracted == KindPlain {
+		// Track the full content, not the returned window: edit safety depends
+		// on knowing what the model saw of the actual file.
+		s.MarkRead(path, content)
+	}
+	// Extracted documents are deliberately NOT marked read. MarkRead exists so
+	// edit can verify the file has not changed since the model saw it, and it
+	// hashes what was read — for a PDF that is the extracted text, not the
+	// bytes on disk. Recording it would let edit believe it had seen a file it
+	// has never seen, and write over a binary document with plain text.
 
 	if content == "" {
+		if extracted != KindPlain {
+			return ok("[%s contains no extractable text: %s]", extracted, a.Path)
+		}
 		return ok("[file exists but is empty: %s]", a.Path)
 	}
 

@@ -130,6 +130,23 @@ button,select,textarea,input{font:inherit;color:inherit}
 
 /* ---------------------------------------------------------------- composer */
 .composer{padding:11px;border-bottom:1px solid var(--line);flex:none}
+
+/* Attachments. The chips sit above the controls so a queued file is visible
+   while you type the question about it. */
+.attach{display:flex;align-items:center;justify-content:center;width:28px;height:28px;
+  background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--muted);cursor:pointer;flex:none;transition:border-color .14s,color .14s}
+.attach:hover{border-color:var(--accent);color:var(--accent)}
+.files{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px 8px}
+.files:empty{display:none}
+.chipf{display:inline-flex;align-items:center;gap:6px;max-width:100%;
+  background:var(--sunken);border:1px solid var(--line);border-radius:6px;
+  padding:3px 8px;font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+.chipf.busy{opacity:.6}
+.chipf.bad{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chipf b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chipf .x{cursor:pointer;color:var(--muted);font-size:13px;line-height:1}
+.chipf .x:hover{color:var(--warn)}
 .new{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
   background:var(--sunken);border:1px solid var(--line);border-radius:7px;
   padding:8px 12px;font-size:12.5px;font-weight:550;cursor:pointer;color:var(--ink);
@@ -370,7 +387,16 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     <div class="dock">
       <div class="dockwrap">
         <textarea id="q" rows="1" placeholder="Ask anything, or describe a change…"></textarea>
+        <div class="files" id="files"></div>
         <div class="dockrow">
+          <input type="file" id="file" multiple hidden>
+          <button class="attach" id="attach" type="button" title="Attach a document">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round"
+                d="M10.5 5.5 6 10a1.8 1.8 0 0 0 2.5 2.5l4.5-4.5a3.4 3.4 0 0 0-4.8-4.8L3.4 8.5a5 5 0 0 0 7 7l3.6-3.6"/>
+            </svg>
+          </button>
           <select id="mode" title="Permission mode">
             <option value="default">default</option>
             <option value="plan">plan</option>
@@ -744,20 +770,29 @@ $('go').onclick = send;
 // distinction is what makes "now add a test for it" resolve against what came
 // before, instead of starting a fresh conversation each time.
 async function send(){
-  const prompt = $('q').value.trim();
-  if(!prompt) return;
+  let prompt = $('q').value.trim();
+  // A message that is only attachments is a reasonable thing to send: the
+  // question is implied by the file.
+  if(!prompt && !pending.length) return;
   $('go').disabled = true;
   try{
     if(current && !live){
+      // Uploads need a session to belong to, which this turn already has.
+      const paths = await flushUploads(current);
       await api('/v1/sessions/' + current + '/messages',
-        {method:'POST', body: JSON.stringify({prompt})});
+        {method:'POST', body: JSON.stringify({prompt: withFiles(prompt, paths)})});
       $('q').value = ''; autogrow();
       live = true;
       showThinking('waiting for the model');
       if(!es) connect(current);
     }else{
+      // Files are staged before the session exists, so the first message
+      // already names them. Creating a placeholder session to hold them
+      // instead meant the UI opened its event stream on a turn that
+      // immediately ended, and the real answer never rendered.
+      const paths = await flushUploads(null);
       const r = await api('/v1/sessions',
-        {method:'POST', body: JSON.stringify({prompt, mode: $('mode').value})});
+        {method:'POST', body: JSON.stringify({prompt: withFiles(prompt, paths), mode: $('mode').value})});
       $('q').value = ''; autogrow();
       openSession(r.session_id);
       showThinking('waiting for the model');
@@ -770,10 +805,92 @@ async function send(){
   }
 }
 
+// ---------------------------------------------------------------- attachments
+//
+// Files are uploaded when the message is sent, not when they are picked: a
+// file chosen and then removed should never have touched the server.
+let pending = [];   // {file, name, note}
+
+function renderFiles(){
+  const box = $('files');
+  box.textContent = '';
+  pending.forEach((p, i) => {
+    const chip = node('chipf', '');
+    if(p.note) chip.classList.add('bad');
+    const b = document.createElement('b');
+    b.textContent = p.name;
+    chip.appendChild(b);
+    if(p.note){
+      const n = document.createElement('span');
+      n.textContent = p.note;
+      chip.appendChild(n);
+    }
+    const x = document.createElement('span');
+    x.className = 'x'; x.textContent = '×';
+    x.title = 'Remove';
+    x.onclick = () => { pending.splice(i, 1); renderFiles(); };
+    chip.appendChild(x);
+    box.appendChild(chip);
+  });
+}
+
+// flushUploads sends every queued file and returns the paths the agent can
+// read. A null session id stages the files, for a chat that does not exist yet.
+async function flushUploads(sessionID){
+  const paths = [];
+  const url = sessionID ? '/v1/sessions/' + sessionID + '/upload' : '/v1/uploads';
+  for(const p of pending){
+    if(p.note){
+      throw new Error(p.name + ' was not sent: ' + p.note);
+    }
+    const fd = new FormData();
+    fd.append('file', p.file, p.name);
+    const r = await fetch(url, {method:'POST', body: fd});
+    const body = await r.json();
+    if(!r.ok){
+      throw new Error('upload failed for ' + p.name + ': ' + (body.error || r.status));
+    }
+    paths.push(body);
+  }
+  pending = [];
+  renderFiles();
+  return paths;
+}
+
+// withFiles names the uploaded paths in the prompt. The agent reads them with
+// the ordinary read tool, so there is no second route for untrusted bytes into
+// the context — the file is data the agent chooses to open, like any other.
+function withFiles(prompt, uploaded){
+  if(!uploaded.length) return prompt;
+  const lines = uploaded.map(u => {
+    let s = '- ' + u.path;
+    if(u.kind) s += ' (' + u.kind + ')';
+    if(u.note) s += ' — note: ' + u.note;
+    return s;
+  });
+  const header = uploaded.length === 1 ? 'Attached file:' : 'Attached files:';
+  return (prompt ? prompt + '\n\n' : 'Read the attached file(s).\n\n') +
+         header + '\n' + lines.join('\n');
+}
+
+
+
+$('attach').onclick = () => $('file').click();
+$('file').onchange = e => {
+  for(const f of e.target.files){
+    // Refuse oversize files here rather than after a slow upload.
+    const note = f.size > 32 * 1024 * 1024 ? 'too large (32 MB limit)' : '';
+    pending.push({file: f, name: f.name, note});
+  }
+  e.target.value = '';   // so the same file can be picked again
+  renderFiles();
+};
+
 $('new').onclick = () => {
   if(es){ es.close(); es = null; }
   current = null; live = false; lastSeq = 0; turnEl = null;
   calls.clear();
+  pending = []; renderFiles();
   Object.assign(stats, {turns:0, tin:0, tout:0, cached:0, tools:{}, reason:null, compactions:0});
   $('sid').textContent = 'new chat';
   $('stop').hidden = true;

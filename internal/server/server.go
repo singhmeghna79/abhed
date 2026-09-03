@@ -121,6 +121,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sessions/{id}/events", s.streamEvents)
 	mux.HandleFunc("GET /v1/sessions/{id}/replay", s.replaySession)
 	mux.HandleFunc("POST /v1/sessions/{id}/messages", s.postMessage)
+	mux.HandleFunc("POST /v1/sessions/{id}/upload", s.uploadFile)
+	// Uploading before a session exists: see uploadFile for why a placeholder
+	// session was the wrong answer.
+	mux.HandleFunc("POST /v1/uploads", s.uploadFile)
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
 	mux.HandleFunc("POST /v1/sessions/{id}/approve", s.approveAction)
 	mux.HandleFunc("GET /v1/health", s.health)
