@@ -14,6 +14,12 @@ import (
 )
 
 type Config struct {
+	// AdditionalDirs are directories the agent may reach beyond the workspace
+	// root it was started in. Set by the operator — from config or --add-dir —
+	// and never by the model: see tools.Session.Roots for why the boundary
+	// itself is not negotiable.
+	AdditionalDirs []string `json:"additional_dirs,omitempty"`
+
 	Model       ModelConfig       `json:"model"`
 	Permissions PermissionsConfig `json:"permissions"`
 	Context     ContextConfig     `json:"context"`

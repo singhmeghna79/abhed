@@ -47,6 +47,7 @@ func main() {
 		mode       = flag.String("mode", "", "permission mode: default|accept-edits|plan|auto|bypass")
 		modelID    = flag.String("model", "", "provider name from config")
 		workdir    = flag.String("C", "", "workspace directory (default: current)")
+		addDirs    = flag.String("add-dir", "", "comma-separated extra directories the agent may read and write")
 		maxTurns   = flag.Int("max-turns", 0, "override the turn limit")
 		format     = flag.String("output-format", "text", "text|json")
 		allow      = flag.String("allow", "", "comma-separated allow rules, e.g. 'bash(go test*)'")
@@ -95,10 +96,10 @@ func main() {
 		os.Exit(serveCmd(workspace, *serveAddr))
 	}
 
-	os.Exit(run(workspace, *prompt, *mode, *modelID, *maxTurns, *format, *allow, *deny))
+	os.Exit(run(workspace, *prompt, *mode, *modelID, *maxTurns, *format, *allow, *deny, *addDirs))
 }
 
-func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, allowFlag, denyFlag string) int {
+func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, allowFlag, denyFlag, addDirs string) int {
 	cfg, err := config.Load(workspace)
 	if err != nil {
 		fail(err)
@@ -121,6 +122,9 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	adapter := buildAdapter(provider)
 	sess, err := tools.NewSession(workspace)
 	if err != nil {
+		fail(err)
+	}
+	if err := grantDirs(sess, cfg, addDirs); err != nil {
 		fail(err)
 	}
 
@@ -1384,6 +1388,20 @@ func buildSandbox(cfg config.Config, workspace string) (sandbox.Sandbox, error) 
 		p.MaxProcs = cfg.Sandbox.MaxProcs
 	}
 	return sandbox.Select(p)
+}
+
+// grantDirs widens the session's reachable set from config and the --add-dir
+// flag. Both are operator input: nothing the model says reaches this, which is
+// the whole point of the boundary.
+func grantDirs(sess *tools.Session, cfg config.Config, flagDirs string) error {
+	dirs := append([]string{}, cfg.AdditionalDirs...)
+	dirs = append(dirs, splitRules(flagDirs)...)
+	for _, d := range dirs {
+		if err := sess.AddRoot(d); err != nil {
+			return fmt.Errorf("--add-dir: %w", err)
+		}
+	}
+	return nil
 }
 
 func buildAdapter(p config.ProviderConfig) model.Adapter {

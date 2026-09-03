@@ -314,6 +314,17 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// Extra roots come from the operator's config, applied to every session.
+	// A refusal here is a misconfiguration, not a per-request problem: fail
+	// the session rather than silently running with a narrower scope than the
+	// operator asked for.
+	for _, dir := range s.opts.Config.AdditionalDirs {
+		if err := sess.AddRoot(dir); err != nil {
+			writeError(w, http.StatusInternalServerError,
+				"additional_dirs: "+err.Error())
+			return
+		}
+	}
 
 	mode := s.opts.Config.Permissions.Mode
 	if req.Mode != "" {

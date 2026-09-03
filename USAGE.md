@@ -338,6 +338,50 @@ and superusers bypass it.
 
 ---
 
+## 5b. Which files Titan can reach
+
+Titan is scoped to the directory it was started in. Everything under it is
+reachable; nothing outside it is. This is the boundary that stops an agent
+which has read an attacker-influenced file — a dependency's README, a search
+result, an issue comment — from reaching `~/.ssh`, `~/.aws`, or a sibling
+project it was never asked to touch.
+
+The model cannot lift it by asking. Only you can, in one of two ways:
+
+**Start Titan where the work is.** Usually the right answer:
+
+```bash
+titan -C ~/src/my-project
+```
+
+**Grant an extra directory.** For work that genuinely spans two trees — porting
+a change between checkouts, reading a shared library alongside the service that
+uses it:
+
+```bash
+titan -C ~/src/service --add-dir ~/src/shared-lib
+titan -C ~/src/service --add-dir ~/src/lib-a,~/src/lib-b   # comma-separated
+```
+
+Or in `.titan/config.json`, which the server also reads:
+
+```json
+{ "additional_dirs": ["/srv/shared-lib"] }
+```
+
+`/` and your home directory are refused. Granting either puts credentials, SSH
+keys and browser profiles in reach of anything the agent reads, which is not a
+thing to do by accident — name the project directory instead.
+
+When a path is refused, the message names the reachable roots and how to widen
+them, so the model stops retrying and you know what to change:
+
+```
+/Users/you/other/repo is outside this session's workspace.
+Reachable: /private/tmp/titan-test. Do not retry; ask the user to restart
+Titan in that directory (titan -C <dir>) or grant it with --add-dir <dir>
+```
+
 ## 6. Security
 
 ### Sandbox tiers

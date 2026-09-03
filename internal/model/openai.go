@@ -211,11 +211,14 @@ func (c *OpenAICompatible) Complete(ctx context.Context, req Request) (<-chan Ch
 	}
 
 	out := make(chan Chunk, 64)
-	go c.stream(ctx, resp.Body, out)
+	go c.stream(ctx, resp.Body, out, req.Tools)
 	return out, nil
 }
 
-func (c *OpenAICompatible) stream(ctx context.Context, body io.ReadCloser, out chan<- Chunk) {
+// offered is the tool set from the request, used only to validate a tool
+// call recovered from prose — see salvage.go.
+func (c *OpenAICompatible) stream(ctx context.Context, body io.ReadCloser,
+	out chan<- Chunk, offered []ToolDef) {
 	defer close(out)
 	defer body.Close()
 
@@ -227,6 +230,9 @@ func (c *OpenAICompatible) stream(ctx context.Context, body io.ReadCloser, out c
 	}
 	calls := map[int]*pending{}
 	var order []int
+	// Buffered visible text, kept so a tool call the model wrote as prose can
+	// be recovered when the stream ends with no structured call.
+	var visible strings.Builder
 
 	inReasoning := false
 	var usage Usage
@@ -292,6 +298,10 @@ func (c *OpenAICompatible) stream(ctx context.Context, body io.ReadCloser, out c
 				out <- Chunk{Type: ChunkReasoning, Text: reasoning}
 			}
 			if emit != "" {
+				// Buffer alongside emitting: if the stream ends with no
+				// structured tool call, this text is the only place a
+				// text-encoded one can be recovered from.
+				visible.WriteString(emit)
 				out <- Chunk{Type: ChunkText, Text: emit}
 			}
 		}
@@ -322,6 +332,17 @@ func (c *OpenAICompatible) stream(ctx context.Context, body io.ReadCloser, out c
 	if err := scanner.Err(); err != nil {
 		out <- Chunk{Type: ChunkError, Err: fmt.Errorf("read stream: %w", err)}
 		return
+	}
+
+	// A model that wrote its tool call as prose leaves the loop with nothing
+	// to dispatch, and the session ends silently after one turn. Recover the
+	// call rather than stalling; see salvage.go for why this is conservative.
+	if len(order) == 0 {
+		if tc, found := salvageToolCall(visible.String(), offered); found {
+			out <- Chunk{Type: ChunkToolCall, ToolCall: &tc}
+			out <- Chunk{Type: ChunkDone, StopReason: "tool_use", Usage: &usage}
+			return
+		}
 	}
 
 	for _, idx := range order {

@@ -13,8 +13,27 @@ import (
 // Session carries the per-session state tools need: the workspace root that
 // scopes all filesystem access, and the read-tracking that makes editing safe.
 type Session struct {
-	Root string // absolute workspace root; nothing outside it is reachable
+	Root string // absolute workspace root
 	Cwd  string // persists across bash calls (shell state does not)
+
+	// rawRoot and rawRoots hold the roots before symlink resolution, used
+	// only by the lexical traversal check. See lexicalRoots.
+	rawRoot  string
+	rawRoots []string
+
+	// Roots are additional directories the agent may reach, beyond Root.
+	//
+	// The scoping boundary exists so that a prompt-injected agent cannot read
+	// your SSH keys or write outside the work at hand, and it must not be
+	// removable by asking — a model that can talk its way out of the sandbox
+	// has no sandbox. But a single root is too rigid for real work: an agent
+	// asked to port a change between two checkouts, or to read a shared
+	// library alongside the service using it, genuinely needs both.
+	//
+	// So the boundary stays absolute and the OPERATOR moves it: extra roots
+	// come from config or the command line, never from the model. Each is
+	// symlink-resolved at construction for the same reason Root is.
+	Roots []string
 
 	// Checkpoint records a file's content immediately before the agent changes
 	// it, backing /undo. Set by the caller; nil disables checkpointing.
@@ -51,7 +70,83 @@ func NewSession(root string) (*Session, error) {
 	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
 		abs = resolved
 	}
-	return &Session{Root: abs, Cwd: abs, reads: make(map[string]string)}, nil
+	raw, _ := filepath.Abs(root)
+	return &Session{Root: abs, Cwd: abs, rawRoot: filepath.Clean(raw),
+		reads: make(map[string]string)}, nil
+}
+
+// AddRoot grants access to another directory. Called from config or a CLI
+// flag at startup; there is deliberately no tool that reaches this.
+func (s *Session) AddRoot(dir string) error {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", dir, err)
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = resolved
+	} else {
+		return fmt.Errorf("%s: %w", dir, err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return fmt.Errorf("%s: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", dir)
+	}
+	// Refuse roots that would defeat the boundary entirely. Granting "/" or a
+	// home directory is almost never what someone means, and it silently puts
+	// credentials, SSH keys and browser profiles in reach of any injected
+	// instruction in a file the agent reads.
+	if abs == "/" {
+		return fmt.Errorf("refusing to add / as a workspace root: " +
+			"that removes the boundary entirely. Add the specific project directory")
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if resolved, err := filepath.EvalSymlinks(home); err == nil {
+			home = resolved
+		}
+		if abs == home {
+			return fmt.Errorf("refusing to add your home directory as a workspace "+
+				"root: it puts ~/.ssh, ~/.aws and browser profiles in reach of "+
+				"anything the agent reads. Add the project directory instead (%s/...)", home)
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, existing := range s.Roots {
+		if existing == abs {
+			return nil
+		}
+	}
+	s.Roots = append(s.Roots, abs)
+	if raw, err := filepath.Abs(dir); err == nil {
+		s.rawRoots = append(s.rawRoots, filepath.Clean(raw))
+	}
+	return nil
+}
+
+// allowedRoots returns every directory this session may reach.
+func (s *Session) allowedRoots() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.Roots)+1)
+	out = append(out, s.Root)
+	return append(out, s.Roots...)
+}
+
+// within reports whether an absolute, cleaned path sits inside any root.
+func within(path string, roots []string) bool {
+	for _, root := range roots {
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			continue
+		}
+		if rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // Resolve validates a model-supplied path and returns its absolute form.
@@ -69,16 +164,16 @@ func (s *Session) Resolve(path string) (string, error) {
 	}
 
 	clean := filepath.Clean(path)
+	roots := s.allowedRoots()
 
-	// Compare against the symlink-resolved root. We resolve the deepest
+	// Compare against the symlink-resolved roots. We resolve the deepest
 	// existing ancestor so that a path to a not-yet-created file still gets
 	// checked against its real parent directory.
 	check := clean
 	for {
 		if resolved, err := filepath.EvalSymlinks(check); err == nil {
-			rel, err := filepath.Rel(s.Root, resolved)
-			if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-				return "", fmt.Errorf("%s is outside the session workspace (%s). Access denied", path, s.Root)
+			if !within(resolved, roots) {
+				return "", s.denied(path, roots)
 			}
 			break
 		}
@@ -89,12 +184,40 @@ func (s *Session) Resolve(path string) (string, error) {
 		check = parent
 	}
 
-	// Also check the lexical path, to catch traversal on paths that do not exist.
-	rel, err := filepath.Rel(s.Root, clean)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("%s is outside the session workspace (%s). Access denied", path, s.Root)
+	// Also check the lexical path, to catch traversal on paths that do not
+	// exist. Compare against the UNRESOLVED roots as well: on macOS /var is a
+	// symlink to /private/var, so a caller naming a path under /var would fail
+	// this check against the resolved root even though the resolved comparison
+	// above already accepted it.
+	if !within(clean, roots) && !within(clean, s.lexicalRoots()) {
+		return "", s.denied(path, roots)
 	}
 	return clean, nil
+}
+
+// lexicalRoots returns the roots as given, before symlink resolution, so the
+// lexical traversal check does not reject a path that names a symlinked
+// ancestor (/var vs /private/var on macOS).
+func (s *Session) lexicalRoots() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.rawRoots)+1)
+	if s.rawRoot != "" {
+		out = append(out, s.rawRoot)
+	}
+	return append(out, s.rawRoots...)
+}
+
+// denied explains the refusal and, importantly, how to lift it. A bare
+// "access denied" sent the model into rephrasing the same call: it cannot tell
+// a permanent boundary from a transient error, so it retries. Naming the
+// operator action ends that loop, and tells the person reading the transcript
+// what to actually do.
+func (s *Session) denied(path string, roots []string) error {
+	return fmt.Errorf("%s is outside this session's workspace. Reachable: %s. "+
+		"Do not retry; ask the user to restart Titan in that directory "+
+		"(titan -C <dir>) or grant it with --add-dir <dir>",
+		path, strings.Join(roots, ", "))
 }
 
 // MarkRead records that a file was read, with a hash of what was seen.
