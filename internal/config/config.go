@@ -24,6 +24,7 @@ type Config struct {
 	Permissions PermissionsConfig `json:"permissions"`
 	Context     ContextConfig     `json:"context"`
 	RAG         RAGConfig         `json:"rag,omitempty"`
+	Skills      SkillsConfig      `json:"skills,omitempty"`
 	K8s         K8sConfig         `json:"k8s,omitempty"`
 	SSH         SSHConfig         `json:"ssh,omitempty"`
 	Limits      LimitsConfig      `json:"limits"`
@@ -155,6 +156,20 @@ type RetrievalConfig struct {
 	EmbedBaseURL string `json:"embed_base_url,omitempty"`
 	EmbedModel   string `json:"embed_model,omitempty"`
 	EmbedDims    int    `json:"embed_dims,omitempty"`
+}
+
+// SkillsConfig points at directories holding skills.
+//
+// Deliberately NOT the workspace: a skill body is instructions by
+// construction, so reading them from the repository the agent is editing would
+// let any cloned project carry its own orders to the agent reading it. Skills
+// come from where the operator put them.
+type SkillsConfig struct {
+	// Dirs each contain one directory per skill, holding a SKILL.md.
+	// Defaults to ~/.titan/skills when unset.
+	Dirs []string `json:"dirs,omitempty"`
+	// Disabled turns skills off entirely, including the default directory.
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // K8sConfig enables cluster access. Off by default: reaching a cluster is an

@@ -111,6 +111,10 @@ type BuildOptions struct {
 	Model         string
 	ContextWindow int
 	MemoryFiles   []string // discovered TITAN.md paths, in precedence order
+	// Skills is the rendered skill listing: names and one-line descriptions
+	// only. Bodies are fetched by the skill tool, so twenty skills cost about
+	// three hundred tokens here rather than twenty thousand.
+	Skills string
 }
 
 // BuildSystemPrompt assembles layers 1-4 in order, keeping everything stable so
@@ -147,6 +151,13 @@ func BuildSystemPrompt(opts BuildOptions) string {
 			fmt.Fprintf(&b, " · Context window: %d tokens", opts.ContextWindow)
 		}
 		b.WriteString("\n")
+	}
+
+	// Skills sit before project memory and after the environment: stable
+	// across a session, so they stay inside the cacheable prefix.
+	if opts.Skills != "" {
+		b.WriteString("\n")
+		b.WriteString(opts.Skills)
 	}
 
 	for _, path := range opts.MemoryFiles {

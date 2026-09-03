@@ -36,6 +36,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/remote"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
 	"github.com/yuvrajsingh/titan/internal/server"
+	"github.com/yuvrajsingh/titan/internal/skills"
 	"github.com/yuvrajsingh/titan/internal/store"
 	"github.com/yuvrajsingh/titan/internal/tools"
 	"github.com/yuvrajsingh/titan/internal/ui"
@@ -179,6 +180,10 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	for _, t := range buildInfra(cfg) {
 		registry.Add(t)
 	}
+	skillReg, skillListing := buildSkills(cfg)
+	if skillReg.Len() > 0 {
+		registry.Add(skills.Tool{R: skillReg})
+	}
 	if t, err := buildWebSearch(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
 	} else if t != nil {
@@ -200,6 +205,7 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		Model:         provider.Model,
 		ContextWindow: provider.ContextWindow,
 		MemoryFiles:   agent.DiscoverMemoryFiles(workspace),
+		Skills:        skillListing,
 	})
 
 	loopCfg := agent.DefaultConfig()
@@ -737,6 +743,10 @@ func serveCmd(workspace, addr string) int {
 	for _, t := range buildInfra(cfg) {
 		registry.Add(t)
 	}
+	skillReg, skillListing := buildSkills(cfg)
+	if skillReg.Len() > 0 {
+		registry.Add(skills.Tool{R: skillReg})
+	}
 	if t, err := buildWebSearch(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
 	} else if t != nil {
@@ -762,13 +772,14 @@ func serveCmd(workspace, addr string) int {
 	}
 
 	srv := server.New(server.Options{
-		Addr:      addr,
-		Workspace: workspace,
-		Config:    cfg,
-		Adapter:   buildAdapter(provider),
-		Registry:  registry,
-		Store:     eventStore,
-		Auth:      authMW,
+		Addr:         addr,
+		Workspace:    workspace,
+		Config:       cfg,
+		Adapter:      buildAdapter(provider),
+		Registry:     registry,
+		SkillListing: skillListing,
+		Store:        eventStore,
+		Auth:         authMW,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -1457,6 +1468,24 @@ func grantDirs(sess *tools.Session, cfg config.Config, flagDirs string) error {
 	return nil
 }
 
+// buildSkills loads the configured skill directories and returns the registry
+// plus its prompt listing. Errors are reported and survivable: one malformed
+// SKILL.md should not stop the agent starting.
+func buildSkills(cfg config.Config) (*skills.Registry, string) {
+	if cfg.Skills.Disabled {
+		return skills.NewRegistry(), ""
+	}
+	dirs := cfg.Skills.Dirs
+	if len(dirs) == 0 {
+		dirs = []string{"~/.titan/skills"}
+	}
+	reg, errs := skills.Load(dirs)
+	for _, err := range errs {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+	}
+	return reg, reg.Listing()
+}
+
 // buildInfra constructs the cluster and remote-host tools. Both are off by
 // default and both report why they are unavailable rather than silently
 // registering nothing.
@@ -1602,6 +1631,10 @@ func doctor(workspace string) int {
 		}
 	}
 	fmt.Printf("web search  %s\n", webSearchLabel(cfg))
+	if reg, _ := buildSkills(cfg); reg.Len() > 0 {
+		fmt.Printf("skills      %d loaded: %s\n", reg.Len(),
+			strings.Join(reg.Names(), ", "))
+	}
 	if cfg.K8s.Enabled {
 		writes := "read-only"
 		if cfg.K8s.AllowWrites {

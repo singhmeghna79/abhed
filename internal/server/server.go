@@ -47,7 +47,11 @@ type Options struct {
 	Config    config.Config
 	Adapter   model.Adapter
 	Registry  *tools.Registry
-	Logger    *slog.Logger
+	// SkillListing is the rendered skill index for the system prompt. The
+	// server takes the rendered string rather than the registry, because the
+	// registry's only other use is the tool, which is already in Registry.
+	SkillListing string
+	Logger       *slog.Logger
 	// Store defaults to an in-memory store when nil.
 	Store EventStore
 	// Auth verifies callers. Nil means the mode from Config is used.
@@ -353,6 +357,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		Model:         s.opts.Adapter.Profile().Name,
 		ContextWindow: s.opts.Adapter.Profile().ContextWindow,
 		MemoryFiles:   agent.DiscoverMemoryFiles(s.opts.Workspace),
+		Skills:        s.opts.SkillListing,
 	})
 	cfg.MaxTurns = s.opts.Config.Limits.MaxTurns
 
