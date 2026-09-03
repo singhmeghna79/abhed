@@ -40,6 +40,9 @@ type Middleware struct {
 	// Login resolves a browser session cookie. Set when interactive sign-in is
 	// configured; a bearer token still takes precedence for API clients.
 	Login *Login
+	// Local resolves a username/password session, for deployments with no
+	// external identity provider.
+	Local *LocalAuth
 	// PublicPaths bypass authentication (health checks, the console shell).
 	PublicPaths []string
 }
@@ -55,6 +58,22 @@ func (m Middleware) Wrap(next http.Handler) http.Handler {
 					&Identity{Subject: "anonymous", Tenant: "default"})))
 				return
 			}
+		}
+
+		// Local accounts are checked first when configured: they are the whole
+		// authentication mechanism in that mode, not a fallback.
+		if m.Local != nil {
+			if id, ok := m.Local.FromCookie(r); ok {
+				next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(), id)))
+				return
+			}
+			if wantsHTML(r) {
+				http.Redirect(w, r, "/?next="+url.QueryEscape(r.URL.RequestURI()),
+					http.StatusFound)
+				return
+			}
+			unauthorized(w, "sign in required")
+			return
 		}
 
 		if m.Verifier != nil {

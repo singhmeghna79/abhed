@@ -124,14 +124,42 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
 	mux.HandleFunc("POST /v1/sessions/{id}/approve", s.approveAction)
 	mux.HandleFunc("GET /v1/health", s.health)
-	if s.opts.Auth != nil && s.opts.Auth.Login != nil {
-		lg := s.opts.Auth.Login
-		mux.HandleFunc("GET /login", lg.Start)
-		mux.HandleFunc("GET /auth/callback", lg.Callback)
-		mux.HandleFunc("GET /logout", lg.Logout)
-		mux.HandleFunc("GET /switch-user", lg.ForceReauth)
-		mux.HandleFunc("GET /v1/whoami", lg.Whoami)
-	} else {
+	// Local accounts and an OIDC provider are not mutually exclusive: a
+	// deployment that wants "sign in with a password OR with Google" runs
+	// both, so each registers only the routes it owns.
+	local := s.localAuth()
+	oidc := (*auth.Login)(nil)
+	if s.opts.Auth != nil {
+		oidc = s.opts.Auth.Login
+	}
+	switch {
+	case local != nil:
+		mux.HandleFunc("POST /v1/signin", local.SignIn)
+		mux.HandleFunc("POST /v1/password", local.ChangePasswordHandler)
+		if s.opts.Config.Auth.AllowSignup {
+			mux.HandleFunc("POST /v1/signup", s.signup)
+		}
+		if oidc != nil {
+			// Both enabled: OIDC keeps its own entry points, and sign-out
+			// has to clear whichever session the browser actually holds.
+			mux.HandleFunc("GET /login", oidc.Start)
+			mux.HandleFunc("GET /auth/callback", oidc.Callback)
+			mux.HandleFunc("GET /switch-user", oidc.ForceReauth)
+			mux.HandleFunc("GET /logout", s.signOutBoth)
+			mux.HandleFunc("GET /v1/whoami", s.whoamiEither)
+		} else {
+			mux.HandleFunc("GET /logout", local.SignOut)
+			mux.HandleFunc("GET /v1/whoami", local.Whoami)
+			// There is no external IdP to redirect to; the form is on "/".
+			mux.HandleFunc("GET /login", s.redirectHome)
+		}
+	case oidc != nil:
+		mux.HandleFunc("GET /login", oidc.Start)
+		mux.HandleFunc("GET /auth/callback", oidc.Callback)
+		mux.HandleFunc("GET /logout", oidc.Logout)
+		mux.HandleFunc("GET /switch-user", oidc.ForceReauth)
+		mux.HandleFunc("GET /v1/whoami", oidc.Whoami)
+	default:
 		// Sign-in is not configured. These routes still answer, because a 404
 		// leaves the console unable to tell "no auth here" from "the server is
 		// broken" — and a user who clicks Sign out deserves an explanation
@@ -160,8 +188,11 @@ func (s *Server) authMiddleware() auth.Middleware {
 	if s.opts.Auth != nil {
 		return *s.opts.Auth
 	}
+	// Sign-in itself must be reachable without being signed in, or the only
+	// way in is barred by the thing it unlocks.
 	mw := auth.Middleware{PublicPaths: []string{
-		"/", "/v1/health", "/v1/overview", "/login", "/auth/callback", "/logout"}}
+		"/", "/v1/health", "/v1/overview", "/login", "/auth/callback", "/logout",
+		"/v1/signin", "/v1/signup", "/v1/whoami"}}
 	if s.opts.Config.Auth.Mode == "proxy" {
 		mw.TrustHeaders = true
 	}
@@ -607,6 +638,77 @@ func (s *Server) approveAction(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// localAuth returns the local-account handler, or nil when this deployment
+// does not hold passwords itself.
+func (s *Server) localAuth() *auth.LocalAuth {
+	if s.opts.Auth == nil {
+		return nil
+	}
+	return s.opts.Auth.Local
+}
+
+// redirectHome sends /login to the front door, which is where the sign-in form
+// lives when Titan holds the accounts.
+func (s *Server) redirectHome(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// signOutBoth clears whichever session the browser is holding. With both auth
+// modes enabled we cannot know which one signed this user in, and clearing the
+// wrong one leaves them still signed in after clicking Sign out.
+func (s *Server) signOutBoth(w http.ResponseWriter, r *http.Request) {
+	if local := s.localAuth(); local != nil {
+		if _, found := local.FromCookie(r); found {
+			local.SignOut(w, r)
+			return
+		}
+	}
+	s.opts.Auth.Login.Logout(w, r)
+}
+
+// whoamiEither answers for whichever session exists.
+func (s *Server) whoamiEither(w http.ResponseWriter, r *http.Request) {
+	if local := s.localAuth(); local != nil {
+		if _, found := local.FromCookie(r); found {
+			local.Whoami(w, r)
+			return
+		}
+	}
+	s.opts.Auth.Login.Whoami(w, r)
+}
+
+// signup creates an account from the sign-in page. Off unless a deployment
+// explicitly opts in: on an internal tool, open registration is a way in for
+// anyone who can reach the port, not a convenience.
+func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
+	local := s.localAuth()
+	if local == nil || !s.opts.Config.Auth.AllowSignup {
+		writeJSON(w, http.StatusForbidden, map[string]string{
+			"error": "self-registration is disabled"})
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "invalid request"})
+		return
+	}
+	u := auth.User{
+		Username: req.Username, Email: req.Email, Name: req.Name,
+		Tenant: orDefaultStr(s.opts.Config.Auth.DefaultTenant, "default"),
+	}
+	if err := local.CreateUser(r.Context(), u, req.Password); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 // whoamiDisabled reports that this deployment runs without authentication.
 // The console uses it to decide whether to show a user chip at all.
 func (s *Server) whoamiDisabled(w http.ResponseWriter, r *http.Request) {
@@ -648,16 +750,21 @@ func (s *Server) serveLanding(w http.ResponseWriter, r *http.Request) {
 // about THIS deployment, so the page describes the instance in front of you
 // rather than a product in the abstract.
 type overviewResponse struct {
-	Model         string   `json:"model"`
-	ContextWindow int      `json:"context_window"`
-	Workspace     string   `json:"workspace"`
-	Sandbox       string   `json:"sandbox"`
-	SandboxNet    bool     `json:"sandbox_network"`
-	Storage       string   `json:"storage"`
-	Durable       bool     `json:"durable"`
-	AuthMode      string   `json:"auth_mode"`
-	SignInURL     string   `json:"sign_in_url,omitempty"`
-	Authenticated bool     `json:"authenticated"`
+	Model         string `json:"model"`
+	ContextWindow int    `json:"context_window"`
+	Workspace     string `json:"workspace"`
+	Sandbox       string `json:"sandbox"`
+	SandboxNet    bool   `json:"sandbox_network"`
+	Storage       string `json:"storage"`
+	Durable       bool   `json:"durable"`
+	AuthMode      string `json:"auth_mode"`
+	SignInURL     string `json:"sign_in_url,omitempty"`
+	Authenticated bool   `json:"authenticated"`
+	// LocalAuth tells the landing page to render a username/password form
+	// rather than a redirect button.
+	LocalAuth     bool     `json:"local_auth"`
+	AllowSignup   bool     `json:"allow_signup"`
+	ProviderLabel string   `json:"provider_label,omitempty"`
 	User          string   `json:"user,omitempty"`
 	Tenant        string   `json:"tenant,omitempty"`
 	WebSearch     string   `json:"web_search"`
@@ -699,9 +806,19 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sign-in only matters when there is somewhere to sign in TO.
+	if local := s.localAuth(); local != nil {
+		o.LocalAuth = true
+		o.AllowSignup = cfg.Auth.AllowSignup
+		if id, found := local.FromCookie(r); found {
+			o.Authenticated = true
+			o.User = orDefaultStr(id.Email, id.Subject)
+			o.Tenant = id.Tenant
+		}
+	}
 	if s.opts.Auth != nil && s.opts.Auth.Login != nil {
 		o.SignInURL = "/login?return=%2Fconsole"
-		if id, ok := s.opts.Auth.Login.FromCookie(r); ok {
+		o.ProviderLabel = auth.ProviderLabel(cfg.Auth.Provider, cfg.Auth.Issuer)
+		if id, found := s.opts.Auth.Login.FromCookie(r); found {
 			o.Authenticated = true
 			o.User = orDefaultStr(id.Email, id.Subject)
 			o.Tenant = id.Tenant

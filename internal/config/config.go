@@ -62,12 +62,23 @@ type ContextConfig struct {
 // single-tenant local development. Production should use "oidc"; "proxy" is
 // only safe when a trusted proxy is the sole route to the port.
 type AuthConfig struct {
-	Mode        string `json:"mode"` // none | proxy | oidc
-	Issuer      string `json:"issuer,omitempty"`
-	Audience    string `json:"audience,omitempty"`
-	JWKSURL     string `json:"jwks_url,omitempty"`
-	TenantClaim string `json:"tenant_claim,omitempty"`
-	GroupsClaim string `json:"groups_claim,omitempty"`
+	// Mode is none | local | proxy | oidc.
+	//   local — Titan holds the accounts: email and password, no external IdP
+	//   oidc  — delegate to an identity provider, including Google/Microsoft
+	Mode string `json:"mode"`
+	// Provider fills in issuer, scopes and tenant claim for a known IdP:
+	// "google" for Gmail, "microsoft" for Outlook.
+	Provider string `json:"provider,omitempty"`
+	// AllowSignup lets anyone create a local account. Off by default: an
+	// open signup on an internal tool is rarely what an operator intends.
+	AllowSignup bool `json:"allow_signup,omitempty"`
+	// DefaultTenant is assigned to accounts created without one.
+	DefaultTenant string `json:"default_tenant,omitempty"`
+	Issuer        string `json:"issuer,omitempty"`
+	Audience      string `json:"audience,omitempty"`
+	JWKSURL       string `json:"jwks_url,omitempty"`
+	TenantClaim   string `json:"tenant_claim,omitempty"`
+	GroupsClaim   string `json:"groups_claim,omitempty"`
 	// RequireGroup gates all access on membership, above tenancy.
 	RequireGroup string `json:"require_group,omitempty"`
 
@@ -175,10 +186,15 @@ func Default() Config {
 			Default: "local",
 			Providers: map[string]ProviderConfig{
 				"local": {
-					Type:          "openai-compatible",
-					BaseURL:       "http://localhost:11434/v1", // Ollama's default
-					Model:         "qwen2.5-coder:7b",
-					ContextWindow: 32768,
+					Type:    "openai-compatible",
+					BaseURL: "http://localhost:11434/v1", // Ollama's default
+					// qwen3-coder:30b, not the smaller 7b: `titan doctor`
+					// rejects qwen2.5-coder:7b because it emits tool calls as
+					// prose instead of structured calls, which the loop cannot
+					// dispatch. Shipping a default that fails our own
+					// readiness check is worse than shipping a larger one.
+					Model:         "qwen3-coder:30b",
+					ContextWindow: 65536,
 				},
 			},
 		},
@@ -330,12 +346,13 @@ func (c Config) Validate() error {
 		return fmt.Errorf("context.compact_at must be between 0 and 1, got %v", c.Context.CompactAt)
 	}
 	switch c.Auth.Mode {
-	case "none", "proxy", "oidc", "":
+	case "none", "proxy", "oidc", "local", "":
 	default:
-		return fmt.Errorf("unknown auth.mode %q (want none, proxy or oidc)", c.Auth.Mode)
+		return fmt.Errorf("unknown auth.mode %q (want none, local, proxy or oidc)", c.Auth.Mode)
 	}
-	if c.Auth.Mode == "oidc" && c.Auth.Issuer == "" {
-		return fmt.Errorf("auth.mode is oidc but auth.issuer is not set")
+	if c.Auth.Mode == "oidc" && c.Auth.Issuer == "" && c.Auth.Provider == "" {
+		return fmt.Errorf("auth.mode is oidc but neither auth.issuer nor " +
+			"auth.provider (google, microsoft) is set")
 	}
 	switch strings.ToLower(c.WebSearch.Provider) {
 	case "", "duckduckgo", "ddg", "brave", "tavily", "serper", "searxng":

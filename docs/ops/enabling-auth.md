@@ -1,16 +1,106 @@
 # Titan — Enabling Authentication
 
-Three modes. Pick by how Titan is exposed, not by how much security sounds good.
+Four modes. Pick by how Titan is exposed, not by how much security sounds good.
 
 | Mode | Who it is for | Identity comes from |
 |---|---|---|
 | `none` | Local development, single user | Nobody — everything is "anonymous/default" |
+| `local` | A team with no identity provider | A username and password Titan holds |
 | `proxy` | Behind an authenticating reverse proxy | `X-Titan-User` / `X-Titan-Tenant` headers |
-| `oidc` | Titan exposed directly to people | A verified token, or a browser sign-in |
+| `oidc` | An organisation with an IdP | A verified token, or a browser sign-in |
+
+`local` and `oidc` are **not exclusive**. Set `mode: "local"` and also give a
+`provider` and `client_id`, and the sign-in page offers both: a password form
+for people who are not in the corporate directory, and a "Continue with
+Google/Microsoft" button for those who are.
 
 **Headers are not trusted unless you ask for it.** In `none` mode a caller cannot
 choose its own tenant by setting a header — there is a test asserting exactly that.
 `proxy` mode is safe only when the proxy is the *sole* route to the port.
+
+## Local accounts (no identity provider)
+
+The mode for a pilot, an air-gapped enclave, or a team standing Titan up before
+central IT is involved.
+
+```json
+{
+  "auth": {
+    "mode": "local",
+    "session_hours": 12,
+    "cookie_secure": true,
+    "allow_signup": false
+  },
+  "storage": { "driver": "postgres", "dsn": "postgres://..." }
+}
+```
+
+Create the first account from the CLI:
+
+```bash
+titan -C /srv/titan user add alice -email alice@corp.internal -name "Alice"
+# generated password: 7Kq2mVx9pLd4  (change it after first sign-in)
+```
+
+Then open the server in a browser and sign in with it.
+
+| Command | Does |
+|---|---|
+| `titan user add <name>` | Create an account. `-password` sets one; omitted, one is generated |
+| `titan user list` | Show accounts, emails, tenants and groups |
+| `titan user passwd <name>` | Reset a forgotten password to a new generated one |
+| `titan user remove <name>` | Delete an account |
+
+### Where accounts live
+
+With `storage.driver: postgres`, accounts are a table in the same database as
+the event store, which is what a multi-node deployment needs. Without it, they
+go to `<workspace>/.titan/users.json`, mode `0600`, written atomically.
+
+The file store exists because the alternative was silently broken: an in-memory
+store meant `titan user add` created an account inside a CLI process that then
+exited, reported success, and left the user unable to sign in.
+
+### Self-registration
+
+`allow_signup` is **off by default**. On an internal tool, open registration is
+a way in for anyone who can reach the port, not a convenience. Turn it on and
+the sign-in card grows a "Create one" link; leave it off and the card says
+accounts are created by an administrator, which is true and actionable.
+
+### Password handling
+
+- bcrypt at the library default cost. Sign-in happens once per session, so a few
+  hundred milliseconds is invisible to a person and expensive to an attacker
+  holding the hash file.
+- Minimum ten characters, enforced on the server. The browser checks too, but
+  only to save a round trip.
+- A wrong password and an unknown username return the *same* error and take the
+  *same* time — a missing user is still run through bcrypt against a dummy hash.
+  Without that, response timing enumerates valid usernames. There is a test.
+- `User.Hash` is tagged `json:"-"`, so a hash cannot fall out of an HTTP
+  response. The on-disk store uses its own type to persist it, rather than
+  relaxing that tag.
+- A password set by an administrator (`user add`, `user passwd`) is flagged
+  `must_change_password`, and the console says so at sign-in.
+
+### Signing in with Google or Microsoft as well
+
+```json
+{
+  "auth": {
+    "mode": "local",
+    "provider": "google",
+    "client_id": "...apps.googleusercontent.com",
+    "client_secret_env": "TITAN_OIDC_SECRET",
+    "redirect_url": "https://titan.internal/auth/callback"
+  }
+}
+```
+
+`provider` fills in the issuer, scopes and tenant claim, so `google`,
+`microsoft` and `github` need only a client id and secret. See
+[oidc-providers.md](oidc-providers.md) for registering the redirect URI.
 
 ## Browser sign-in (what most deployments want)
 

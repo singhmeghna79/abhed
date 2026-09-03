@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Titan">
+  <title>Titan</title>
+  <defs>
+    <linearGradient id="tg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#3FA9F5"/>
+      <stop offset="55%" stop-color="#1F6FB8"/>
+      <stop offset="100%" stop-color="#123E6B"/>
+    </linearGradient>
+    <linearGradient id="tg-lift" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".30"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The hexagon is the shared vocabulary of infrastructure marks: Go's
+       gopher aside, Kubernetes, Docker, Terraform and Vault all sit in one.
+       It reads as "a component in a system", which is what Titan is. -->
+  <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#tg)"/>
+  <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#tg-lift)"/>
+  <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="none"
+        stroke="#0B2138" stroke-opacity=".55" stroke-width="5"/>
+
+  <!-- Inside it, the letter T built as a column: capital, shaft, base. The
+       negative space does the work, so it survives being scaled to 16px. -->
+  <g fill="#FFFFFF">
+    <rect x="66" y="74" width="124" height="26" rx="5"/>
+    <rect x="114" y="100" width="28" height="72"/>
+    <rect x="80"  y="172" width="96" height="24" rx="5"/>
+  </g>
+  <!-- Two flutes: the detail that makes it a column rather than a sans-serif T.
+       Dropped below 32px by the small mark, where they would fill in. -->
+  <g fill="#0B2138" fill-opacity=".28">
+    <rect x="120" y="104" width="4" height="64"/>
+    <rect x="132" y="104" width="4" height="64"/>
+  </g>
+</svg>

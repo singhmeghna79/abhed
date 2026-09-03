@@ -25,6 +25,40 @@ import (
 // an authorization code in a browser URL bar is exactly the shape PKCE exists
 // to protect, and the cost is one hash.
 
+// Presets for the providers people actually sign in with.
+//
+// Google and Microsoft are ordinary OIDC providers, so "sign in with Gmail" or
+// "sign in with Outlook" needs no special code — only the right issuer and the
+// claim that carries the tenant. Naming them here saves an operator looking up
+// three URLs and getting the tenant claim wrong.
+var Presets = map[string]struct {
+	Issuer      string
+	TenantClaim string
+	Scopes      []string
+	Label       string
+}{
+	"google": {
+		Issuer:      "https://accounts.google.com",
+		TenantClaim: "hd", // hosted domain; absent for personal accounts
+		Scopes:      []string{"openid", "profile", "email"},
+		Label:       "Google",
+	},
+	"microsoft": {
+		// The "common" tenant accepts both work/school and personal accounts,
+		// which is what people mean by "sign in with Outlook".
+		Issuer:      "https://login.microsoftonline.com/common/v2.0",
+		TenantClaim: "tid",
+		Scopes:      []string{"openid", "profile", "email"},
+		Label:       "Microsoft",
+	},
+	"github": {
+		Issuer:      "https://token.actions.githubusercontent.com",
+		TenantClaim: "",
+		Scopes:      []string{"openid"},
+		Label:       "GitHub",
+	},
+}
+
 // Endpoints are discovered from the issuer, or configured explicitly for an
 // air-gapped deployment where the well-known document is unreachable.
 type Endpoints struct {
@@ -438,3 +472,18 @@ a{color:#4C8FD6}
   <p>%s</p>
   <p><a href="/login">Try again</a></p>
 </div>`
+
+// ProviderLabel names the identity provider for a sign-in button. A known
+// preset gets its brand name; anything else gets its issuer host, which is
+// still more useful to a person than a generic "Sign in with SSO".
+func ProviderLabel(provider, issuer string) string {
+	if p, found := Presets[strings.ToLower(provider)]; found {
+		return p.Label
+	}
+	if issuer != "" {
+		if u, err := url.Parse(issuer); err == nil && u.Host != "" {
+			return u.Host
+		}
+	}
+	return "SSO"
+}

@@ -11,6 +11,7 @@ package main
 import (
 	"bufio"
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -75,6 +76,8 @@ func main() {
 		return
 	case "doctor":
 		os.Exit(doctor(workspace))
+	case "user":
+		os.Exit(userCmd(workspace, flag.Args()[1:]))
 	case "index":
 		os.Exit(buildIndexCmd(workspace))
 	case "eval":
@@ -657,7 +660,7 @@ func serveCmd(workspace, addr string) int {
 	}
 	fmt.Printf("auth        %s\n", authLabel(cfg))
 	if cfg.Auth.Mode == "oidc" {
-		if _, err := buildAuth(cfg); err != nil {
+		if _, err := buildAuth(cfg, workspace); err != nil {
 			fmt.Printf("            UNAVAILABLE — %v\n", err)
 		} else {
 			fmt.Printf("            JWKS reachable, tokens will be verified\n")
@@ -696,7 +699,7 @@ func serveCmd(workspace, addr string) int {
 	}
 	defer closeStore()
 
-	authMW, err := buildAuth(cfg)
+	authMW, err := buildAuth(cfg, workspace)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
 		return 1
@@ -851,12 +854,210 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 	return 0
 }
 
+// splitPositional pulls the first non-flag argument out of a list, returning
+// the remaining flags and that value. Needed because flag.Parse treats the
+// first bare word as the end of the flags.
+func splitPositional(args []string) (flags []string, positional string) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if positional == "" && !strings.HasPrefix(a, "-") {
+			// Not a flag value: the preceding token, if a flag, used "=" or
+			// is boolean. Titan's user flags all take values, so a bare word
+			// following "-email" belongs to it.
+			if i > 0 && strings.HasPrefix(args[i-1], "-") &&
+				!strings.Contains(args[i-1], "=") {
+				flags = append(flags, a)
+				continue
+			}
+			positional = a
+			continue
+		}
+		flags = append(flags, a)
+	}
+	return flags, positional
+}
+
+// userCmd manages local accounts: titan user add | list | passwd | remove.
+func userCmd(workspace string, args []string) int {
+	cfg, err := config.Load(workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	if cfg.Auth.Mode != "local" {
+		fmt.Fprintf(os.Stderr,
+			"titan: auth.mode is %q, so Titan does not hold accounts.\n"+
+				"Set \"auth\": {\"mode\": \"local\"} to manage users here.\n",
+			orDefault(cfg.Auth.Mode, "none"))
+		return 1
+	}
+
+	us, err := userStore(cfg, workspace)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		return 1
+	}
+	if fs, isFile := us.(*auth.FileUserStore); isFile {
+		fmt.Fprintf(os.Stderr, "titan: accounts in %s "+
+			"(set storage.driver to postgres for a multi-node deployment)\n", fs.Path())
+	}
+	la := auth.NewLocalAuth(us, 0, cfg.Auth.CookieSecure)
+	ctx := context.Background()
+
+	action := "list"
+	if len(args) > 0 {
+		action = args[0]
+	}
+
+	switch action {
+	case "add":
+		fs := flag.NewFlagSet("user add", flag.ExitOnError)
+		email := fs.String("email", "", "email address")
+		name := fs.String("name", "", "display name")
+		tenant := fs.String("tenant", "", "tenant (defaults to storage.tenant)")
+		groups := fs.String("groups", "", "comma-separated groups")
+		pass := fs.String("password", "", "password (generated if omitted)")
+
+		// Go's flag package stops at the first non-flag argument, so parsing
+		// "add demo -email x" would silently discard every flag after the
+		// username. Lift the positional out first, then parse the rest.
+		rest, username := splitPositional(args[1:])
+		if username == "" {
+			fmt.Fprintln(os.Stderr, "usage: titan user add <username> [-email ...] [-name ...]")
+			return 2
+		}
+		fs.Parse(rest)
+
+		password := *pass
+		if password == "" {
+			password = generatePassword()
+			fmt.Printf("generated password: %s\n", password)
+			fmt.Println("  (change it after first sign-in)")
+		}
+
+		u := auth.User{
+			Username: username, Email: *email, Name: *name,
+			Tenant: orDefault(*tenant, orDefault(cfg.Storage.Tenant, "default")),
+		}
+		if *groups != "" {
+			u.Groups = splitRules(*groups)
+		}
+		if err := la.CreateUser(ctx, u, password); err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 1
+		}
+		fmt.Printf("created %s (tenant %s)\n", username, u.Tenant)
+
+	case "list":
+		users, err := us.List(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 1
+		}
+		if len(users) == 0 {
+			fmt.Println("no accounts yet — create one with: titan user add <username>")
+			return 0
+		}
+		sort.Slice(users, func(i, j int) bool { return users[i].Username < users[j].Username })
+		fmt.Printf("%-20s %-28s %-12s %s\n", "USERNAME", "EMAIL", "TENANT", "GROUPS")
+		for _, u := range users {
+			fmt.Printf("%-20s %-28s %-12s %s\n",
+				u.Username, orDefault(u.Email, "—"), u.Tenant, strings.Join(u.Groups, ","))
+		}
+
+	case "passwd":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: titan user passwd <username>")
+			return 2
+		}
+		u, err := us.Get(ctx, args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 1
+		}
+		password := generatePassword()
+		if err := la.CreateUserOrReset(ctx, u, password); err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 1
+		}
+		fmt.Printf("new password for %s: %s\n", u.Username, password)
+
+	case "remove", "rm":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: titan user remove <username>")
+			return 2
+		}
+		if err := us.Delete(ctx, args[1]); err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 1
+		}
+		fmt.Printf("removed %s\n", args[1])
+
+	default:
+		fmt.Fprintln(os.Stderr, "usage: titan user [add|list|passwd|remove]")
+		return 2
+	}
+	return 0
+}
+
+// generatePassword produces a readable but strong initial password, so an
+// operator can hand it over without inventing one that turns out to be weak.
+func generatePassword() string {
+	const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	b := make([]byte, 16)
+	if _, err := crand.Read(b); err != nil {
+		panic("titan: system random source unavailable: " + err.Error())
+	}
+	out := make([]byte, len(b))
+	for i, v := range b {
+		out[i] = alphabet[int(v)%len(alphabet)]
+	}
+	return string(out)
+}
+
 // buildAuth constructs the identity layer. OIDC verifies tokens properly;
 // proxy mode trusts headers and is only safe behind a trusted proxy.
-func buildAuth(cfg config.Config) (*auth.Middleware, error) {
-	mw := &auth.Middleware{PublicPaths: []string{"/v1/health", "/"}}
+func buildAuth(cfg config.Config, workspace string) (*auth.Middleware, error) {
+	mw := &auth.Middleware{PublicPaths: []string{
+		"/", "/v1/health", "/v1/overview", "/v1/signin", "/v1/signup",
+		"/login", "/auth/callback", "/logout"}}
+	ttl := time.Duration(cfg.Auth.SessionHours) * time.Hour
+
+	// Local accounts and an identity provider are independent capabilities,
+	// not alternatives. A team may well want both — passwords for contractors
+	// who are not in the corporate directory, Google or Microsoft for staff —
+	// so "local" enables the password path and a configured provider adds the
+	// button beside it.
+	if cfg.Auth.Mode == "local" {
+		// Users live in the same Postgres as the event store when one is
+		// configured, so accounts survive a restart.
+		store, err := userStore(cfg, workspace)
+		if err != nil {
+			return nil, err
+		}
+		mw.Local = auth.NewLocalAuth(store, ttl, cfg.Auth.CookieSecure)
+		// A local deployment that also names a provider gets both. Without a
+		// client id there is nothing to redirect to, so it stays local-only.
+		if cfg.Auth.Provider != "" && cfg.Auth.ClientID != "" {
+			cfg.Auth.Mode = "oidc"
+		}
+	}
+
 	switch cfg.Auth.Mode {
 	case "oidc":
+		// A named provider fills in the issuer, scopes and tenant claim, so
+		// "sign in with Gmail" needs a client id and nothing else.
+		if p, found := auth.Presets[strings.ToLower(cfg.Auth.Provider)]; found {
+			if cfg.Auth.Issuer == "" {
+				cfg.Auth.Issuer = p.Issuer
+			}
+			if cfg.Auth.TenantClaim == "" {
+				cfg.Auth.TenantClaim = p.TenantClaim
+			}
+			if len(cfg.Auth.Scopes) == 0 {
+				cfg.Auth.Scopes = p.Scopes
+			}
+		}
 		v, err := auth.NewVerifier(auth.Config{
 			Issuer:      cfg.Auth.Issuer,
 			Audience:    cfg.Auth.Audience,
@@ -883,7 +1084,6 @@ func buildAuth(cfg config.Config) (*auth.Middleware, error) {
 			if secret == "" && cfg.Auth.ClientSecretEnv != "" {
 				secret = os.Getenv(cfg.Auth.ClientSecretEnv)
 			}
-			ttl := time.Duration(cfg.Auth.SessionHours) * time.Hour
 			lg, err := auth.NewLogin(auth.LoginConfig{
 				Issuer:        cfg.Auth.Issuer,
 				ClientID:      cfg.Auth.ClientID,
@@ -907,8 +1107,14 @@ func buildAuth(cfg config.Config) (*auth.Middleware, error) {
 
 func authLabel(cfg config.Config) string {
 	switch cfg.Auth.Mode {
+	case "local":
+		s := "local accounts (username and password)"
+		if cfg.Auth.Provider != "" && cfg.Auth.ClientID != "" {
+			s += " + " + auth.ProviderLabel(cfg.Auth.Provider, cfg.Auth.Issuer)
+		}
+		return s
 	case "oidc":
-		return "oidc (issuer " + cfg.Auth.Issuer + ")"
+		return "oidc (" + auth.ProviderLabel(cfg.Auth.Provider, cfg.Auth.Issuer) + ")"
 	case "proxy":
 		return "proxy headers (only safe behind a trusted proxy)"
 	default:
@@ -1053,6 +1259,35 @@ func mcpConfigs(cfg config.Config) []mcp.ServerConfig {
 	return out
 }
 
+// userStore returns durable account storage when Postgres is configured, and
+// in-memory otherwise. In-memory is fine for a pilot but says so at startup:
+// accounts vanishing on restart should never be a surprise.
+func userStore(cfg config.Config, workspace string) (auth.UserStore, error) {
+	if cfg.Storage.Driver == "postgres" {
+		pg, err := store.Open(context.Background(), storeConfig(cfg))
+		if err != nil {
+			return nil, fmt.Errorf("open user store: %w", err)
+		}
+		return pg, nil
+	}
+	// No Postgres: keep accounts in a file beside the workspace config, so
+	// `titan user add` and `titan serve` see the same accounts. An in-memory
+	// store here silently discarded every account the CLI created.
+	path := filepath.Join(workspace, ".titan", "users.json")
+	return auth.NewFileUserStore(path)
+}
+
+func storeConfig(cfg config.Config) store.Config {
+	sc := store.DefaultConfig(cfg.Storage.DSN)
+	if cfg.Storage.Tenant != "" {
+		sc.Tenant = cfg.Storage.Tenant
+	}
+	if cfg.Storage.MaxConns > 0 {
+		sc.MaxConns = int32(cfg.Storage.MaxConns)
+	}
+	return sc
+}
+
 // buildWebSearch constructs the web search tool when enabled. Returns nil, nil
 // when the operator has left it off, which is the default.
 func buildWebSearch(cfg config.Config) (tools.Tool, error) {
@@ -1156,7 +1391,7 @@ func doctor(workspace string) int {
 	}
 	fmt.Printf("auth        %s\n", authLabel(cfg))
 	if cfg.Auth.Mode == "oidc" {
-		if _, err := buildAuth(cfg); err != nil {
+		if _, err := buildAuth(cfg, workspace); err != nil {
 			fmt.Printf("            UNAVAILABLE — %v\n", err)
 		} else {
 			fmt.Printf("            JWKS reachable, tokens will be verified\n")

@@ -78,8 +78,8 @@ button,select,textarea,input{font:inherit;color:inherit}
   box-shadow:0 1px 0 rgba(0,0,0,.04),0 2px 8px -6px rgba(0,0,0,.28);
   position:relative;z-index:3}
 .brand{display:flex;align-items:center;gap:8px}
-.mark{width:19px;height:19px;fill:var(--accent);flex:none;
-  filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
+.mark{width:23px;height:23px;flex:none;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.22))}
 .brand b{font-size:14px;font-weight:650;letter-spacing:-.01em}
 .brand span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .top .spacer{flex:1}
@@ -304,14 +304,20 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 
 <div class="top">
   <div class="brand">
-    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
-      <!-- Doric column: capital, fluted shaft, base. The same mark the CLI
-           draws in box characters. -->
-      <rect x="3"  y="3"  width="18" height="3"   rx="1"/>
-      <rect x="9"  y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
-      <rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>
-      <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
-      <rect x="3"  y="18" width="18" height="3"   rx="1"/>
+    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true">
+      <!-- A column set inside a hexagon: the same mark the CLI draws in
+           box characters, and brand/titan-mark.svg at full detail. -->
+      <defs><linearGradient id="tgc" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#3FA9F5"/>
+        <stop offset="55%" stop-color="#1F6FB8"/>
+        <stop offset="100%" stop-color="#123E6B"/>
+      </linearGradient></defs>
+      <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#tgc)"/>
+      <g fill="#fff">
+        <rect x="66" y="74" width="124" height="26" rx="5"/>
+        <rect x="114" y="100" width="28" height="72"/>
+        <rect x="80" y="172" width="96" height="24" rx="5"/>
+      </g>
     </svg>
     <a href="/" style="text-decoration:none;color:inherit;display:flex;
        align-items:baseline;gap:8px" title="Overview"><b>Titan</b><span
