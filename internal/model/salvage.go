@@ -86,7 +86,70 @@ func salvageToolCall(text string, allowed []ToolDef) (ToolCall, bool) {
 		return ToolCall{Name: m[1], Args: encoded}, true
 	}
 
+	// Form 3: bare JSON arguments with no tool named, which is what
+	// gpt-oss-120b leaves at the end of its reasoning when it fails to emit a
+	// tool_calls delta ("let's do deeper search.{\"pattern\":\"**/*.go\"}").
+	//
+	// Only recoverable when the arguments identify exactly one offered tool by
+	// its required properties. Guessing between two candidates would invent a
+	// call the model did not make, which is worse than the stall.
+	if tc, found := salvageBareArgs(text, allowed); found {
+		return tc, true
+	}
+
 	return ToolCall{}, false
+}
+
+var bareObjectRe = regexp.MustCompile(`\{[^{}]*\}`)
+
+// salvageBareArgs matches a trailing JSON object against the offered tools'
+// schemas, and recovers a call only when exactly one tool fits.
+func salvageBareArgs(text string, allowed []ToolDef) (ToolCall, bool) {
+	matches := bareObjectRe.FindAllString(text, -1)
+	if len(matches) == 0 {
+		return ToolCall{}, false
+	}
+	// The last object is the one the model was writing when it stopped.
+	candidate := matches[len(matches)-1]
+
+	var args map[string]any
+	if err := json.Unmarshal([]byte(candidate), &args); err != nil || len(args) == 0 {
+		return ToolCall{}, false
+	}
+
+	var matched []ToolDef
+	for _, t := range allowed {
+		var schema struct {
+			Properties map[string]any `json:"properties"`
+			Required   []string       `json:"required"`
+		}
+		if err := json.Unmarshal(t.InputSchema, &schema); err != nil {
+			continue
+		}
+		// Every key present must belong to this tool, and every required key
+		// must be present. That is what makes the match unambiguous.
+		fits := true
+		for k := range args {
+			if _, ok := schema.Properties[k]; !ok {
+				fits = false
+				break
+			}
+		}
+		for _, r := range schema.Required {
+			if _, ok := args[r]; !ok {
+				fits = false
+				break
+			}
+		}
+		if fits {
+			matched = append(matched, t)
+		}
+	}
+	if len(matched) != 1 {
+		return ToolCall{}, false
+	}
+	return ToolCall{ID: "salvaged_" + matched[0].Name,
+		Name: matched[0].Name, Args: json.RawMessage(candidate)}, true
 }
 
 // stripSalvaged removes the text form of a call from the visible content, so a

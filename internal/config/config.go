@@ -45,7 +45,8 @@ type ModelConfig struct {
 }
 
 type ProviderConfig struct {
-	Type            string   `json:"type"` // openai-compatible
+	// Type is "openai-compatible" (vLLM, Ollama, OpenAI) or "watsonx".
+	Type            string   `json:"type"`
 	BaseURL         string   `json:"base_url"`
 	Model           string   `json:"model"`
 	APIKey          string   `json:"api_key,omitempty"`
@@ -58,6 +59,15 @@ type ProviderConfig struct {
 	// Omit to leave the server's default alone. Ollama reads this; an
 	// OpenAI-style server uses reasoning_effort instead.
 	Think *bool `json:"think,omitempty"`
+
+	// watsonx only. A deployment is scoped by EITHER a project or a space;
+	// sending both is rejected by the API.
+	ProjectID string `json:"project_id,omitempty"`
+	SpaceID   string `json:"space_id,omitempty"`
+	// APIVersion is watsonx's date-versioned API. Defaults to 2024-05-01.
+	APIVersion string `json:"api_version,omitempty"`
+	// IAMURL overrides the token endpoint, for CPD which mints its own.
+	IAMURL string `json:"iam_url,omitempty"`
 }
 
 type PermissionsConfig struct {
@@ -414,6 +424,31 @@ func applyEnv(cfg *Config) {
 }
 
 // Provider returns the active provider with its API key resolved.
+// ValidateProvider checks a provider's settings are internally consistent, so
+// a misconfiguration is a startup error rather than a failed request.
+func ValidateProvider(p ProviderConfig) error {
+	if p.Type != "watsonx" {
+		return nil
+	}
+	if p.BaseURL == "" {
+		return fmt.Errorf("watsonx needs base_url (e.g. https://us-south.ml.cloud.ibm.com)")
+	}
+	if p.Model == "" {
+		return fmt.Errorf("watsonx needs model (e.g. openai/gpt-oss-120b)")
+	}
+	if p.APIKey == "" && p.APIKeyEnv == "" {
+		return fmt.Errorf("watsonx needs api_key_env naming the variable holding the key")
+	}
+	if p.ProjectID == "" && p.SpaceID == "" {
+		return fmt.Errorf("watsonx needs either project_id or space_id")
+	}
+	if p.ProjectID != "" && p.SpaceID != "" {
+		return fmt.Errorf("watsonx takes project_id OR space_id, not both — " +
+			"the API rejects a request carrying each")
+	}
+	return nil
+}
+
 func (c Config) Provider() (ProviderConfig, error) {
 	p, found := c.Model.Providers[c.Model.Default]
 	if !found {
@@ -423,6 +458,9 @@ func (c Config) Provider() (ProviderConfig, error) {
 	}
 	if p.APIKey == "" && p.APIKeyEnv != "" {
 		p.APIKey = os.Getenv(p.APIKeyEnv)
+	}
+	if err := ValidateProvider(p); err != nil {
+		return p, fmt.Errorf("model %q: %w", c.Model.Default, err)
 	}
 	return p, nil
 }

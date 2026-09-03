@@ -1604,6 +1604,18 @@ func buildRAG(cfg config.Config) []tools.Tool {
 }
 
 func buildAdapter(p config.ProviderConfig) model.Adapter {
+	if p.Type == "watsonx" {
+		return model.NewWatsonX(model.WatsonXConfig{
+			BaseURL: p.BaseURL, APIKey: p.APIKey,
+			ProjectID: p.ProjectID, SpaceID: p.SpaceID,
+			ModelID: p.Model, Version: p.APIVersion, IAMURL: p.IAMURL,
+			Profile: model.Profile{
+				Name:            p.Model,
+				ContextWindow:   p.ContextWindow,
+				MaxOutputTokens: p.MaxOutputTokens,
+			},
+		})
+	}
 	profile := model.Profile{
 		Name:            p.Model,
 		ContextWindow:   p.ContextWindow,

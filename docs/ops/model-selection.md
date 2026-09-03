@@ -127,3 +127,66 @@ three prose answers with only decidable metrics — word count, headings, bullet
 whether an analogy appears. Prose quality is left to a person reading
 `results.json`, because scoring it automatically would need another model's
 opinion and would not be evidence.
+
+## watsonx.ai and gpt-oss-120b
+
+Titan speaks watsonx directly (`"type": "watsonx"`), so an IBM deployment can
+use a model served there rather than a local one.
+
+```json
+{
+  "model": {
+    "default": "gptoss",
+    "providers": {
+      "gptoss": {
+        "type": "watsonx",
+        "base_url": "https://us-south.ml.cloud.ibm.com",
+        "model": "openai/gpt-oss-120b",
+        "api_key_env": "WATSONX_API_KEY",
+        "space_id": "…",
+        "context_window": 131072,
+        "max_output_tokens": 4096
+      }
+    }
+  }
+}
+```
+
+`space_id` **or** `project_id`, never both — the API rejects a request carrying
+each, so `titan doctor` fails at startup rather than on the first turn.
+Authentication exchanges the API key for an IAM token, cached and refreshed a
+minute before expiry.
+
+### Two failures worth knowing about
+
+**The system prompt is a separate field.** `Request.System` is not a message,
+and an adapter that only walks `Request.Messages` sends none. Nothing errors:
+the model answers, just without any working method, tool guidance or
+environment. It showed up as the agent doing one tool call and stopping.
+
+**gpt-oss-120b sometimes leaves its tool call in the reasoning channel.** The
+reasoning ends with the bare arguments —
+
+```
+...Maybe there are more; let's do deeper search.{"pattern":"**/*.go"}
+```
+
+— and no `tool_calls` delta ever arrives. The loop has nothing to dispatch and
+the turn is silently empty. Salvage now searches reasoning as well as content,
+and matches bare arguments against the offered tools' schemas, recovering the
+call only when exactly one tool fits. Two candidates means no recovery:
+inventing a call the model did not make is worse than the stall.
+
+Salvaged calls get a synthesised id, because watsonx returns 400 on a
+`tool_calls` entry without one.
+
+### Measured behaviour
+
+On the two-bug review task (a data race in `Store.List()` and an authorization
+hole), `gpt-oss-120b` ran 6 turns in 24s, read both files, and edited one — but
+fixed **neither** bug. The edit compiled and changed nothing that mattered.
+
+That is worse than `gemma4:26b`, which found and fixed both. Speed is not the
+problem: 24s is faster than gemma4's 73s. Treat the watsonx path as working
+transport with an unproven model, and run your own comparison before switching
+a deployment to it.
