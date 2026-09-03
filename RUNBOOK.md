@@ -59,7 +59,7 @@ brew services stop ollama        # if started as a service
 There is no pause. To free memory without stopping the server, unload the model:
 
 ```bash
-ollama stop qwen3-coder:30b      # unloads from memory, keeps it on disk
+ollama stop gemma4:26b           # unloads from memory, keeps it on disk
 ```
 
 ### Models
@@ -67,19 +67,34 @@ ollama stop qwen3-coder:30b      # unloads from memory, keeps it on disk
 ```bash
 ollama list                      # what is downloaded
 ollama ps                        # what is loaded in memory right now
-ollama pull qwen3-coder:30b      # download (18 GB)
+ollama pull gemma4:26b           # download (18 GB)
 ollama rm qwen2.5-coder:7b       # delete from disk
-ollama show qwen3-coder:30b      # architecture, context length, licence
+ollama show gemma4:26b           # architecture, context length, licence
 ```
 
 **Currently installed here:**
 
-| Model | Size | Verdict |
-|---|---:|---|
-| `qwen3-coder:30b` | 18 GB | ✅ **Use this.** 30B MoE, 3B active. Passes tool-calling |
-| `qwen2.5-coder:7b` | 4.7 GB | ❌ Fails `titan doctor` — emits tool calls as text |
+| Model | Size | Decode | Verdict |
+|---|---:|---:|---|
+| `gemma4:26b` | 18 GB | 35 tok/s | ✅ **The default.** MoE, 8 of 128 experts active |
+| `qwen3-coder:30b` | 18 GB | 47 tok/s | ⚠️ Faster, but misreports whether it verified its work |
+| `qwen3.8:27b` | 17 GB | 3 tok/s | ❌ Dense — every parameter activates. Correct but unusably slow |
+| `qwen2.5-coder:7b` | 4.7 GB | — | ❌ Fails `titan doctor` — emits tool calls as text |
 
-Worth trying: `ollama pull gemma4:26b-a4b-it-mtp-q4` (26B MoE, 4B active).
+`gemma4:26b` is the default because it found *both* planted bugs in a review
+task (a data race and an authorization hole), ran the build itself, and
+reported the real output. `qwen3-coder:30b` is ~26% faster and found one — then
+added an unrelated check, called it the security fix, and twice claimed
+environment restrictions that did not exist.
+
+Full measurements and method: [docs/ops/model-selection.md](docs/ops/model-selection.md).
+
+**Check before trusting a size.** Decode speed tracks *active* parameters, not
+total, so a 27B dense model is far slower than a 30B MoE:
+
+```bash
+ollama show gemma4:26b | grep -i expert   # expert_used_count is what matters
+```
 
 **Will not fit in 36 GB:** `gpt-oss:120b` needs ~58 GB. That is what the
 cluster is for.
@@ -111,13 +126,13 @@ du -sh ~/.ollama/models                      # disk used by weights
 # Plain completion
 curl -s http://127.0.0.1:11434/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"qwen3-coder:30b","messages":[{"role":"user","content":"say ok"}]}' \
+  -d '{"model":"gemma4:26b","messages":[{"role":"user","content":"say ok"}]}' \
   | python3 -m json.tool
 
 # Tool calling — the capability Titan actually depends on
 curl -s http://127.0.0.1:11434/v1/chat/completions \
   -H 'Content-Type: application/json' -d '{
-   "model":"qwen3-coder:30b",
+   "model":"gemma4:26b",
    "messages":[{"role":"user","content":"List go files with the glob tool."}],
    "tools":[{"type":"function","function":{"name":"glob",
      "parameters":{"type":"object","properties":{"pattern":{"type":"string"}}}}}]}' \
@@ -283,7 +298,7 @@ tenants, and superusers bypass it.
 ## 5. Benchmarking
 
 ```bash
-titan-bench -model qwen3-coder:30b -turns 20
+titan-bench -model gemma4:26b -turns 20
 ```
 
 Reports cache hit rate, prefill savings, cold vs warm TTFT.
@@ -298,7 +313,8 @@ benchmark against vLLM on your cluster is worth running.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `doctor`: no tool call | Model cannot tool-call | Use `qwen3-coder:30b` |
+| `doctor`: no tool call | Model cannot tool-call | Use `gemma4:26b` |
+| `doctor`: empty response | Reasoning consumed the token budget | Raise `context.max_tokens` |
 | `connection refused` :11434 | Ollama down | `ollama serve` |
 | Wrong app answers the port | Port already taken | `lsof -nP -iTCP:8420 -sTCP:LISTEN` |
 | `row-level security policy` | Tenant mismatch | Match `storage.tenant` to the request tenant |

@@ -1504,8 +1504,12 @@ func doctor(workspace string) int {
 
 	fmt.Print("checking endpoint... ")
 	stream, err := adapter.Complete(ctx, model.Request{
-		Messages:  []model.Message{{Role: model.RoleUser, Content: "Reply with the single word: ok"}},
-		MaxTokens: 32,
+		Messages: []model.Message{{Role: model.RoleUser, Content: "Reply with the single word: ok"}},
+		// Generous for a one-word answer, because a hybrid-reasoning model
+		// spends this budget on its thinking phase FIRST. gemma4:26b returned
+		// empty content and finish_reason=length at 32 tokens — a healthy
+		// model reported as broken.
+		MaxTokens: 512,
 	})
 	if err != nil {
 		fmt.Printf("FAILED\n  %v\n", err)
@@ -1522,7 +1526,16 @@ func doctor(workspace string) int {
 			return 1
 		}
 	}
-	fmt.Printf("ok\n  response: %q\n", strings.TrimSpace(got.String()))
+	answer := strings.TrimSpace(got.String())
+	if answer == "" {
+		// Distinguish "said nothing" from "said something unexpected": the
+		// first usually means the token budget went to reasoning, which is a
+		// configuration problem, not a broken endpoint.
+		fmt.Printf("ok\n  response was empty — if this model reasons before " +
+			"answering, raise context.max_tokens\n")
+	} else {
+		fmt.Printf("ok\n  response: %q\n", answer)
+	}
 
 	// Tool calling is the capability the agent actually depends on.
 	fmt.Print("checking tool calling... ")

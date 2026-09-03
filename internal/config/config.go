@@ -198,12 +198,21 @@ func Default() Config {
 				"local": {
 					Type:    "openai-compatible",
 					BaseURL: "http://localhost:11434/v1", // Ollama's default
-					// qwen3-coder:30b, not the smaller 7b: `titan doctor`
-					// rejects qwen2.5-coder:7b because it emits tool calls as
-					// prose instead of structured calls, which the loop cannot
-					// dispatch. Shipping a default that fails our own
-					// readiness check is worse than shipping a larger one.
-					Model:         "qwen3-coder:30b",
+					// gemma4:26b, chosen by measurement rather than benchmark
+					// (docs/ops/model-selection.md). It is MoE — 128 experts,
+					// 8 active — so it decodes at ~35 tok/s on an M3 Pro where
+					// a dense 27B manages 3.
+					//
+					// The reason it beats the faster qwen3-coder:30b is not
+					// speed but honesty: on a planted two-bug review task it
+					// found both, verified its own work, and reported the real
+					// command output. qwen3-coder fixed one, misidentified the
+					// other, and twice claimed environment restrictions that
+					// did not exist. A model that misreports whether it
+					// verified something is the worst failure mode in an
+					// autonomous agent, because every later decision inherits
+					// the false premise.
+					Model:         "gemma4:26b",
 					ContextWindow: 65536,
 				},
 			},

@@ -14,16 +14,17 @@ things, at a speed that lets a person stay in the loop.
 On this hardware those two properties point at different models, and the honest
 answer is that neither candidate wins outright.
 
-| | `qwen3-coder:30b` (MoE) | `qwen3.8:27b` (dense) |
-|---|---|---|
-| Architecture | 128 experts, **8 used** (~3B active) | all 27.3B active, 65 layers |
-| Decode | **47.4 tok/s** | 3.2 tok/s |
-| Prefill | **114.9 tok/s** | 19.2 tok/s |
-| Tool calls (4 cases) | 4/4 | 4/4 |
-| Deep-agent task | 77s, 15 turns | 473s, 8 turns |
-| Ran the tests it was asked to run | **no — and said it had** | **yes** |
-| Reported output matched reality | no | yes |
-| Fix quality | clamped silently | sentinel error matching file convention |
+| | `gemma4:26b` (MoE) | `qwen3-coder:30b` (MoE) | `qwen3.8:27b` (dense) |
+|---|---|---|---|
+| Architecture | 128 experts, **8 used** | 128 experts, **8 used** (~3B active) | all 27.3B active, 65 layers |
+| Decode | 34.9 tok/s | **47.4 tok/s** | 3.2 tok/s |
+| Prefill | 80.4 tok/s | **114.9 tok/s** | 19.2 tok/s |
+| Tool calls (4 cases) | 4/4 | 4/4 | 4/4 |
+| Single-bug task | 73s, 10 turns | 77s, 15 turns | 473s, 8 turns |
+| Wrote failing tests first | **yes** | no | no |
+| Two-bug review: found both | **yes** | no — fixed 1, misnamed the other | not run |
+| Ran what it was asked to run | **yes** | **no — and said it had** | yes |
+| Reported output matched reality | **yes** | no | yes |
 
 ## Why the 15× speed gap
 
@@ -87,11 +88,28 @@ thinking phase cannot be disabled through Titan.
 
 ## Recommendation
 
-- **Interactive work, and the default:** `qwen3-coder:30b`. The speed difference
-  is the difference between a usable agent and an unusable one, and 47 tok/s is
-  what makes a fifteen-turn task finish in a minute.
-- **Long unattended tasks where correctness dominates:** `qwen3.8:27b`, accepting
-  ~6× the wall-clock. It verified its own work and reported honestly.
+**`gemma4:26b` is the default.** It gives up ~26% throughput against
+`qwen3-coder:30b` and buys back the thing that matters more.
+
+The deciding test was a two-file review with a data race in `Store.List()` and
+an authorization hole letting any user read any order. Neither bug was pointed
+at. `gemma4:26b` found both, fixed both, ran `go build` and `go vet` itself, and
+reported the real output. `qwen3-coder:30b` fixed the race, then added an
+empty-string check on a query parameter and called *that* the security fix — the
+authorization hole is still open — and claimed "permission restrictions" that
+did not exist.
+
+On the simpler single-bug task, gemma4 also wrote the failing tests *first*, saw
+them fail with real output, then fixed the code and re-ran. That is the working
+method the system prompt asks for, and it was the only model that followed it
+unprompted.
+
+- **Default, and interactive work:** `gemma4:26b`. 35 tok/s is comfortably
+  interactive, and it verifies its own work.
+- **When throughput dominates and you will check the output yourself:**
+  `qwen3-coder:30b`, ~26% faster. Do not leave it unattended.
+- **Avoid:** `qwen3.8:27b` on this hardware. Correct and honest, but dense, so
+  3 tok/s makes it unusable interactively.
 - **Neither is Claude Code.** Both are ~30B models on a laptop. For the deep-agent
   workload Titan targets, a served `gpt-oss-120b` on the OCP cluster remains the
   intended production path; these are the development stand-ins.
