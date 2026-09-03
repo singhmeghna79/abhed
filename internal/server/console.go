@@ -338,7 +338,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   <!-- transcript -->
   <main class="stage">
     <div class="stage-head">
-      <span class="id" id="sid">no session selected</span>
+      <span class="id" id="sid">new chat</span>
       <span class="spacer"></span>
       <button class="ghost" id="stop" hidden>Interrupt</button>
     </div>
