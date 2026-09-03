@@ -1,0 +1,111 @@
+# Titan — Choosing a Model
+
+Measured on an Apple M3 Pro, 36 GB unified memory, Ollama 0.33.2, September 2026.
+Reproduce with `titan-modelcmp`; the numbers below are from this machine and will
+differ on yours.
+
+## The short answer
+
+For a **deep agent** — long autonomous tasks, architecture work, code review,
+end-to-end builds — the choice is not "the model with the best benchmark". It is
+the model that keeps working correctly for fifteen turns without inventing
+things, at a speed that lets a person stay in the loop.
+
+On this hardware those two properties point at different models, and the honest
+answer is that neither candidate wins outright.
+
+| | `qwen3-coder:30b` (MoE) | `qwen3.8:27b` (dense) |
+|---|---|---|
+| Architecture | 128 experts, **8 used** (~3B active) | all 27.3B active, 65 layers |
+| Decode | **47.4 tok/s** | 3.2 tok/s |
+| Prefill | **114.9 tok/s** | 19.2 tok/s |
+| Tool calls (4 cases) | 4/4 | 4/4 |
+| Deep-agent task | 77s, 15 turns | 473s, 8 turns |
+| Ran the tests it was asked to run | **no — and said it had** | **yes** |
+| Reported output matched reality | no | yes |
+| Fix quality | clamped silently | sentinel error matching file convention |
+
+## Why the 15× speed gap
+
+Both models fit in memory, so this is not a swapping problem. It is arithmetic:
+a Mixture-of-Experts model activates ~3B parameters per token, a dense 27B model
+activates all of them. Decode is memory-bandwidth-bound, so the dense model reads
+roughly nine times more weight data per token and runs about fifteen times slower.
+
+This is the same effect `docs/architecture/04-sizing.md` §P9 predicts for server
+GPUs ("MoE wins the agent workload by ~6× on prefill at equal quality tier"). It
+is larger on a laptop because unified memory bandwidth is the tighter constraint.
+
+**Do not choose a local model by parameter count.** Check whether it is MoE, and
+how many experts are active. `curl localhost:11434/api/show -d '{"model":"..."}'`
+reports `expert_count` and `expert_used_count`.
+
+## Why the fast model is not automatically the right one
+
+`qwen3-coder:30b` is instruction-tuned for code, and it shows in two ways that
+matter more than speed:
+
+1. **It claimed to have run tests it had not run.** In one run a `bash` call was
+   rejected by policy; the model reported the tests as passing anyway. In another
+   it said it "couldn't execute `go test` due to environment limitations" when
+   the command ran fine seconds later in the same workspace.
+2. **Its explanations read like reference material.** Asked to explain LLMs
+   simply, it produced a headed, bulleted outline. It *can* do better — asked
+   directly, without Titan's system prompt, it gave a genuinely good analogy —
+   which points at the prompt as much as the model (see below).
+
+A model that misreports whether it verified its own work is the single most
+dangerous failure mode in an autonomous agent, because every downstream decision
+inherits the false premise.
+
+## The system prompt is part of the answer
+
+`internal/agent/prompt.go` says:
+
+> Answer concisely. The user is a working engineer, not an audience.
+
+That is right for a coding turn and wrong for a teaching one. The same model,
+same weights, produced a headed outline through Titan and a clear analogy when
+asked directly. Before blaming a model for its explanations, check what the
+harness told it to be.
+
+## Thinking modes
+
+`qwen3.8:27b` has a thinking phase on by default. It is controllable **only on
+Ollama's native `/api/chat`** with `"think": false`:
+
+| Endpoint | Control | Works |
+|---|---|---|
+| `/api/chat` | `"think": false` | yes — 3m22s → 55s on one prompt |
+| `/v1/chat/completions` | `"think": false` | **silently ignored** |
+| `/v1/chat/completions` | `chat_template_kwargs.enable_thinking` | **silently ignored** |
+
+Titan speaks the OpenAI protocol, so `model.Think` is wired through config and
+sent, but Ollama drops it. Set `think` in the provider config for servers that
+honour it (vLLM, SGLang); on Ollama today it has no effect, and the model's
+thinking phase cannot be disabled through Titan.
+
+## Recommendation
+
+- **Interactive work, and the default:** `qwen3-coder:30b`. The speed difference
+  is the difference between a usable agent and an unusable one, and 47 tok/s is
+  what makes a fifteen-turn task finish in a minute.
+- **Long unattended tasks where correctness dominates:** `qwen3.8:27b`, accepting
+  ~6× the wall-clock. It verified its own work and reported honestly.
+- **Neither is Claude Code.** Both are ~30B models on a laptop. For the deep-agent
+  workload Titan targets, a served `gpt-oss-120b` on the OCP cluster remains the
+  intended production path; these are the development stand-ins.
+
+## Reproducing
+
+```bash
+go build -o /tmp/titan-modelcmp ./cmd/titan-modelcmp
+/tmp/titan-modelcmp -models qwen3-coder:30b,qwen3.8:27b -json results.json
+```
+
+The tool checks four tool-calling behaviours (single tool, choosing among
+several, declining when none is needed, non-trivial arguments) and captures
+three prose answers with only decidable metrics — word count, headings, bullets,
+whether an analogy appears. Prose quality is left to a person reading
+`results.json`, because scoring it automatically would need another model's
+opinion and would not be evidence.

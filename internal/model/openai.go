@@ -23,6 +23,10 @@ type OpenAICompatible struct {
 	Model   string
 	HTTP    *http.Client
 
+	// Think, when set, turns a hybrid model's thinking phase on or off for
+	// every request. Nil leaves the server's default in place.
+	Think *bool
+
 	// ReasoningTags strips inline reasoning from content for models that emit
 	// it in-band (e.g. <think>...</think>) rather than in a separate field.
 	// Reasoning must never reach tool-argument parsing.
@@ -86,6 +90,19 @@ type wireRequest struct {
 	Stream          bool          `json:"stream"`
 	StreamOptions   *streamOpts   `json:"stream_options,omitempty"`
 	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
+
+	// Think controls a hybrid-reasoning model's thinking phase.
+	//
+	// Separate from ReasoningEffort because the two are not the same knob and
+	// not every server honours both: Ollama ignores reasoning_effort entirely
+	// and reads "think", while OpenAI-style servers do the reverse. Sending
+	// whichever one is configured, and omitting the other, lets one adapter
+	// serve both without a per-vendor branch.
+	//
+	// This matters more than it looks. Measured on qwen3.8:27b through Ollama,
+	// an ELI5 question took 3m22s with thinking on and 55s with it off — the
+	// difference between an agent that feels interactive and one that does not.
+	Think *bool `json:"think,omitempty"`
 }
 
 type streamOpts struct {
@@ -162,6 +179,7 @@ func (c *OpenAICompatible) buildRequest(req Request) wireRequest {
 		Stream:          true,
 		StreamOptions:   &streamOpts{IncludeUsage: true},
 		ReasoningEffort: string(req.Effort),
+		Think:           c.Think,
 	}
 }
 

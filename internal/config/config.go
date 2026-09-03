@@ -44,6 +44,10 @@ type ProviderConfig struct {
 	MaxOutputTokens int      `json:"max_output_tokens,omitempty"`
 	ToolCallFormat  string   `json:"tool_call_format,omitempty"`
 	ReasoningTags   []string `json:"reasoning_tags,omitempty"`
+	// Think turns a hybrid-reasoning model's thinking phase on or off.
+	// Omit to leave the server's default alone. Ollama reads this; an
+	// OpenAI-style server uses reasoning_effort instead.
+	Think *bool `json:"think,omitempty"`
 }
 
 type PermissionsConfig struct {

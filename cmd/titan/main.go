@@ -1396,6 +1396,7 @@ func buildAdapter(p config.ProviderConfig) model.Adapter {
 		ToolCallFormat:  orDefault(p.ToolCallFormat, "json"),
 	}
 	a := model.NewOpenAICompatible(p.BaseURL, p.APIKey, p.Model, profile)
+	a.Think = p.Think
 	if len(p.ReasoningTags) == 2 {
 		a.ReasoningTags = [2]string{p.ReasoningTags[0], p.ReasoningTags[1]}
 	}
