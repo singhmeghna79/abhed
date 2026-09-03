@@ -261,3 +261,127 @@ func TestConnectionIsReused(t *testing.T) {
 		t.Error("reconnected instead of reusing the open connection")
 	}
 }
+
+// A user pasting "key is at ~Dowloads/key (1).prv" — missing slash, misspelled
+// directory, a space in the name — should not send the agent hunting with
+// glob through directories the sandbox denies.
+func TestResolveKeyPathHandlesTypedPaths(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory")
+	}
+	dl := filepath.Join(home, "Downloads")
+	if err := os.MkdirAll(dl, 0o755); err != nil {
+		t.Skip("cannot create Downloads")
+	}
+	name := "titan-test-key (1).prv"
+	real := filepath.Join(dl, name)
+	if err := os.WriteFile(real, []byte("x"), 0o600); err != nil {
+		t.Skip("cannot write test key")
+	}
+	defer os.Remove(real)
+
+	for _, typed := range []string{
+		real,                  // exact
+		"~/Downloads/" + name, // tilde
+		"~Dowloads/" + name,   // missing slash AND misspelled, as reported
+		name,                  // bare filename
+	} {
+		got, err := resolveKeyPath(typed)
+		if err != nil {
+			t.Errorf("resolveKeyPath(%q) failed: %v", typed, err)
+			continue
+		}
+		if got != real {
+			t.Errorf("resolveKeyPath(%q) = %q, want %q", typed, got, real)
+		}
+	}
+}
+
+// A path that genuinely does not exist must say where it looked, so the user
+// can correct it rather than the agent guessing again.
+func TestResolveKeyPathExplainsFailure(t *testing.T) {
+	_, err := resolveKeyPath("~/nowhere/definitely-not-a-key-xyz.prv")
+	if err == nil {
+		t.Fatal("accepted a path that does not exist")
+	}
+	if !strings.Contains(err.Error(), "Tried:") {
+		t.Errorf("error does not say where it looked: %v", err)
+	}
+}
+
+// ssh_connect must verify before registering: a host stored but unreachable
+// turns one clear failure into a confusing one on the next command.
+func TestConnectVerifiesBeforeRegistering(t *testing.T) {
+	reg, _ := NewRegistry(nil)
+	args, _ := json.Marshal(map[string]any{
+		"addr": "127.0.0.1:1", "user": "nobody", "accept_host_key": true})
+	res := ConnectTool{R: reg}.Run(context.Background(), nil, args)
+
+	if !res.IsError {
+		t.Fatal("registered a host it could not reach")
+	}
+	if reg.Len() != 0 {
+		t.Error("an unreachable host was registered anyway")
+	}
+}
+
+func TestConnectRegistersWorkingHost(t *testing.T) {
+	srv := startSSHServer(t, "pw")
+	defer srv.stop()
+	t.Setenv("TEST_SSH_PW", "pw")
+
+	reg, _ := NewRegistry(nil)
+	defer reg.Close()
+
+	host, port, _ := net.SplitHostPort(srv.addr)
+	args, _ := json.Marshal(map[string]any{
+		"addr": host + ":" + port, "user": "tester", "name": "vm1",
+		"password_env": "TEST_SSH_PW", "accept_host_key": true})
+	res := ConnectTool{R: reg}.Run(context.Background(), nil, args)
+
+	if res.IsError {
+		t.Fatalf("connect failed: %s", res.Content)
+	}
+	if reg.Len() != 1 {
+		t.Fatalf("host not registered: %v", reg.names())
+	}
+	if !strings.Contains(res.Content, "not written to ~/.ssh/config") {
+		t.Errorf("does not say where the credential lives: %s", res.Content)
+	}
+
+	// And the ssh tool can now use it.
+	runArgs, _ := json.Marshal(map[string]any{"host": "vm1", "command": "hostname"})
+	run := Tool{R: reg}.Run(context.Background(), nil, runArgs)
+	if run.IsError {
+		t.Fatalf("registered host is not usable: %s", run.Content)
+	}
+}
+
+// Declaring a host changes which machines the agent can reach.
+func TestConnectRequiresApproval(t *testing.T) {
+	if !(ConnectTool{}).Mutates() {
+		t.Error("ssh_connect does not declare itself mutating, so it could run unapproved")
+	}
+}
+
+// The refusal must tell the model what to do, or it retries identically.
+func TestUnknownHostKeyErrorNamesTheRetry(t *testing.T) {
+	srv := startSSHServer(t, "pw")
+	defer srv.stop()
+	t.Setenv("TEST_SSH_PW", "pw")
+
+	empty := filepath.Join(t.TempDir(), "known_hosts")
+	os.WriteFile(empty, []byte(""), 0o600)
+	h, _ := NewHost(HostConfig{Name: "vm1", Addr: srv.addr, User: "tester",
+		PasswordEnv: "TEST_SSH_PW", KnownHostsFile: empty})
+	defer h.Close()
+
+	_, err := h.Run(context.Background(), "hostname", 5*time.Second)
+	if err == nil {
+		t.Fatal("connected without a pinned host key")
+	}
+	if !strings.Contains(err.Error(), "accept_host_key") {
+		t.Errorf("error does not name the retry option: %v", err)
+	}
+}

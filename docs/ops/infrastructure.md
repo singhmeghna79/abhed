@@ -93,6 +93,33 @@ something an operator has to accept.
 }
 ```
 
+### Connecting to a machine during a conversation
+
+Hosts do not have to be in config. When the user gives an address and a key:
+
+```
+connect to 52.116.120.159, key is at ~/Downloads/id_rsa
+```
+
+the agent calls `ssh_connect`, which asks for approval once, verifies the
+connection works, and registers the host for the life of the process. Nothing
+is written to `~/.ssh/config`.
+
+`ssh.enabled` is all that is required — the `hosts` list is optional. Requiring
+a pre-declared host to reach the tool that declares hosts was a real bug: a user
+with a VM and a key had no way in, and the agent fell back to `ssh` through
+bash, where the sandbox denies the key read.
+
+The key path is resolved from what the user typed. `~Dowloads/key (1).prv` —
+missing slash, misspelled directory, space in the name — resolves correctly,
+because a path pasted into a chat is approximate and sending the agent hunting
+with `glob` through denied directories is worse than trying the obvious places.
+
+A host whose key is not in `known_hosts` is refused, and the refusal says to
+retry with `accept_host_key: true` **only if the user has said the host is new
+or ephemeral**. That is a deliberate line: the agent should not decide on its
+own to stop verifying the identity of a machine it is about to run commands on.
+
 **Every remote command requires approval — there is no read-only classification.**
 A local `bash` call can be judged by its text because it runs inside a sandbox
 with a workspace boundary and a checkpoint behind it. None of that holds over

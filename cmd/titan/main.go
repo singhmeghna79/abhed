@@ -702,7 +702,11 @@ func serveCmd(workspace, addr string) int {
 			fmt.Printf("            context %s · namespace %s\n", c.Name, c.Namespace)
 		}
 	}
-	if cfg.SSH.Enabled && len(cfg.SSH.Hosts) > 0 {
+	// Note the absence of a len(Hosts) > 0 condition. A deployment that enables
+	// SSH with no hosts listed still gets the tools, because ssh_connect is how
+	// a host gets declared in the first place — requiring one in config to use
+	// the tool that adds them was the bug.
+	if cfg.SSH.Enabled {
 		names := make([]string, 0, len(cfg.SSH.Hosts))
 		for _, h := range cfg.SSH.Hosts {
 			label := h.Name
@@ -1508,7 +1512,10 @@ func buildInfra(cfg config.Config) []tools.Tool {
 		}
 	}
 
-	if cfg.SSH.Enabled && len(cfg.SSH.Hosts) > 0 {
+	// No len(Hosts) > 0 condition: ssh_connect is how a host gets declared in
+	// the first place, so requiring one in config to reach the tool that adds
+	// them was the bug — a user with a VM and a key had no way in.
+	if cfg.SSH.Enabled {
 		hosts := make([]remote.HostConfig, 0, len(cfg.SSH.Hosts))
 		for _, h := range cfg.SSH.Hosts {
 			hosts = append(hosts, remote.HostConfig{
@@ -1526,9 +1533,7 @@ func buildInfra(cfg config.Config) []tools.Tool {
 		for _, err := range errs {
 			fmt.Fprintf(os.Stderr, "titan: ssh: %v\n", err)
 		}
-		if reg.Len() > 0 {
-			out = append(out, remote.Tool{R: reg})
-		}
+		out = append(out, remote.Tool{R: reg}, remote.ConnectTool{R: reg})
 	}
 	return out
 }

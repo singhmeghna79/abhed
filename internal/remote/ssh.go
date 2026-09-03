@@ -199,8 +199,11 @@ func (h *Host) connect(ctx context.Context) (*ssh.Client, error) {
 		conn.Close()
 		if strings.Contains(err.Error(), "knownhosts") ||
 			strings.Contains(err.Error(), "key is unknown") {
-			return nil, fmt.Errorf("the host key for %s is not in known_hosts. "+
-				"Connect once with ssh to record it: %w", h.cfg.Name, err)
+			return nil, fmt.Errorf("the host key for %s is not in known_hosts, so Titan "+
+				"cannot confirm this is the machine you meant. If the user has said this "+
+				"host is new or ephemeral, retry with accept_host_key: true. Otherwise ask "+
+				"them to run `ssh %s@%s` once to record the key: %w",
+				h.cfg.Name, h.cfg.User, h.cfg.Addr, err)
 		}
 		if strings.Contains(err.Error(), "unable to authenticate") {
 			return nil, fmt.Errorf("authentication to %s@%s failed: %w",
