@@ -28,10 +28,12 @@ import (
 	"github.com/yuvrajsingh/titan/internal/config"
 	"github.com/yuvrajsingh/titan/internal/eval"
 	"github.com/yuvrajsingh/titan/internal/index"
+	"github.com/yuvrajsingh/titan/internal/k8s"
 	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
 	"github.com/yuvrajsingh/titan/internal/rag"
+	"github.com/yuvrajsingh/titan/internal/remote"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
 	"github.com/yuvrajsingh/titan/internal/server"
 	"github.com/yuvrajsingh/titan/internal/store"
@@ -172,6 +174,9 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 
 	for _, t := range buildRAG(cfg) {
+		registry.Add(t)
+	}
+	for _, t := range buildInfra(cfg) {
 		registry.Add(t)
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
@@ -675,6 +680,43 @@ func serveCmd(workspace, addr string) int {
 		}
 	}
 	fmt.Printf("web search  %s\n", webSearchLabel(cfg))
+	if cfg.K8s.Enabled {
+		writes := "read-only"
+		if cfg.K8s.AllowWrites {
+			writes = "reads + writes (every write needs approval)"
+		}
+		fmt.Printf("kubernetes  %s\n", writes)
+		// Resolve the kubeconfig now: a misconfigured cluster should be a
+		// startup finding, not a surprise mid-task.
+		if c, err := k8s.Open(k8s.Config{Kubeconfig: cfg.K8s.Kubeconfig,
+			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace}); err != nil {
+			fmt.Printf("            UNAVAILABLE — %v\n", err)
+		} else {
+			fmt.Printf("            context %s · namespace %s\n", c.Name, c.Namespace)
+		}
+	}
+	if cfg.SSH.Enabled && len(cfg.SSH.Hosts) > 0 {
+		names := make([]string, 0, len(cfg.SSH.Hosts))
+		for _, h := range cfg.SSH.Hosts {
+			label := h.Name
+			if h.InsecureSkipHostKeyCheck {
+				label += " ⚠ no host key check"
+			}
+			names = append(names, label)
+		}
+		fmt.Printf("ssh hosts   %s\n", strings.Join(names, ", "))
+	}
+	if n := len(cfg.RAG.Corpora); n > 0 {
+		names := make([]string, 0, n)
+		for _, c := range cfg.RAG.Corpora {
+			if c.Enabled {
+				names = append(names, c.Name)
+			}
+		}
+		if len(names) > 0 {
+			fmt.Printf("rag corpora %s\n", strings.Join(names, ", "))
+		}
+	}
 	fmt.Printf("storage     %s\n", storageLabel(cfg))
 	if cfg.Storage.Driver == "postgres" {
 		st, closeFn, err := openStore(context.Background(), cfg)
@@ -690,6 +732,9 @@ func serveCmd(workspace, addr string) int {
 		}
 	}
 	for _, t := range buildRAG(cfg) {
+		registry.Add(t)
+	}
+	for _, t := range buildInfra(cfg) {
 		registry.Add(t)
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
@@ -1412,6 +1457,49 @@ func grantDirs(sess *tools.Session, cfg config.Config, flagDirs string) error {
 	return nil
 }
 
+// buildInfra constructs the cluster and remote-host tools. Both are off by
+// default and both report why they are unavailable rather than silently
+// registering nothing.
+func buildInfra(cfg config.Config) []tools.Tool {
+	var out []tools.Tool
+
+	if cfg.K8s.Enabled {
+		mgr := k8s.NewManager(k8s.Config{
+			Kubeconfig: cfg.K8s.Kubeconfig,
+			Context:    cfg.K8s.Context,
+			Namespace:  cfg.K8s.Namespace,
+		})
+		out = append(out, k8s.GetTool{M: mgr})
+		if cfg.K8s.AllowWrites {
+			out = append(out, k8s.ApplyTool{M: mgr})
+		}
+	}
+
+	if cfg.SSH.Enabled && len(cfg.SSH.Hosts) > 0 {
+		hosts := make([]remote.HostConfig, 0, len(cfg.SSH.Hosts))
+		for _, h := range cfg.SSH.Hosts {
+			hosts = append(hosts, remote.HostConfig{
+				Name: h.Name, Addr: h.Addr, User: h.User,
+				IdentityFile: h.IdentityFile, PasswordEnv: h.PasswordEnv,
+				KnownHostsFile:           h.KnownHostsFile,
+				InsecureSkipHostKeyCheck: h.InsecureSkipHostKeyCheck,
+			})
+			if h.InsecureSkipHostKeyCheck {
+				fmt.Fprintf(os.Stderr, "titan: ssh host %q skips host key "+
+					"verification — it cannot detect a machine-in-the-middle\n", h.Name)
+			}
+		}
+		reg, errs := remote.NewRegistry(hosts)
+		for _, err := range errs {
+			fmt.Fprintf(os.Stderr, "titan: ssh: %v\n", err)
+		}
+		if reg.Len() > 0 {
+			out = append(out, remote.Tool{R: reg})
+		}
+	}
+	return out
+}
+
 // buildRAG constructs a tool per enabled corpus. A corpus that cannot be
 // configured is reported and skipped rather than failing startup: one broken
 // endpoint should not take the whole agent down.
@@ -1514,6 +1602,34 @@ func doctor(workspace string) int {
 		}
 	}
 	fmt.Printf("web search  %s\n", webSearchLabel(cfg))
+	if cfg.K8s.Enabled {
+		writes := "read-only"
+		if cfg.K8s.AllowWrites {
+			writes = "reads + writes (every write needs approval)"
+		}
+		fmt.Printf("kubernetes  %s\n", writes)
+		if c, err := k8s.Open(k8s.Config{Kubeconfig: cfg.K8s.Kubeconfig,
+			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace}); err != nil {
+			fmt.Printf("            UNAVAILABLE — %v\n", err)
+		} else {
+			fmt.Printf("            context %s\n            namespace %s · server %s\n",
+				c.Name, c.Namespace, c.Server)
+		}
+	}
+	if cfg.SSH.Enabled && len(cfg.SSH.Hosts) > 0 {
+		for _, h := range cfg.SSH.Hosts {
+			warn := ""
+			if h.InsecureSkipHostKeyCheck {
+				warn = "  ⚠ host key verification disabled"
+			}
+			fmt.Printf("ssh host    %s → %s@%s%s\n", h.Name, h.User, h.Addr, warn)
+		}
+	}
+	for _, c := range cfg.RAG.Corpora {
+		if c.Enabled {
+			fmt.Printf("rag corpus  %s → %s\n", c.Name, c.URL)
+		}
+	}
 	fmt.Printf("storage     %s\n", storageLabel(cfg))
 	if cfg.Storage.Driver == "postgres" {
 		st, closeFn, err := openStore(context.Background(), cfg)

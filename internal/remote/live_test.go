@@ -1,0 +1,263 @@
+package remote
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"golang.org/x/crypto/ssh"
+)
+
+// A real SSH server, so the transport, auth and host key verification are
+// exercised rather than mocked. Everything below runs against it.
+type testServer struct {
+	addr    string
+	hostKey ssh.PublicKey
+	stop    func()
+}
+
+func startSSHServer(t *testing.T, password string) *testServer {
+	t.Helper()
+
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ssh.ServerConfig{
+		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			if c.User() == "tester" && string(pass) == password {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("denied")
+		},
+	}
+	cfg.AddHostKey(signer)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				select {
+				case <-done:
+					return
+				default:
+					return
+				}
+			}
+			go serveConn(conn, cfg)
+		}
+	}()
+
+	return &testServer{
+		addr: ln.Addr().String(), hostKey: signer.PublicKey(),
+		stop: func() { close(done); ln.Close() },
+	}
+}
+
+// serveConn answers exec requests with a canned result, which is all the tool
+// needs to be exercised end to end.
+func serveConn(nConn net.Conn, cfg *ssh.ServerConfig) {
+	conn, chans, reqs, err := ssh.NewServerConn(nConn, cfg)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	go ssh.DiscardRequests(reqs)
+
+	for newChan := range chans {
+		if newChan.ChannelType() != "session" {
+			newChan.Reject(ssh.UnknownChannelType, "only sessions")
+			continue
+		}
+		ch, requests, err := newChan.Accept()
+		if err != nil {
+			return
+		}
+		go func(ch ssh.Channel, in <-chan *ssh.Request) {
+			defer ch.Close()
+			for req := range in {
+				if req.Type != "exec" {
+					req.Reply(false, nil)
+					continue
+				}
+				var payload struct{ Command string }
+				ssh.Unmarshal(req.Payload, &payload)
+				req.Reply(true, nil)
+
+				status := 0
+				switch {
+				case strings.Contains(payload.Command, "false"):
+					fmt.Fprint(ch.Stderr(), "it failed\n")
+					status = 3
+				case strings.Contains(payload.Command, "hostname"):
+					fmt.Fprint(ch, "titan-test-vm\n")
+				default:
+					fmt.Fprintf(ch, "ran: %s\n", payload.Command)
+				}
+				ch.SendRequest("exit-status", false,
+					ssh.Marshal(struct{ Status uint32 }{uint32(status)}))
+				return
+			}
+		}(ch, requests)
+	}
+}
+
+// knownHostsFor writes a known_hosts pinning the test server, so host key
+// verification is genuinely exercised rather than skipped.
+func knownHostsFor(t *testing.T, s *testServer) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "known_hosts")
+	line := fmt.Sprintf("[%s]:%s %s\n",
+		strings.Split(s.addr, ":")[0], strings.Split(s.addr, ":")[1],
+		strings.TrimSpace(string(ssh.MarshalAuthorizedKey(s.hostKey))))
+	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestRunAgainstRealSSHServer(t *testing.T) {
+	srv := startSSHServer(t, "hunter2")
+	defer srv.stop()
+
+	t.Setenv("TEST_SSH_PW", "hunter2")
+	reg, errs := NewRegistry([]HostConfig{{
+		Name: "vm1", Addr: srv.addr, User: "tester",
+		PasswordEnv:    "TEST_SSH_PW",
+		KnownHostsFile: knownHostsFor(t, srv),
+	}})
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	defer reg.Close()
+
+	args, _ := json.Marshal(map[string]any{"host": "vm1", "command": "hostname"})
+	res := Tool{R: reg}.Run(context.Background(), nil, args)
+
+	if res.IsError {
+		t.Fatalf("command failed: %s", res.Content)
+	}
+	if !strings.Contains(res.Content, "titan-test-vm") {
+		t.Errorf("stdout missing: %s", res.Content)
+	}
+	if !strings.Contains(res.Content, "tester@vm1") {
+		t.Errorf("result does not say where it ran: %s", res.Content)
+	}
+}
+
+// A non-zero exit is a result the model must see, not a transport failure.
+func TestNonZeroExitIsReported(t *testing.T) {
+	srv := startSSHServer(t, "pw")
+	defer srv.stop()
+	t.Setenv("TEST_SSH_PW", "pw")
+
+	reg, _ := NewRegistry([]HostConfig{{
+		Name: "vm1", Addr: srv.addr, User: "tester",
+		PasswordEnv: "TEST_SSH_PW", KnownHostsFile: knownHostsFor(t, srv),
+	}})
+	defer reg.Close()
+
+	args, _ := json.Marshal(map[string]any{"host": "vm1", "command": "false"})
+	res := Tool{R: reg}.Run(context.Background(), nil, args)
+
+	if res.ExitCode == nil || *res.ExitCode != 3 {
+		t.Errorf("exit code = %v, want 3", res.ExitCode)
+	}
+	if !strings.Contains(res.Content, "it failed") {
+		t.Errorf("stderr lost: %s", res.Content)
+	}
+}
+
+// The point of host key verification: a server whose key is not pinned must
+// be refused, not silently trusted.
+func TestUnknownHostKeyIsRefused(t *testing.T) {
+	srv := startSSHServer(t, "pw")
+	defer srv.stop()
+	t.Setenv("TEST_SSH_PW", "pw")
+
+	empty := filepath.Join(t.TempDir(), "known_hosts")
+	os.WriteFile(empty, []byte(""), 0o600)
+
+	reg, _ := NewRegistry([]HostConfig{{
+		Name: "vm1", Addr: srv.addr, User: "tester",
+		PasswordEnv: "TEST_SSH_PW", KnownHostsFile: empty,
+	}})
+	defer reg.Close()
+
+	args, _ := json.Marshal(map[string]any{"host": "vm1", "command": "hostname"})
+	res := Tool{R: reg}.Run(context.Background(), nil, args)
+
+	if !res.IsError {
+		t.Fatal("connected to a host whose key was not pinned")
+	}
+	if !strings.Contains(res.Content, "known_hosts") {
+		t.Errorf("refusal does not explain the fix: %s", res.Content)
+	}
+}
+
+func TestWrongPasswordIsReported(t *testing.T) {
+	srv := startSSHServer(t, "correct")
+	defer srv.stop()
+	t.Setenv("TEST_SSH_PW", "wrong")
+
+	reg, _ := NewRegistry([]HostConfig{{
+		Name: "vm1", Addr: srv.addr, User: "tester",
+		PasswordEnv: "TEST_SSH_PW", KnownHostsFile: knownHostsFor(t, srv),
+	}})
+	defer reg.Close()
+
+	args, _ := json.Marshal(map[string]any{"host": "vm1", "command": "hostname"})
+	res := Tool{R: reg}.Run(context.Background(), nil, args)
+
+	if !res.IsError || !strings.Contains(res.Content, "authentication") {
+		t.Errorf("auth failure unclear: %s", res.Content)
+	}
+}
+
+// The connection is reused, so a multi-step task does not re-handshake per
+// command.
+func TestConnectionIsReused(t *testing.T) {
+	srv := startSSHServer(t, "pw")
+	defer srv.stop()
+	t.Setenv("TEST_SSH_PW", "pw")
+
+	h, err := NewHost(HostConfig{
+		Name: "vm1", Addr: srv.addr, User: "tester",
+		PasswordEnv: "TEST_SSH_PW", KnownHostsFile: knownHostsFor(t, srv),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+
+	ctx := context.Background()
+	if _, err := h.Run(ctx, "hostname", 5*time.Second); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	first := h.client
+	if _, err := h.Run(ctx, "hostname", 5*time.Second); err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+	if h.client != first {
+		t.Error("reconnected instead of reusing the open connection")
+	}
+}

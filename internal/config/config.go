@@ -24,6 +24,8 @@ type Config struct {
 	Permissions PermissionsConfig `json:"permissions"`
 	Context     ContextConfig     `json:"context"`
 	RAG         RAGConfig         `json:"rag,omitempty"`
+	K8s         K8sConfig         `json:"k8s,omitempty"`
+	SSH         SSHConfig         `json:"ssh,omitempty"`
 	Limits      LimitsConfig      `json:"limits"`
 	Sandbox     SandboxConfig     `json:"sandbox"`
 	MCP         MCPConfig         `json:"mcp"`
@@ -153,6 +155,39 @@ type RetrievalConfig struct {
 	EmbedBaseURL string `json:"embed_base_url,omitempty"`
 	EmbedModel   string `json:"embed_model,omitempty"`
 	EmbedDims    int    `json:"embed_dims,omitempty"`
+}
+
+// K8sConfig enables cluster access. Off by default: reaching a cluster is an
+// authorization decision, and the credentials already on the machine are not
+// a reason to hand them to an agent without being asked.
+type K8sConfig struct {
+	Enabled bool `json:"enabled"`
+	// Kubeconfig path; empty uses $KUBECONFIG then ~/.kube/config.
+	Kubeconfig string `json:"kubeconfig,omitempty"`
+	// Context pins which cluster is the default. Empty uses current-context.
+	Context   string `json:"context,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	// AllowWrites exposes k8s_apply. Even then every call needs approval;
+	// this decides whether the capability exists at all.
+	AllowWrites bool `json:"allow_writes,omitempty"`
+}
+
+// SSHConfig declares reachable machines. The agent can only name a host from
+// this list, so the operator decides the blast radius, not the model.
+type SSHConfig struct {
+	Enabled bool            `json:"enabled"`
+	Hosts   []SSHHostConfig `json:"hosts,omitempty"`
+}
+
+type SSHHostConfig struct {
+	Name         string `json:"name"`
+	Addr         string `json:"addr"`
+	User         string `json:"user"`
+	IdentityFile string `json:"identity_file,omitempty"`
+	// PasswordEnv names an environment variable, never the password itself.
+	PasswordEnv              string `json:"password_env,omitempty"`
+	KnownHostsFile           string `json:"known_hosts_file,omitempty"`
+	InsecureSkipHostKeyCheck bool   `json:"insecure_skip_host_key_check,omitempty"`
 }
 
 // RAGConfig registers external retrieval corpora. Each becomes a rag_<name>
