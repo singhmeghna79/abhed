@@ -16,7 +16,9 @@ import (
 // transcript, and a run inspector carrying the numbers that matter on owned
 // GPUs — turns, tokens, cache hit rate, tool tallies, terminal reason.
 func (s *Server) serveConsole(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	// The console moved to /console when / became the landing page; this guard
+	// still checked for "/" and 404'd its own route.
+	if r.URL.Path != "/console" {
 		http.NotFound(w, r)
 		return
 	}
@@ -311,7 +313,9 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
       <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
       <rect x="3"  y="18" width="18" height="3"   rx="1"/>
     </svg>
-    <b>Titan</b><span id="ver">console</span>
+    <a href="/" style="text-decoration:none;color:inherit;display:flex;
+       align-items:baseline;gap:8px" title="Overview"><b>Titan</b><span
+       id="ver">console</span></a>
   </div>
   <div class="stat"><span class="led" id="led"></span><span id="health">connecting</span></div>
   <div class="spacer"></div>

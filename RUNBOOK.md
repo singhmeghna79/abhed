@@ -210,6 +210,19 @@ titan serve -addr :8420
 
 Open **http://localhost:8420**
 
+You land on an overview page describing this deployment — model, sandbox tier,
+storage, whether the agent can reach the internet, and how many sessions have
+run. With sign-in configured it asks you to authenticate first; without it,
+"Start working" goes straight through.
+
+| Route | What it is |
+|---|---|
+| `/` | Overview and sign-in |
+| `/console` | The chat workspace |
+| `/v1/overview` | The JSON the overview page renders |
+
+In the console:
+
 - **Left** — type a task, pick a mode, browse recent sessions
 - **Main** — live event stream: tool calls, output, agent replies
 - **Approvals** — appear inline with full arguments; approve or reject

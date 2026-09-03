@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/tools"
@@ -315,4 +316,124 @@ func TestAuthRoutesAnswerWhenAuthIsDisabled(t *testing.T) {
 	if body["reason"] == nil {
 		t.Error("whoami should say WHY there is no user")
 	}
+}
+
+// The landing page must be reachable before sign-in, or a configured
+// deployment has no front door at all.
+func TestLandingIsPublicAndDescribesTheDeployment(t *testing.T) {
+	s := testServer(t)
+	h := s.Handler()
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("landing returned %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"<title>Titan", "/v1/overview", "This deployment"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("landing page missing %q", want)
+		}
+	}
+	// Air-gap: the front door must not fetch anything external either.
+	if strings.Contains(body, "https://") {
+		t.Error("landing page references an external URL")
+	}
+}
+
+// The overview describes THIS instance. A landing page with static copy would
+// tell an operator nothing they need before typing a prompt.
+func TestOverviewReportsRealConfiguration(t *testing.T) {
+	s := testServer(t)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/v1/overview", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("overview returned %d", rec.Code)
+	}
+
+	var o overviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &o); err != nil {
+		t.Fatal(err)
+	}
+	if o.Model == "" {
+		t.Error("overview should name the model")
+	}
+	if o.Workspace == "" {
+		t.Error("overview should name the workspace")
+	}
+	if o.AuthMode != "none" {
+		t.Errorf("auth mode should reflect config, got %q", o.AuthMode)
+	}
+	// With auth off there is nowhere to sign in, so no button should be offered.
+	if o.SignInURL != "" {
+		t.Errorf("sign-in offered with auth disabled: %q", o.SignInURL)
+	}
+	if len(o.Tools) == 0 {
+		t.Error("overview should list the agent's tools")
+	}
+}
+
+// With sign-in configured, the landing page must offer it.
+func TestOverviewOffersSignInWhenConfigured(t *testing.T) {
+	idp := newTestIDP(t)
+	defer idp.Close()
+
+	cfg := config.Default()
+	cfg.Auth.Mode = "oidc"
+	cfg.Auth.Issuer = idp.URL
+	cfg.Auth.Audience = "titan"
+
+	v, err := auth.NewVerifier(auth.Config{Issuer: idp.URL, Audience: "titan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lg, err := auth.NewLogin(auth.LoginConfig{
+		Issuer: idp.URL, ClientID: "titan-console",
+		RedirectURL: "http://localhost:8420/auth/callback",
+	}, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := New(Options{
+		Workspace: t.TempDir(), Config: cfg,
+		Adapter: stubAdapter{}, Registry: tools.NewRegistry(tools.Read{}),
+		Auth: &auth.Middleware{Verifier: v, Login: lg,
+			PublicPaths: []string{"/", "/v1/overview", "/login", "/auth/callback", "/logout"}},
+	})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/v1/overview", nil))
+	var o overviewResponse
+	json.Unmarshal(rec.Body.Bytes(), &o)
+
+	if o.SignInURL == "" {
+		t.Fatal("sign-in configured but the landing page is offered no link")
+	}
+	if o.Authenticated {
+		t.Error("nobody is signed in yet")
+	}
+	if !strings.Contains(o.SignInURL, "/login") {
+		t.Errorf("sign-in URL should point at /login, got %q", o.SignInURL)
+	}
+}
+
+// A minimal OIDC discovery endpoint, enough for NewLogin to initialise.
+func newTestIDP(t *testing.T) *httptest.Server {
+	t.Helper()
+	var srv *httptest.Server
+	mux := http.NewServeMux()
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{
+			"issuer":                 srv.URL,
+			"authorization_endpoint": srv.URL + "/authorize",
+			"token_endpoint":         srv.URL + "/token",
+			"jwks_uri":               srv.URL + "/jwks",
+		})
+	})
+	mux.HandleFunc("/jwks", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"keys":[]}`))
+	})
+	srv = httptest.NewServer(mux)
+	return srv
 }

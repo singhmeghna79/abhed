@@ -140,7 +140,9 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /login", s.authDisabledPage)
 		mux.HandleFunc("GET /logout", s.authDisabledPage)
 	}
-	mux.HandleFunc("GET /", s.serveConsole)
+	mux.HandleFunc("GET /", s.serveLanding)
+	mux.HandleFunc("GET /console", s.serveConsole)
+	mux.HandleFunc("GET /v1/overview", s.overview)
 
 	// Order matters and is easy to get backwards: authentication must run
 	// BEFORE the layer that reads the identity, so it wraps closest to the
@@ -159,7 +161,7 @@ func (s *Server) authMiddleware() auth.Middleware {
 		return *s.opts.Auth
 	}
 	mw := auth.Middleware{PublicPaths: []string{
-		"/v1/health", "/login", "/auth/callback", "/logout"}}
+		"/", "/v1/health", "/v1/overview", "/login", "/auth/callback", "/logout"}}
 	if s.opts.Config.Auth.Mode == "proxy" {
 		mw.TrustHeaders = true
 	}
@@ -621,6 +623,115 @@ func (s *Server) authDisabledPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(authDisabledHTML))
+}
+
+// serveLanding is the front door.
+//
+// Previously / went straight into the workspace, which told a first-time
+// visitor nothing about what Titan is and gave a configured deployment no
+// place to sign in. It now shows what this instance actually is — model,
+// sandbox tier, storage, auth mode, live session counts — and routes on:
+// straight through when there is nothing to sign in to, or to the IdP when
+// there is.
+func (s *Server) serveLanding(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy",
+		"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'")
+	w.Write([]byte(landingHTML))
+}
+
+// overviewResponse is what the landing page renders. Everything here is a fact
+// about THIS deployment, so the page describes the instance in front of you
+// rather than a product in the abstract.
+type overviewResponse struct {
+	Model         string   `json:"model"`
+	ContextWindow int      `json:"context_window"`
+	Workspace     string   `json:"workspace"`
+	Sandbox       string   `json:"sandbox"`
+	SandboxNet    bool     `json:"sandbox_network"`
+	Storage       string   `json:"storage"`
+	Durable       bool     `json:"durable"`
+	AuthMode      string   `json:"auth_mode"`
+	SignInURL     string   `json:"sign_in_url,omitempty"`
+	Authenticated bool     `json:"authenticated"`
+	User          string   `json:"user,omitempty"`
+	Tenant        string   `json:"tenant,omitempty"`
+	WebSearch     string   `json:"web_search"`
+	Retrieval     bool     `json:"retrieval"`
+	MCPServers    int      `json:"mcp_servers"`
+	Tools         []string `json:"tools"`
+	Sessions      int      `json:"sessions"`
+	Events        int64    `json:"events"`
+	Running       int      `json:"running"`
+}
+
+func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
+	cfg := s.opts.Config
+	o := overviewResponse{
+		Model:         s.opts.Adapter.Profile().Name,
+		ContextWindow: s.opts.Adapter.Profile().ContextWindow,
+		Workspace:     s.opts.Workspace,
+		AuthMode:      orDefaultStr(cfg.Auth.Mode, "none"),
+		Durable:       cfg.Storage.Driver == "postgres",
+		Retrieval:     cfg.Retrieval.Enabled,
+		MCPServers:    len(cfg.MCP.Servers),
+	}
+
+	o.Storage = "in-memory (sessions end with this process)"
+	if o.Durable {
+		o.Storage = "postgres · sessions survive restart"
+	}
+
+	o.Sandbox = orDefaultStr(cfg.Sandbox.MinTier, "process")
+	o.SandboxNet = cfg.Sandbox.AllowNetwork
+
+	o.WebSearch = "disabled"
+	if cfg.WebSearch.Enabled {
+		o.WebSearch = orDefaultStr(cfg.WebSearch.Provider, "duckduckgo")
+	}
+
+	if s.opts.Registry != nil {
+		o.Tools = s.opts.Registry.Names()
+	}
+
+	// Sign-in only matters when there is somewhere to sign in TO.
+	if s.opts.Auth != nil && s.opts.Auth.Login != nil {
+		o.SignInURL = "/login?return=%2Fconsole"
+		if id, ok := s.opts.Auth.Login.FromCookie(r); ok {
+			o.Authenticated = true
+			o.User = orDefaultStr(id.Email, id.Subject)
+			o.Tenant = id.Tenant
+		}
+	}
+
+	s.mu.RLock()
+	for _, l := range s.running {
+		l.mu.Lock()
+		if l.State == "running" || l.State == "waiting_approval" {
+			o.Running++
+		}
+		l.mu.Unlock()
+	}
+	s.mu.RUnlock()
+
+	if s.sessions != nil {
+		if recs, err := s.sessions.ListSessions(r.Context(), 500); err == nil {
+			o.Sessions = len(recs)
+		}
+	}
+	if pg, ok := s.store.(interface {
+		Stats(context.Context) (int64, int64, error)
+	}); ok {
+		if _, events, err := pg.Stats(r.Context()); err == nil {
+			o.Events = events
+		}
+	}
+
+	writeJSON(w, http.StatusOK, o)
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
