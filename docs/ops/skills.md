@@ -62,6 +62,52 @@ Defaults to `~/.titan/skills`. To use other directories:
 Later directories win on a name collision, so a project can deliberately
 override a team-wide skill. `{"skills": {"disabled": true}}` turns them off.
 
+## Importing skills written elsewhere
+
+Skills authored for another harness generally load unchanged. Two conventions
+are handled explicitly:
+
+**`$SKILL_DIR`.** Many skills say `bash $SKILL_DIR/scripts/run.sh`. The model
+has no shell to expand that, so the tool reports the directory *and* states the
+substitution — otherwise the command runs `/scripts/run.sh` and fails.
+
+**Folded descriptions.** YAML block scalars work:
+
+```yaml
+description: >
+  Answer questions about IBM Z and z/OS using the enterprise
+  knowledge base. Use whenever the user asks a documented question.
+```
+
+Without this, `description: >` parsed as the single character `>` — a
+description the model could never match a request against, so the skill was
+silently never invoked.
+
+**Skill directories are readable.** Each loaded skill's own directory is granted
+to every session, because its instructions reference the scripts and assets
+shipped beside it. Denying that read sent the agent into a loop it could not
+escape.
+
+## Choosing which skills are active
+
+To enable a subset without moving anything, point `dirs` at a directory of
+symlinks:
+
+```bash
+mkdir -p ~/.titan/skills-active
+ln -s /path/to/skills/zrag ~/.titan/skills-active/zrag
+```
+
+```json
+{ "skills": { "dirs": ["~/.titan/skills-active"] } }
+```
+
+Symlinks are followed, so the skill stays where it lives and nothing drifts out
+of sync with its source.
+
+A malformed `SKILL.md` is reported by name and skipped; the others still load.
+A stub alongside seven working skills used to cost all eight.
+
 ## Why not the workspace
 
 Skills are deliberately **not** read from the repository the agent is editing.

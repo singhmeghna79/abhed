@@ -51,7 +51,10 @@ type Options struct {
 	// server takes the rendered string rather than the registry, because the
 	// registry's only other use is the tool, which is already in Registry.
 	SkillListing string
-	Logger       *slog.Logger
+	// SkillDirs are the loaded skills' directories, granted to every session
+	// so a skill can reference the scripts and assets shipped beside it.
+	SkillDirs []string
+	Logger    *slog.Logger
 	// Store defaults to an in-memory store when nil.
 	Store EventStore
 	// Auth verifies callers. Nil means the mode from Config is used.
@@ -326,7 +329,11 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	// A refusal here is a misconfiguration, not a per-request problem: fail
 	// the session rather than silently running with a narrower scope than the
 	// operator asked for.
-	for _, dir := range s.opts.Config.AdditionalDirs {
+	dirs := append([]string{}, s.opts.Config.AdditionalDirs...)
+	// A skill's own directory is reachable: its instructions reference files
+	// beside them, and denying that read is a dead end for the agent.
+	dirs = append(dirs, s.opts.SkillDirs...)
+	for _, dir := range dirs {
 		if err := sess.AddRoot(dir); err != nil {
 			writeError(w, http.StatusInternalServerError,
 				"additional_dirs: "+err.Error())

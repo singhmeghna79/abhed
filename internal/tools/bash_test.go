@@ -43,14 +43,6 @@ func TestBashCapturesStderr(t *testing.T) {
 	}
 }
 
-func TestBashRequiresDescription(t *testing.T) {
-	s, _ := setup(t)
-	res := run(t, Bash{}, s, bashArgs{Command: "echo hi"})
-	if !res.IsError || !strings.Contains(res.Content, "description is required") {
-		t.Fatalf("expected description requirement: %s", res.Content)
-	}
-}
-
 func TestBashRejectsInteractive(t *testing.T) {
 	s, _ := setup(t)
 	for _, cmd := range []string{"git rebase -i HEAD~3", "vim file.txt", "less log.txt"} {
@@ -130,5 +122,33 @@ func TestIsDestructive(t *testing.T) {
 		if got != want {
 			t.Errorf("IsDestructive(%q) = %v (%s), want %v", cmd, got, what, want)
 		}
+	}
+}
+
+// A missing description must not fail the call. It labels the approval prompt;
+// refusing over a missing label was a real dead end — a model omitted it twice,
+// got the same rejection twice, and abandoned the task rather than running the
+// command.
+func TestBashDerivesMissingDescription(t *testing.T) {
+	s, _ := setup(t)
+	// Deliberately no Description: that is the case under test.
+	res := run(t, Bash{}, s, bashArgs{Command: "echo hello"})
+
+	if res.IsError {
+		t.Fatalf("a missing description failed the command: %s", res.Content)
+	}
+	if !strings.Contains(res.Content, "hello") {
+		t.Errorf("command did not run: %s", res.Content)
+	}
+}
+
+func TestSummarizeCommandIsBounded(t *testing.T) {
+	got := summarizeCommand(strings.Repeat("x", 300))
+	if len(got) > 100 {
+		t.Errorf("label is %d chars, want it bounded", len(got))
+	}
+	multi := summarizeCommand("first line\nsecond line")
+	if strings.Contains(multi, "second") {
+		t.Errorf("label spans lines: %q", multi)
 	}
 }

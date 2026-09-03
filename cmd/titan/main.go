@@ -783,6 +783,7 @@ func serveCmd(workspace, addr string) int {
 		Adapter:      buildAdapter(provider),
 		Registry:     registry,
 		SkillListing: skillListing,
+		SkillDirs:    skillDirs(cfg),
 		Store:        eventStore,
 		Auth:         authMW,
 	})
@@ -1465,6 +1466,12 @@ func buildSandbox(cfg config.Config, workspace string) (sandbox.Sandbox, error) 
 func grantDirs(sess *tools.Session, cfg config.Config, flagDirs string) error {
 	dirs := append([]string{}, cfg.AdditionalDirs...)
 	dirs = append(dirs, splitRules(flagDirs)...)
+	// Skill directories are reachable by construction: a skill's instructions
+	// routinely say "run the script in scripts/run.sh", and denying the read
+	// of a file the operator installed deliberately sends the agent into a
+	// loop it cannot escape. These are operator-configured paths, not
+	// workspace content, so this widens nothing the operator did not choose.
+	dirs = append(dirs, skillDirs(cfg)...)
 	for _, d := range dirs {
 		if err := sess.AddRoot(d); err != nil {
 			return fmt.Errorf("--add-dir: %w", err)
@@ -1476,6 +1483,21 @@ func grantDirs(sess *tools.Session, cfg config.Config, flagDirs string) error {
 // buildSkills loads the configured skill directories and returns the registry
 // plus its prompt listing. Errors are reported and survivable: one malformed
 // SKILL.md should not stop the agent starting.
+// skillDirs returns each loaded skill's own directory, for filesystem access.
+func skillDirs(cfg config.Config) []string {
+	if cfg.Skills.Disabled {
+		return nil
+	}
+	reg, _ := buildSkills(cfg)
+	var out []string
+	for _, s := range reg.All() {
+		if s.Dir != "" {
+			out = append(out, s.Dir)
+		}
+	}
+	return out
+}
+
 func buildSkills(cfg config.Config) (*skills.Registry, string) {
 	if cfg.Skills.Disabled {
 		return skills.NewRegistry(), ""

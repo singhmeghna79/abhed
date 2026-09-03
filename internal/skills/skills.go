@@ -65,11 +65,8 @@ func Load(roots []string) (*Registry, []error) {
 	var errs []error
 	for _, root := range roots {
 		expanded := expandHome(root)
-		found, err := discover(expanded)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
+		found, problems := discover(expanded)
+		errs = append(errs, problems...)
 		for _, s := range found {
 			s.Source = expanded
 			r.add(s)
@@ -147,39 +144,53 @@ const skillFile = "SKILL.md"
 // discover walks a root looking for SKILL.md files. A missing root is not an
 // error: configuring a directory that does not exist yet is a reasonable thing
 // to do before writing the first skill.
-func discover(root string) ([]*Skill, error) {
+func discover(root string) ([]*Skill, []error) {
 	info, err := os.Stat(root)
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("skills: read %s: %w", root, err)
+		return nil, []error{fmt.Errorf("skills: read %s: %w", root, err)}
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("skills: %s is not a directory", root)
+		return nil, []error{fmt.Errorf("skills: %s is not a directory", root)}
 	}
 
 	var out []*Skill
+	var problems []error
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		return nil, fmt.Errorf("skills: read %s: %w", root, err)
+		return nil, []error{fmt.Errorf("skills: read %s: %w", root, err)}
 	}
 	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		if strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		dir := filepath.Join(root, e.Name())
+		// Stat rather than trusting the dirent: a symlink to a skill
+		// directory reports as a link, not a directory, and skipping it meant
+		// an operator curating a set of active skills by symlink got nothing,
+		// silently.
+		info, err := os.Stat(dir)
+		if err != nil || !info.IsDir() {
+			continue
+		}
 		path := filepath.Join(dir, skillFile)
 		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			continue // a directory without SKILL.md is not a skill
 		}
 		if err != nil {
-			return out, fmt.Errorf("skills: read %s: %w", path, err)
+			// One unreadable file must not hide the rest of the directory.
+			// Collect and continue: a stub SKILL.md alongside seven working
+			// ones silently cost all eight.
+			problems = append(problems, fmt.Errorf("skills: read %s: %w", path, err))
+			continue
 		}
 		s, err := Parse(string(data))
 		if err != nil {
-			return out, fmt.Errorf("skills: %s: %w", path, err)
+			problems = append(problems, fmt.Errorf("skills: %s: %w", path, err))
+			continue
 		}
 		if s.Name == "" {
 			s.Name = e.Name()
@@ -187,7 +198,7 @@ func discover(root string) ([]*Skill, error) {
 		s.Dir = dir
 		out = append(out, s)
 	}
-	return out, nil
+	return out, problems
 }
 
 // Parse reads a SKILL.md: YAML-ish frontmatter between --- markers, then the
@@ -227,8 +238,10 @@ func Parse(content string) (*Skill, error) {
 }
 
 func parseFrontmatter(fm string, s *Skill) {
-	for _, line := range strings.Split(fm, "\n") {
-		line = strings.TrimSpace(line)
+	lines := strings.Split(fm, "\n")
+	for i := 0; i < len(lines); i++ {
+		raw := lines[i]
+		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -236,9 +249,42 @@ func parseFrontmatter(fm string, s *Skill) {
 		if !found {
 			continue
 		}
+		key = strings.ToLower(strings.TrimSpace(key))
 		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
-		switch strings.ToLower(strings.TrimSpace(key)) {
+
+		// Block scalars: "description: >" (folded) or "|" (literal) put the
+		// text on the following indented lines. A real skill used this and the
+		// description parsed as ">" — one character, which the model would
+		// never match a request against. Silently useless is the worst
+		// outcome, so it is handled rather than rejected.
+		if value == ">" || value == "|" || value == ">-" || value == "|-" {
+			var block []string
+			indent := len(raw) - len(strings.TrimLeft(raw, " \t"))
+			for j := i + 1; j < len(lines); j++ {
+				next := lines[j]
+				if strings.TrimSpace(next) == "" {
+					block = append(block, "")
+					continue
+				}
+				nextIndent := len(next) - len(strings.TrimLeft(next, " \t"))
+				if nextIndent <= indent {
+					break // dedented: the block ended
+				}
+				block = append(block, strings.TrimSpace(next))
+				i = j
+			}
+			if value == ">" || value == ">-" {
+				// Folded: newlines become spaces, blank lines become breaks.
+				value = strings.TrimSpace(strings.Join(block, " "))
+				value = strings.Join(strings.Fields(value), " ")
+			} else {
+				value = strings.TrimSpace(strings.Join(block, "\n"))
+			}
+		} else {
+			value = strings.Trim(value, `"'`)
+		}
+
+		switch key {
 		case "name":
 			s.Name = value
 		case "description":

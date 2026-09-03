@@ -201,3 +201,118 @@ func TestToolIsReadOnly(t *testing.T) {
 		t.Error("the skill tool prompts for approval, training users to click through")
 	}
 }
+
+// YAML folded and literal block scalars. A real skill used `description: >`
+// and parsed as the single character ">" — a description the model could never
+// match a request against, so the skill was silently never invoked.
+func TestParseFoldedDescription(t *testing.T) {
+	s, err := Parse(`---
+name: zrag
+description: >
+  Answer questions about IBM Z, z/OS, mainframe hardware and software
+  using the enterprise knowledge base. Use whenever the user asks a
+  documented IBM Z question.
+metadata:
+  version: "2.0.0"
+---
+
+# Body here
+
+Instructions.
+`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(s.Description) < 50 {
+		t.Fatalf("folded description collapsed to %q", s.Description)
+	}
+	if !strings.Contains(s.Description, "IBM Z") ||
+		!strings.Contains(s.Description, "Use whenever") {
+		t.Errorf("folded lines not joined: %q", s.Description)
+	}
+	// Folded style joins lines with spaces, not newlines.
+	if strings.Contains(s.Description, "\n") {
+		t.Errorf("folded description kept newlines: %q", s.Description)
+	}
+	// Following keys must not be swallowed into the block.
+	if strings.Contains(s.Description, "version") {
+		t.Errorf("block ran past its indentation: %q", s.Description)
+	}
+	if s.Name != "zrag" {
+		t.Errorf("name = %q", s.Name)
+	}
+}
+
+func TestParseLiteralDescription(t *testing.T) {
+	s, err := Parse("---\nname: x\ndescription: |\n  Line one.\n  Line two.\n---\n\nBody.\n")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !strings.Contains(s.Description, "Line one.\nLine two.") {
+		t.Errorf("literal block did not keep newlines: %q", s.Description)
+	}
+}
+
+// One malformed SKILL.md must not hide the rest of a directory. A stub
+// alongside seven working skills silently cost all eight.
+func TestOneBadSkillDoesNotBlockTheRest(t *testing.T) {
+	root := t.TempDir()
+	writeSkill(t, root, "good-one", validSkill)
+	writeSkill(t, root, "stub", "---\nname: stub\ndescription: Nothing here.\n---\n")
+	writeSkill(t, root, "good-two",
+		"---\nname: good-two\ndescription: Another usable skill.\n---\n\nSteps.\n")
+
+	reg, errs := Load([]string{root})
+	if len(errs) != 1 {
+		t.Errorf("errs = %v, want exactly the stub reported", errs)
+	}
+	if reg.Len() != 2 {
+		t.Fatalf("loaded %v, want both working skills", reg.Names())
+	}
+	if !strings.Contains(errs[0].Error(), "stub") {
+		t.Errorf("error does not name the offending skill: %v", errs[0])
+	}
+}
+
+// Skills written for other harnesses use $SKILL_DIR. The model has no shell to
+// expand it, so the tool must say what to substitute — otherwise
+// "bash $SKILL_DIR/scripts/run.sh" runs /scripts/run.sh and fails.
+func TestToolExplainsSkillDirSubstitution(t *testing.T) {
+	root := t.TempDir()
+	writeSkill(t, root, "deploy", validSkill)
+	reg, _ := Load([]string{root})
+
+	args, _ := json.Marshal(map[string]string{"name": "deploy"})
+	res := Tool{R: reg}.Run(context.Background(), nil, args)
+	if !strings.Contains(res.Content, "$SKILL_DIR") {
+		t.Errorf("tool does not explain $SKILL_DIR: %s", res.Content)
+	}
+	if !strings.Contains(res.Content, filepath.Join(root, "deploy")) {
+		t.Errorf("tool does not give the path to substitute: %s", res.Content)
+	}
+}
+
+// An operator curating active skills by symlink got nothing, silently:
+// os.ReadDir reports a symlink as a link, not a directory.
+func TestLoadFollowsSymlinkedSkills(t *testing.T) {
+	realRoot := t.TempDir()
+	writeSkill(t, realRoot, "deploy", validSkill)
+
+	activeRoot := t.TempDir()
+	if err := os.Symlink(filepath.Join(realRoot, "deploy"),
+		filepath.Join(activeRoot, "deploy")); err != nil {
+		t.Skip("cannot create symlinks here")
+	}
+
+	reg, errs := Load([]string{activeRoot})
+	if len(errs) > 0 {
+		t.Fatalf("errors: %v", errs)
+	}
+	if reg.Len() != 1 {
+		t.Fatalf("symlinked skill not discovered: %v", reg.Names())
+	}
+	s, _ := reg.Get("deploy")
+	if !strings.Contains(s.Body, "Push the image") {
+		t.Errorf("body not read through the symlink: %q", s.Body)
+	}
+}

@@ -73,10 +73,15 @@ func (t Tool) Run(_ context.Context, _ *tools.Session, raw json.RawMessage) tool
 	var b strings.Builder
 	fmt.Fprintf(&b, "Skill: %s\n", s.Name)
 	if s.Dir != "" {
-		// Instructions routinely reference files beside them ("run the script
-		// in scripts/check.sh"), and a relative path is meaningless without
-		// this.
+		// Instructions routinely reference files beside them, and many skills
+		// written for other harnesses use a $SKILL_DIR placeholder rather than
+		// a relative path. Give both the value and the substitution rule: the
+		// model has no shell that expands it, so an instruction saying
+		// "bash $SKILL_DIR/scripts/run.sh" would otherwise run /scripts/run.sh
+		// and fail.
 		fmt.Fprintf(&b, "Skill directory: %s\n", s.Dir)
+		fmt.Fprintf(&b, "When these instructions write $SKILL_DIR or "+
+			"${SKILL_DIR}, substitute %s.\n", s.Dir)
 	}
 	b.WriteString("\n")
 	b.WriteString(s.Body)

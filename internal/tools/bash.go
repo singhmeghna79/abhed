@@ -119,7 +119,12 @@ func (b Bash) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 		return errf("command is required.")
 	}
 	if strings.TrimSpace(a.Description) == "" {
-		return errf("description is required — it is shown to the user in the approval prompt. Describe what the command does in a few words.")
+		// Derive one rather than failing. The description exists to label the
+		// approval prompt, and refusing the call over a missing label was a
+		// real dead end: a model omitted it twice, got the same rejection
+		// twice, and abandoned the task instead of running the command.
+		// A weaker label is far better than no command.
+		a.Description = summarizeCommand(a.Command)
 	}
 
 	for _, re := range interactivePatterns {
@@ -252,6 +257,16 @@ func sandboxHint(output string) string {
 	return "NOTE: the sandbox denied this operation. Retrying the same command will " +
 		"fail identically — either use a native Titan tool for this, or tell the user " +
 		"what needs to change."
+}
+
+// summarizeCommand builds a short label for the approval prompt from the
+// command itself, for when the model did not supply one.
+func summarizeCommand(command string) string {
+	line := strings.TrimSpace(strings.SplitN(command, "\n", 2)[0])
+	if len(line) > 80 {
+		line = line[:80] + "…"
+	}
+	return "Run: " + line
 }
 
 func asExitError(err error, target **exec.ExitError) bool {
