@@ -993,8 +993,54 @@ func userCmd(workspace string, args []string) int {
 		}
 		fmt.Printf("removed %s\n", args[1])
 
+	case "import":
+		// Switching storage.driver from memory/file to postgres leaves every
+		// existing account behind in the file, with no error and no hint —
+		// the accounts simply are not there any more. This moves them.
+		if cfg.Storage.Driver != "postgres" {
+			fmt.Fprintln(os.Stderr,
+				"titan: import copies accounts INTO postgres; set storage.driver first")
+			return 1
+		}
+		src, err := auth.NewFileUserStore(filepath.Join(workspace, ".titan", "users.json"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 1
+		}
+		accounts, err := src.List(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "titan: read %s: %v\n", src.Path(), err)
+			return 1
+		}
+		if len(accounts) == 0 {
+			fmt.Printf("no accounts in %s\n", src.Path())
+			return 0
+		}
+		moved, skipped := 0, 0
+		for _, u := range accounts {
+			// Never overwrite an account that already exists in the target:
+			// a re-run of import must not clobber a password changed since.
+			if existing, _ := us.Get(ctx, u.Username); existing != nil {
+				fmt.Printf("  skip   %s (already in postgres)\n", u.Username)
+				skipped++
+				continue
+			}
+			if err := us.Put(ctx, u); err != nil {
+				fmt.Fprintf(os.Stderr, "titan: import %s: %v\n", u.Username, err)
+				return 1
+			}
+			fmt.Printf("  import %s\n", u.Username)
+			moved++
+		}
+		fmt.Printf("%d imported, %d already present\n", moved, skipped)
+		if moved > 0 {
+			// Left in place deliberately: it is the only copy of those hashes
+			// until the operator is satisfied the move worked.
+			fmt.Printf("%s is unchanged — delete it once you have signed in\n", src.Path())
+		}
+
 	default:
-		fmt.Fprintln(os.Stderr, "usage: titan user [add|list|passwd|remove]")
+		fmt.Fprintln(os.Stderr, "usage: titan user [add|list|passwd|remove|import]")
 		return 2
 	}
 	return 0

@@ -34,6 +34,13 @@ type Postgres struct {
 	// durable record; this is the notification path for SSE.
 	mu   sync.RWMutex
 	subs map[string][]chan agent.Event
+
+	// The accounts table is created on first use rather than at Open, so an
+	// OIDC deployment never creates a table it will not use. Once, because
+	// the user operations all call MigrateUsers defensively and one of them
+	// is on the sign-in path.
+	usersOnce sync.Once
+	usersErr  error
 }
 
 type Config struct {

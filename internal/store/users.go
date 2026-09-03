@@ -37,11 +37,18 @@ CREATE INDEX IF NOT EXISTS users_email_idx  ON users (email) WHERE email <> '';
 
 // MigrateUsers creates the accounts table. Separate from the main schema so a
 // deployment using OIDC never creates a table it will not use.
+//
+// Guarded by a sync.Once because the callers below invoke it defensively on
+// every operation, and Authenticate is on the sign-in path: without the guard
+// each password check ran a CREATE TABLE statement first, taking DDL locks
+// against a table that already existed.
 func (p *Postgres) MigrateUsers(ctx context.Context) error {
-	if _, err := p.pool.Exec(ctx, usersSchema); err != nil {
-		return fmt.Errorf("apply users schema: %w", err)
-	}
-	return nil
+	p.usersOnce.Do(func() {
+		if _, err := p.pool.Exec(ctx, usersSchema); err != nil {
+			p.usersErr = fmt.Errorf("apply users schema: %w", err)
+		}
+	})
+	return p.usersErr
 }
 
 func (p *Postgres) Get(ctx context.Context, username string) (*auth.User, error) {

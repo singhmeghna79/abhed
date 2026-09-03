@@ -61,6 +61,22 @@ The file store exists because the alternative was silently broken: an in-memory
 store meant `titan user add` created an account inside a CLI process that then
 exited, reported success, and left the user unable to sign in.
 
+### Moving accounts to Postgres
+
+Switching `storage.driver` from `memory` to `postgres` does **not** carry
+existing accounts across — Postgres simply starts empty, with no error. Import
+them:
+
+```bash
+export TITAN_DATABASE_URL='postgres://titan_app:...@db.internal:5432/titan'
+titan -C /srv/titan user import
+```
+
+It never overwrites an account that already exists in the target, so a re-run
+is safe, and it leaves `users.json` in place: that file is the only copy of
+those hashes until you have confirmed sign-in works. Delete it yourself
+afterwards.
+
 ### Self-registration
 
 `allow_signup` is **off by default**. On an internal tool, open registration is
