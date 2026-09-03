@@ -35,6 +35,37 @@ construction rather than by correctly interpreting text.
 is no permission mode that auto-approves a cluster write: a mistaken delete in
 production is not recoverable the way a file edit is.
 
+### Logging in during a conversation
+
+A cluster token expires, and a stale one in a kubeconfig produces a 401 that
+reads like a permissions problem. When that happens, paste the login:
+
+```
+oc login --token=sha256~... --server=https://api.cluster.example.com:6443
+```
+
+The agent calls `k8s_login`, which asks for approval once and then holds the
+credential **in memory for that Titan process only**. It is never written to
+your kubeconfig, the event store, or a log — a token pasted into a chat should
+not become a durable artifact of that chat.
+
+**Do not expect `oc login` through bash to work.** Three separate things stop
+it, and the combination produced a confusing failure in practice:
+
+1. The sandbox denies reads of `~/.kube`, so `oc` cannot read or write the
+   kubeconfig at all.
+2. Each bash call is a fresh sandboxed process, so a login inside one would not
+   survive to the next.
+3. Approving the command approves *running* it — the sandbox denial is a
+   separate layer that approval does not lift.
+
+`bash` now says so when a command fails on a denied credential path, and names
+the tool to use instead, rather than leaving the agent to conclude the file is
+simply unreadable.
+
+For a non-interactive deployment, `TITAN_K8S_TOKEN` overrides the kubeconfig
+credential at startup.
+
 **Credentials come from your kubeconfig, never from the model.** The agent picks
 a cluster only by naming a context you already have, so the worst it can reach
 is what your own `kubectl` can. Token, tokenFile, client certificates and `exec`

@@ -205,11 +205,53 @@ func (b Bash) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 	// A non-zero exit is a valid observation the model must reason about, not a
 	// tool failure. Never convert a failing test run into an error.
 	header := fmt.Sprintf("exit %d · %s", exitCode, elapsed.Round(time.Millisecond))
+	if hint := sandboxHint(content); hint != "" {
+		content += "\n\n" + hint
+	}
 	return Result{
 		Content:   header + "\n" + content,
 		Truncated: truncated,
 		ExitCode:  &exitCode,
 	}
+}
+
+// sandboxHint explains a failure the sandbox caused, and names what to do
+// instead.
+//
+// Without this the model sees only "operation not permitted" from a tool it
+// shelled out to, concludes the file is unreadable, and gives up — which is
+// what happened when a user approved `oc login` and got nothing: the approval
+// let the COMMAND run, and the sandbox separately denied the credential read.
+// Two layers, one confusing message.
+//
+// The failure is worth catching precisely because the agent usually has a
+// better route: a native tool that holds the credential outside the sandbox.
+func sandboxHint(output string) string {
+	if !strings.Contains(output, "operation not permitted") &&
+		!strings.Contains(output, "Operation not permitted") {
+		return ""
+	}
+	for _, c := range []struct{ path, hint string }{
+		{".kube", "Titan's sandbox blocks reads of ~/.kube, so kubectl and oc cannot " +
+			"authenticate from inside it. Use the k8s_get tool instead, which holds the " +
+			"credential outside the sandbox. If k8s_get is not available, this deployment " +
+			"has not enabled cluster access — tell the user to set k8s.enabled in their config."},
+		{".ssh", "Titan's sandbox blocks reads of ~/.ssh, so ssh and git-over-ssh cannot " +
+			"authenticate from inside it. Use the ssh tool instead, which uses the agent or " +
+			"a configured key. If it is not available, tell the user to configure ssh.hosts."},
+		{".aws", "Titan's sandbox blocks reads of ~/.aws, so the AWS CLI cannot authenticate " +
+			"from inside it. Ask the user to run this command themselves, or to expose the " +
+			"capability through an MCP server."},
+		{".gnupg", "Titan's sandbox blocks reads of ~/.gnupg. Ask the user to run any " +
+			"signing step themselves."},
+	} {
+		if strings.Contains(output, c.path) {
+			return "NOTE: " + c.hint + " Do not retry this command; it will fail the same way."
+		}
+	}
+	return "NOTE: the sandbox denied this operation. Retrying the same command will " +
+		"fail identically — either use a native Titan tool for this, or tell the user " +
+		"what needs to change."
 }
 
 func asExitError(err error, target **exec.ExitError) bool {

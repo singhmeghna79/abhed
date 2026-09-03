@@ -695,7 +695,8 @@ func serveCmd(workspace, addr string) int {
 		// Resolve the kubeconfig now: a misconfigured cluster should be a
 		// startup finding, not a surprise mid-task.
 		if c, err := k8s.Open(k8s.Config{Kubeconfig: cfg.K8s.Kubeconfig,
-			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace}); err != nil {
+			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace,
+			Token: os.Getenv("TITAN_K8S_TOKEN")}); err != nil {
 			fmt.Printf("            UNAVAILABLE — %v\n", err)
 		} else {
 			fmt.Printf("            context %s · namespace %s\n", c.Name, c.Namespace)
@@ -1497,8 +1498,11 @@ func buildInfra(cfg config.Config) []tools.Tool {
 			Kubeconfig: cfg.K8s.Kubeconfig,
 			Context:    cfg.K8s.Context,
 			Namespace:  cfg.K8s.Namespace,
+			// From the environment only: a token in a config file sits in a
+			// directory the agent itself can read.
+			Token: os.Getenv("TITAN_K8S_TOKEN"),
 		})
-		out = append(out, k8s.GetTool{M: mgr})
+		out = append(out, k8s.GetTool{M: mgr}, k8s.LoginTool{M: mgr})
 		if cfg.K8s.AllowWrites {
 			out = append(out, k8s.ApplyTool{M: mgr})
 		}
@@ -1642,7 +1646,8 @@ func doctor(workspace string) int {
 		}
 		fmt.Printf("kubernetes  %s\n", writes)
 		if c, err := k8s.Open(k8s.Config{Kubeconfig: cfg.K8s.Kubeconfig,
-			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace}); err != nil {
+			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace,
+			Token: os.Getenv("TITAN_K8S_TOKEN")}); err != nil {
 			fmt.Printf("            UNAVAILABLE — %v\n", err)
 		} else {
 			fmt.Printf("            context %s\n            namespace %s · server %s\n",

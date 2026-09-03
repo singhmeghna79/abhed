@@ -195,3 +195,103 @@ func TestUnknownContextListsAvailable(t *testing.T) {
 		t.Errorf("error does not list available contexts: %v", err)
 	}
 }
+
+// A credential supplied at runtime must override the kubeconfig entirely. The
+// reported failure was a stale token in ~/.kube/config producing a 401 while
+// the user had a working token in hand and no way to hand it over.
+func TestLoginOverridesStaleKubeconfig(t *testing.T) {
+	var authSeen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		authSeen = append(authSeen, auth)
+		if auth != "Bearer fresh-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"kind":"Status","message":"Unauthorized"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/version") {
+			fmt.Fprint(w, `{"major":"1","minor":"29"}`)
+			return
+		}
+		fmt.Fprint(w, `{"kind":"NodeList","items":[{"metadata":{"name":"n1"}}]}`)
+	}))
+	defer srv.Close()
+
+	// The kubeconfig holds a stale token, as in the real report.
+	mgr := NewManager(Config{Kubeconfig: writeKubeconfig(t, srv.URL)})
+
+	// Before login: the stale token fails with a message naming the fix.
+	args, _ := json.Marshal(map[string]string{"resource": "nodes"})
+	res := GetTool{M: mgr}.Run(context.Background(), nil, args)
+	if !res.IsError {
+		t.Fatal("a stale token was accepted")
+	}
+	if !strings.Contains(res.Content, "expired") || !strings.Contains(res.Content, "TITAN_K8S_TOKEN") {
+		t.Errorf("401 does not name the fix: %s", res.Content)
+	}
+
+	// Login with a working token.
+	loginArgs, _ := json.Marshal(map[string]string{"server": srv.URL, "token": "fresh-token"})
+	lres := LoginTool{M: mgr}.Run(context.Background(), nil, loginArgs)
+	if lres.IsError {
+		t.Fatalf("login failed: %s", lres.Content)
+	}
+	if !strings.Contains(lres.Content, "not written to your kubeconfig") {
+		t.Errorf("login does not say where the credential lives: %s", lres.Content)
+	}
+
+	// After login: the same call succeeds, using the new credential.
+	res = GetTool{M: mgr}.Run(context.Background(), nil, args)
+	if res.IsError {
+		t.Fatalf("still failing after login: %s", res.Content)
+	}
+	if !strings.Contains(res.Content, "n1") {
+		t.Errorf("unexpected result: %s", res.Content)
+	}
+	if authSeen[len(authSeen)-1] != "Bearer fresh-token" {
+		t.Errorf("the cached client kept the old token: %v", authSeen)
+	}
+}
+
+// Storing a credential that does not work would turn one clear failure into a
+// confusing one on the next call.
+func TestLoginVerifiesBeforeStoring(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, `{"kind":"Status","message":"Unauthorized"}`)
+	}))
+	defer srv.Close()
+
+	mgr := NewManager(Config{})
+	args, _ := json.Marshal(map[string]string{"server": srv.URL, "token": "bad"})
+	res := LoginTool{M: mgr}.Run(context.Background(), nil, args)
+	if !res.IsError {
+		t.Fatal("a token that does not work was accepted")
+	}
+	if len(mgr.sessions) != 0 {
+		t.Error("a failing credential was stored anyway")
+	}
+}
+
+// Login changes which cluster the agent can reach and as whom, so it needs the
+// same confirmation as a write.
+func TestLoginRequiresApproval(t *testing.T) {
+	if !(LoginTool{}).Mutates() {
+		t.Error("k8s_login does not declare itself mutating, so it could run unapproved")
+	}
+}
+
+func TestLoginValidatesArguments(t *testing.T) {
+	mgr := NewManager(Config{})
+	for _, a := range []map[string]string{
+		{"token": "x"},                      // no server
+		{"server": "https://x"},             // no token
+		{"server": "ftp://x", "token": "y"}, // wrong scheme
+	} {
+		raw, _ := json.Marshal(a)
+		if res := (LoginTool{M: mgr}).Run(context.Background(), nil, raw); !res.IsError {
+			t.Errorf("accepted invalid login args %v", a)
+		}
+	}
+}

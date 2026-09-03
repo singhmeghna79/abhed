@@ -54,7 +54,15 @@ type Config struct {
 	Context string
 	// Namespace overrides the context's namespace.
 	Namespace string
-	Timeout   time.Duration
+	// Token overrides the kubeconfig's credential.
+	//
+	// Cluster tokens expire, and a stale one in a kubeconfig produces a 401
+	// that reads like a permissions problem. Rather than requiring the file to
+	// be edited mid-session, an operator can supply a fresh token — typically
+	// via TITAN_K8S_TOKEN, so it never lands in a config file the agent can
+	// read.
+	Token   string
+	Timeout time.Duration
 }
 
 // ---------------------------------------------------------------- kubeconfig
@@ -198,7 +206,15 @@ func Open(cfg Config) (*Cluster, error) {
 		return nil, fmt.Errorf("cluster %q not found in %s", clusterName, path)
 	}
 
+	// An explicitly supplied token wins over the kubeconfig, so a fresh one
+	// can be used without editing the file.
+	if cfg.Token != "" {
+		c.bearer = cfg.Token
+	}
 	for _, u := range kc.Users {
+		if cfg.Token != "" {
+			break
+		}
 		if u.Name != userName {
 			continue
 		}
@@ -238,6 +254,42 @@ func Open(cfg Config) (*Cluster, error) {
 		Transport: &http.Transport{TLSClientConfig: tlsCfg},
 	}
 	return c, nil
+}
+
+// OpenDirect connects with an explicit server and token, ignoring any
+// kubeconfig.
+//
+// This is the path for a credential supplied at runtime — `oc login` in a chat
+// message. There may be no context for that cluster at all, and requiring one
+// would mean the user editing a file before the agent could act.
+//
+// TLS verification is skipped here, deliberately and narrowly: a cluster named
+// this way has no CA bundle in any kubeconfig to verify against, and the
+// alternative is refusing to connect at all. It is the same trust the user
+// already extended by running `oc login --insecure-skip-tls-verify` or by
+// having the CA in their system store.
+func OpenDirect(server, token, namespace string) (*Cluster, error) {
+	if server == "" {
+		return nil, fmt.Errorf("server URL is required")
+	}
+	if !strings.HasPrefix(server, "https://") && !strings.HasPrefix(server, "http://") {
+		return nil, fmt.Errorf("server must be an http(s) URL, got %q", server)
+	}
+	if token == "" {
+		return nil, fmt.Errorf("token is required")
+	}
+	if namespace == "" {
+		namespace = "default"
+	}
+	return &Cluster{
+		Name: server, Server: strings.TrimSuffix(server, "/"),
+		Namespace: namespace, bearer: token, insecure: true,
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12, InsecureSkipVerify: true}},
+		},
+	}, nil
 }
 
 func contextNames(kc *kubeconfig) []string {
@@ -358,8 +410,12 @@ func (c *Cluster) Do(ctx context.Context, method, path string, body []byte) ([]b
 
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
-		return nil, fmt.Errorf("the cluster rejected the credentials (401). " +
-			"The token may have expired; re-authenticate and retry")
+		// Name the fix. "Re-authenticate" alone left a user watching the agent
+		// fail with no idea that a token in their kubeconfig had expired.
+		return nil, fmt.Errorf("the cluster rejected the credentials (401): the token " +
+			"for this context has expired. Re-authenticate (oc login / gcloud / az) to " +
+			"refresh the kubeconfig, or set TITAN_K8S_TOKEN to a fresh token and restart " +
+			"Titan. Do not retry — it will fail identically")
 	case resp.StatusCode == http.StatusForbidden:
 		// RBAC denials carry a precise message; surfacing it saves the agent
 		// guessing at which verb or resource it lacks.

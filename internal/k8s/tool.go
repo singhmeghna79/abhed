@@ -34,10 +34,32 @@ type Manager struct {
 
 	mu       sync.Mutex
 	clusters map[string]*Cluster
+	// sessions holds credentials supplied at runtime by k8s_login, keyed by
+	// server URL. They live in memory for the life of the process and are
+	// never written anywhere: a token pasted into a chat should not end up in
+	// a config file, an event, or a log.
+	sessions map[string]sessionCred
+}
+
+type sessionCred struct {
+	token  string
+	server string
 }
 
 func NewManager(cfg Config) *Manager {
-	return &Manager{cfg: cfg, clusters: map[string]*Cluster{}}
+	return &Manager{cfg: cfg, clusters: map[string]*Cluster{},
+		sessions: map[string]sessionCred{}}
+}
+
+// login records a credential for this process only, replacing whatever the
+// kubeconfig held.
+func (m *Manager) login(server, token string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sessions[server] = sessionCred{token: token, server: server}
+	// Drop cached clients so the next call picks the new credential up rather
+	// than reusing a connection built with the expired one.
+	m.clusters = map[string]*Cluster{}
 }
 
 func (m *Manager) cluster(ctxName string) (*Cluster, error) {
@@ -50,9 +72,26 @@ func (m *Manager) cluster(ctxName string) (*Cluster, error) {
 	if ctxName != "" {
 		cfg.Context = ctxName
 	}
+	// A runtime login for an explicit server bypasses the kubeconfig entirely:
+	// there may not be a context for that cluster at all.
+	if len(m.sessions) == 1 && ctxName == "" {
+		for _, cred := range m.sessions {
+			c, err := OpenDirect(cred.server, cred.token, cfg.Namespace)
+			if err != nil {
+				return nil, err
+			}
+			m.clusters[ctxName] = c
+			return c, nil
+		}
+	}
 	c, err := Open(cfg)
 	if err != nil {
 		return nil, err
+	}
+	// Read the map directly: m.mu is already held, and sessionFor would
+	// re-lock it. This deadlocked the first time.
+	if cred, ok := m.sessions[c.Server]; ok {
+		c.bearer = cred.token
 	}
 	m.clusters[ctxName] = c
 	return c, nil
@@ -574,4 +613,99 @@ func urlEscape(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// ---------------------------------------------------------------- login tool
+
+// LoginTool accepts a cluster credential supplied during a conversation.
+//
+// This exists because of a real failure: a user pasted an `oc login --token=...
+// --server=...` command into the chat, approved the agent running it, and got
+// nothing. Three things had gone wrong at once. The sandbox blocks reads of
+// ~/.kube, so `oc` could not authenticate. Even had it worked, each bash call
+// is a fresh sandboxed process, so the login would not have survived to the
+// next call. And the kubeconfig's own token had expired, so the native tools
+// were failing too.
+//
+// Handling the credential directly fixes all three: it never touches the
+// sandbox, it lives in the manager for the life of the process, and it
+// replaces the stale kubeconfig entry.
+//
+// The token is held in memory only. It is never written to the kubeconfig, the
+// event store, or a log — a credential pasted into a chat should not become a
+// durable artifact of that chat.
+type LoginTool struct{ M *Manager }
+
+func (LoginTool) Name() string { return "k8s_login" }
+
+// Mutates is true. Nothing in the cluster changes, but the agent's authority
+// does: this is the call that decides which cluster it can reach and as whom.
+// That deserves the same confirmation as a write.
+func (LoginTool) Mutates() bool { return true }
+
+func (LoginTool) Description() string {
+	return "Authenticate to a Kubernetes or OpenShift cluster with a token, for this " +
+		"session only. Use this when the user supplies a token and server — including " +
+		"when they paste an `oc login --token=... --server=...` command. " +
+		"Do NOT run `oc login` through bash: the sandbox blocks access to the kubeconfig, " +
+		"and a login inside a bash call does not survive to the next one."
+}
+
+func (LoginTool) Schema() json.RawMessage {
+	return json.RawMessage(`{
+  "type":"object",
+  "properties":{
+    "server":{"type":"string","description":"API server URL, e.g. https://api.cluster.example.com:6443"},
+    "token":{"type":"string","description":"Bearer token, e.g. sha256~..."},
+    "namespace":{"type":"string","description":"Default namespace for later calls."}
+  },
+  "required":["server","token"]
+}`)
+}
+
+type loginArgs struct {
+	Server    string `json:"server"`
+	Token     string `json:"token"`
+	Namespace string `json:"namespace"`
+}
+
+func (t LoginTool) Run(ctx context.Context, _ *tools.Session, raw json.RawMessage) tools.Result {
+	var a loginArgs
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return errf("Invalid arguments for k8s_login: %v", err)
+	}
+	a.Server = strings.TrimSpace(a.Server)
+	a.Token = strings.TrimSpace(a.Token)
+	if a.Server == "" || a.Token == "" {
+		return errf("Both server and token are required.")
+	}
+	if !strings.HasPrefix(a.Server, "http") {
+		a.Server = "https://" + a.Server
+	}
+
+	c, err := OpenDirect(a.Server, a.Token, orDefaultNS(a.Namespace, t.M.cfg.Namespace))
+	if err != nil {
+		return errf("%v", err)
+	}
+	// Verify before reporting success. Storing a credential that does not work
+	// would turn one clear failure into a confusing one on the next call.
+	if _, err := c.Do(ctx, "GET", "/version", nil); err != nil {
+		return errf("Could not authenticate to %s: %v", a.Server, err)
+	}
+
+	t.M.login(a.Server, a.Token)
+	return tools.Result{Content: fmt.Sprintf(
+		"Authenticated to %s (namespace %s). This credential is held in memory for "+
+			"this Titan process only and is not written to your kubeconfig. "+
+			"k8s_get will now use it.", a.Server, c.Namespace)}
+}
+
+func orDefaultNS(a, b string) string {
+	if a != "" {
+		return a
+	}
+	if b != "" {
+		return b
+	}
+	return "default"
 }
