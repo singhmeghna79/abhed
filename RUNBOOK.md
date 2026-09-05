@@ -6,17 +6,84 @@ Everything verified working on this machine (M3 Pro, 36 GB) as of 2026-09-02.
 
 ## Quick start
 
-Three commands, assuming Ollama is already running:
+One command, from the repo root:
 
 ```bash
-cd /tmp/titan-test
-titan                          # interactive CLI
-titan serve -addr :8420        # web UI at http://localhost:8420
+./scripts/start-local.sh          # start Postgres, Ollama, and the Titan server
+./scripts/start-local.sh --stop   # stop Titan and Ollama
 ```
+
+It is idempotent — it skips whatever is already running, so re-running it is
+always safe. Then:
+
+```bash
+cd .titan-workspace && titan doctor   # verify (run this before trusting a session)
+open http://localhost:8420            # web UI
+titan                                 # interactive CLI
+```
+
+What it does, in order, and what each step is for:
+
+| Step | Why it can fail |
+|---|---|
+| 1. Postgres | A killed postmaster leaves a stale `postmaster.pid` that blocks startup. The script removes it **only** when no postgres process is running. |
+| 2. Ollama | Started with `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0` — without them a 26B model will not hold a long context in 36 GB. |
+| 3. Workspace | Checks `.titan-workspace/.titan/config.json` exists; scaffolds one with `titan init` if not. |
+| 4. Titan server | Refuses to start if :8420 is held by something that is not Titan. |
+
+### Doing it by hand
+
+If you would rather run the steps yourself:
+
+```bash
+# 1. Postgres
+pg_isready                                    # already up? then skip
+brew services start postgresql@16
+
+# 2. Ollama
+(OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 \
+   nohup ollama serve > .titan-workspace/logs/ollama.log 2>&1 &)
+curl -s http://127.0.0.1:11434/api/version    # {"version":"0.33.2"}
+
+# 3. Titan server
+cd .titan-workspace
+(nohup titan serve -addr :8420 > logs/titan-serve.log 2>&1 &)
+curl -s http://127.0.0.1:8420/v1/health       # {"status":"ok",...}
+```
+
+Stopping by hand:
+
+```bash
+pkill -f "titan serve"
+pkill -f "ollama serve"
+brew services stop postgresql@16    # usually worth leaving up
+```
+
+> **The workspace lives in the repo, not `/tmp`.** It is
+> `.titan-workspace/` (gitignored, with its own `go.mod` so it stays out of
+> the parent Go module). It used to be `/tmp/titan-test`, and macOS purging
+> `/tmp` silently deleted the workspace and its config — that is what took the
+> stack down on 2026-09-05. Never put the workspace or its logs back in `/tmp`.
 
 > **Port note:** something else on this machine already uses **:8080**, so
 > Titan is set up on **:8420**. Check any port with
 > `lsof -nP -iTCP:8420 -sTCP:LISTEN` before using it.
+
+---
+
+## Checking what is running
+
+```bash
+pg_isready                                        # Postgres
+curl -s http://127.0.0.1:11434/api/version        # Ollama
+curl -s http://127.0.0.1:8420/v1/health           # Titan
+ollama ps                                         # is the model loaded in memory?
+pgrep -fl "titan serve"; pgrep -fl "ollama serve"
+```
+
+`ollama ps` printing an empty table means the model is on disk but not in
+memory — the next request pays an 18 GB load (`OLLAMA_KEEP_ALIVE=5m` unloads
+it after five idle minutes). `titan doctor` warms it as a side effect.
 
 ---
 
@@ -29,7 +96,7 @@ titan serve -addr :8420        # web UI at http://localhost:8420
 OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
 
 # Start in the background
-(OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve > /tmp/ollama.log 2>&1 &)
+(OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve > .titan-workspace/logs/ollama.log 2>&1 &)
 
 # Or as a managed service that restarts at login
 brew services start ollama
@@ -46,7 +113,7 @@ in 36 GB.
 
 ```bash
 curl -s http://127.0.0.1:11434/api/version     # {"version":"0.33.2"}
-tail -20 /tmp/ollama.log                       # startup log, GPU discovery
+tail -20 .titan-workspace/logs/ollama.log                       # startup log, GPU discovery
 ```
 
 ### Stop it
@@ -116,7 +183,7 @@ Inspect what is in effect:
 
 ```bash
 ollama ps                                    # loaded models, context, expiry
-grep "inference compute" /tmp/ollama.log     # GPU detected and memory available
+grep "inference compute" .titan-workspace/logs/ollama.log     # GPU detected and memory available
 du -sh ~/.ollama/models                      # disk used by weights
 ```
 
@@ -149,7 +216,7 @@ different one — this is exactly the check `titan doctor` automates.
 ### Interactive
 
 ```bash
-cd /tmp/titan-test     # or any repo
+cd .titan-workspace    # or any repo
 titan
 ```
 
@@ -219,7 +286,7 @@ calls before you waste a run on it.
 ## 3. Titan web UI
 
 ```bash
-cd /tmp/titan-test
+cd .titan-workspace
 titan serve -addr :8420
 ```
 
@@ -246,8 +313,8 @@ In the console:
 Background it and watch the log:
 
 ```bash
-(titan serve -addr :8420 > /tmp/titan-serve.log 2>&1 &)
-tail -f /tmp/titan-serve.log
+(titan serve -addr :8420 > .titan-workspace/logs/titan-serve.log 2>&1 &)
+tail -f .titan-workspace/logs/titan-serve.log
 pkill -f "titan serve"
 ```
 
@@ -272,8 +339,20 @@ curl -s -X POST $B/v1/sessions/$SID/interrupt
 
 ## 4. Postgres
 
-Sessions survive restarts only with Postgres. Already configured in
-`/tmp/titan-test/.titan/config.json`.
+Sessions survive restarts only with Postgres. Configured in
+`.titan-workspace/.titan/config.json`, which carries `storage.dsn` directly —
+so `titan doctor` and `titan serve` work with no environment variable set.
+
+If `storage.dsn` is ever missing while `storage.driver` is `postgres`, every
+command fails with *"storage.driver is postgres but no DSN is set"*. Either put
+the DSN back in the config or export it for the session:
+
+```bash
+export TITAN_DATABASE_URL='postgres://titan_app:<password>@localhost:5432/titan_local'
+```
+
+The real password is in `.titan-workspace/.titan/config.json` under
+`storage.dsn` (gitignored — deliberately not committed here).
 
 ```bash
 pg_isready
@@ -315,7 +394,10 @@ benchmark against vLLM on your cluster is worth running.
 |---|---|---|
 | `doctor`: no tool call | Model cannot tool-call | Use `gemma4:26b` |
 | `doctor`: empty response | Reasoning consumed the token budget | Raise `context.max_tokens` |
-| `connection refused` :11434 | Ollama down | `ollama serve` |
+| `connection refused` :11434 | Ollama down | `./scripts/start-local.sh` |
+| Postgres will not start, log says `lock file "postmaster.pid" already exists` | Stale lock from an interrupted shutdown; the PID it names has been recycled | Confirm no postmaster runs (`pgrep -fl postgres`), check the PID is not postgres (`ps -p <pid>`), then `rm /opt/homebrew/var/postgresql@16/postmaster.pid` and restart. **Never remove it while a postmaster is live.** |
+| Workspace and config vanished | It was in `/tmp`, which macOS purges | Keep it at `.titan-workspace/` in the repo |
+| `storage.driver is postgres but no DSN is set` | `storage.dsn` missing from config | Add it to `.titan/config.json`, or export `TITAN_DATABASE_URL` |
 | Wrong app answers the port | Port already taken | `lsof -nP -iTCP:8420 -sTCP:LISTEN` |
 | `row-level security policy` | Tenant mismatch | Match `storage.tenant` to the request tenant |
 | `operation not permitted` on build | Sandbox scoping | Expected outside the workspace |
@@ -328,8 +410,8 @@ Diagnostics:
 
 ```bash
 titan doctor
-tail -50 /tmp/ollama.log
-tail -50 /tmp/titan-serve.log
+tail -50 .titan-workspace/logs/ollama.log
+tail -50 .titan-workspace/logs/titan-serve.log
 titan -p "..." -output-format json | jq 'select(.type=="observation")'
 ```
 
@@ -338,15 +420,15 @@ titan -p "..." -output-format json | jq 'select(.type=="observation")'
 ## 7. Full reset
 
 ```bash
-pkill -f "titan serve"; pkill -f "ollama serve"
-(OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve > /tmp/ollama.log 2>&1 &)
-sleep 3 && cd /tmp/titan-test && titan doctor
+./scripts/start-local.sh --stop
+./scripts/start-local.sh
+cd .titan-workspace && titan doctor
 ```
 
 Reset the demo bug so you have something to fix again:
 
 ```bash
-cd /tmp/titan-test && cat > pkg/auth/token.go <<'GO'
+cd .titan-workspace && cat > pkg/auth/token.go <<'GO'
 package auth
 
 import (

@@ -1,0 +1,2 @@
+# Local Titan test workspace (own go.mod, not part of this module)
+.titan-workspace/
