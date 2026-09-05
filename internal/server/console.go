@@ -633,6 +633,18 @@ function render(ev){
         break;
       }
       if(!(p.text || '').trim()) break;
+      // Belt and braces: agent.message repeats text the deltas already
+      // streamed, so anything that loses the stream reference mid-turn - a
+      // handler that clears it, a replay that interleaves events differently -
+      // would otherwise print the whole reply twice. Adopt the bubble the
+      // deltas built rather than trusting a variable to still be set.
+      const streamed = lastStreamedBubble();
+      if(streamed && streamed.body.data.trim() === (p.text || '').trim()) break;
+      if(streamed && (p.text || '').startsWith(streamed.body.data.trim().slice(0, 200))
+         && streamed.body.data.trim() !== ''){
+        streamed.body.data = p.text || '';
+        break;
+      }
       const b = node('said');
       b.append(node('who','titan'), document.createTextNode(p.text));
       (turnEl || tx).appendChild(b);
@@ -642,8 +654,12 @@ function render(ev){
     case 'agent.reasoning': {
       // Minimised by default: the reply is the answer, the reasoning is why.
       // Anyone who wants it is one click away, and nobody has to scroll past it.
+      //
+      // This must NOT clear streamEl. Reasoning is recorded once the turn's
+      // text is complete, so it arrives between the deltas and agent.message:
+      // dropping the stream reference here made agent.message believe no bubble
+      // existed and append the whole reply a second time.
       hideThinking();
-      streamEl = null; streamBody = null;
       const think = node('think collapsed');
       const hdr = node('hdr');
       const caret = node('caret', '\u25be');
@@ -812,6 +828,19 @@ function shortPath(p){
 }
 
 function clip(s, n){ return s.length > n ? s.slice(0,n) + '\n… ' + (s.length-n) + ' more characters' : s; }
+
+// lastStreamedBubble finds the reply bubble the deltas were writing into, so
+// agent.message can reconcile with it even when the stream reference is gone.
+function lastStreamedBubble(){
+  const scope = turnEl || $('tx');
+  if(!scope) return null;
+  const bubbles = scope.querySelectorAll('.said:not(.user)');
+  const el = bubbles[bubbles.length - 1];
+  if(!el) return null;
+  // The text node after the 'who' label is what the deltas appended to.
+  const body = [...el.childNodes].find(n => n.nodeType === 3);
+  return body ? {el, body} : null;
+}
 
 function wordCount(s){ return String(s || '').trim().split(/\s+/).filter(Boolean).length; }
 
