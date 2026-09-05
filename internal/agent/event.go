@@ -22,7 +22,12 @@ const (
 	// EvAgentDelta carries a fragment of the model's reply as it arrives.
 	// The complete text still lands in EvAgentMessage, so a replayed session
 	// reads identically whether or not the deltas were observed live.
-	EvAgentDelta      EventType = "agent.delta"
+	EvAgentDelta EventType = "agent.delta"
+	// EvAgentReasoning carries the model's thinking, when the endpoint reports
+	// it separately from the reply. It is displayed but never fed back as
+	// history: it is not part of the conversation the model conditions on.
+	// Recording it is what lets a user see WHY an answer came out as it did.
+	EvAgentReasoning  EventType = "agent.reasoning"
 	EvActionRequested EventType = "action.requested"
 	EvActionApproved  EventType = "action.approved"
 	EvActionDenied    EventType = "action.denied"
@@ -133,6 +138,15 @@ type Message struct {
 type Delta struct {
 	Text string `json:"text"`
 	Seq  int    `json:"n"` // ordinal within this message, for ordering
+}
+
+// Reasoning is the model's thinking for one turn, recorded whole rather than
+// streamed: it is reference material a reader opens after the fact, not
+// something they follow token by token, and one event per turn keeps it out of
+// the way of the reply that matters.
+type Reasoning struct {
+	Text string `json:"text"`
+	Turn int    `json:"turn"`
 }
 
 type SessionEnded struct {

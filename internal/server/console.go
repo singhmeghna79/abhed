@@ -248,6 +248,30 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .call{margin-bottom:10px}
 .call .hdr{display:flex;align-items:baseline;gap:8px;font-family:var(--mono);
   font-size:11.5px;position:relative}
+/* A finished call collapses to its header. The whole header is the toggle, so
+   the click target is the line you are already reading. */
+.call .hdr[role=button]{cursor:pointer;user-select:none}
+.call .hdr[role=button]:hover .tool{text-decoration:underline}
+.call .caret{display:inline-block;width:9px;flex:none;color:var(--muted);
+  transition:transform .12s ease}
+.call.collapsed .caret{transform:rotate(-90deg)}
+.call.collapsed .out,.call.collapsed .openfile,.call.collapsed .tag{display:none}
+.call.collapsed .hdr .peek{display:inline}
+.call .hdr .peek{display:none;color:var(--muted);font-size:10.5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34ch}
+
+/* Model reasoning, minimised by default: reference material, not the reply. */
+.think{margin:6px 0 10px}
+.think .hdr{display:flex;align-items:center;gap:7px;font-family:var(--mono);
+  font-size:11px;color:var(--muted);cursor:pointer;user-select:none;padding:2px 0}
+.think .hdr:hover{color:var(--ink-2)}
+.think .caret{display:inline-block;width:9px;flex:none;transition:transform .12s ease}
+.think.collapsed .caret{transform:rotate(-90deg)}
+.think.collapsed .body{display:none}
+.think .body{font-family:var(--mono);font-size:11px;line-height:1.6;
+  color:var(--ink-2);background:var(--sunken);border-left:2px solid var(--line-strong);
+  border-radius:0 5px 5px 0;padding:8px 11px;margin-top:5px;white-space:pre-wrap;
+  max-height:340px;overflow-y:auto}
 .call .hdr::before{content:"";position:absolute;left:-18px;top:6px;width:7px;height:7px;
   border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--bg)}
 .call.err .hdr::before{background:var(--error)}
@@ -430,6 +454,10 @@ let streamBody = null;   // its text node
 let es = null;           // EventSource
 let lastSeq = 0;         // highest seq rendered, for reconnect de-duplication
 let live = false;        // is the viewed session still running
+// Approval cards awaiting a verdict, by call_id. A replayed session resolves
+// them from its own action.approved / action.denied events; anything still
+// here when the session ends was never answered.
+let approvals = new Map();
 let turnEl = null;       // current turn container
 const calls = new Map(); // call_id -> DOM node, to attach observations
 const stats = {turns:0, tin:0, tout:0, cached:0, tools:{}, reason:null, compactions:0};
@@ -487,7 +515,7 @@ async function refresh(){
       m.append(pill, when);
 
       b.append(q, m);
-      b.onclick = () => openSession(s.id);
+      b.onclick = () => openSession(s.id, s.state);
       el.appendChild(b);
     }
   }catch{}
@@ -502,11 +530,18 @@ function ago(iso){
 }
 
 /* ------------------------------------------------------------------ session */
-function openSession(id){
+// openSession switches the view to a session, live or historical.
+//
+// state comes from the session list (running | waiting_approval | done). It
+// matters because a finished session replays its whole backlog, including the
+// original approval request: assuming every opened session is live rebuilt
+// those as clickable prompts for decisions already made.
+function openSession(id, state){
   if(es){ es.close(); es = null; }
-  current = id; lastSeq = 0; live = true; turnEl = null;
+  current = id; lastSeq = 0; live = (state !== 'done'); turnEl = null;
   streamEl = null; streamBody = null;
   calls.clear();
+  approvals.clear();
   Object.assign(stats, {turns:0, tin:0, tout:0, cached:0, tools:{}, reason:null, compactions:0});
 
   $('tx').textContent = '';
@@ -604,16 +639,48 @@ function render(ev){
       break;
     }
 
+    case 'agent.reasoning': {
+      // Minimised by default: the reply is the answer, the reasoning is why.
+      // Anyone who wants it is one click away, and nobody has to scroll past it.
+      hideThinking();
+      streamEl = null; streamBody = null;
+      const think = node('think collapsed');
+      const hdr = node('hdr');
+      const caret = node('caret', '\u25be');
+      const label = node('', 'reasoning');
+      const size = node('', wordCount(p.text) + ' words');
+      size.style.cssText = 'margin-left:auto;font-size:10px';
+      hdr.append(caret, label, size);
+      const body = node('body', p.text || '');
+      think.append(hdr, body);
+      hdr.setAttribute('role','button');
+      hdr.setAttribute('tabindex','0');
+      hdr.setAttribute('aria-expanded','false');
+      const toggle = () => {
+        think.dataset.pinned = '1';
+        setCollapsed(think, !think.classList.contains('collapsed'));
+      };
+      hdr.onclick = toggle;
+      hdr.onkeydown = e => {
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+      };
+      (turnEl || newTurn()).appendChild(think);
+      break;
+    }
+
     case 'action.requested': {
       hideThinking();
       // A tool call ends the current streamed reply.
       streamEl = null; streamBody = null;
       const wrap = node('call');
       const hdr = node('hdr');
+      const caret = node('caret', '\u25be');
       const tool = node('tool', p.tool);
       const arg = node('arg', summarize(p.tool, p.args));
-      hdr.append(tool, arg);
+      const peek = node('peek');   // one-line result, shown only when collapsed
+      hdr.append(caret, tool, arg, peek);
       wrap.appendChild(hdr);
+      makeCollapsible(wrap, hdr);
       (turnEl || newTurn()).appendChild(wrap);
       if(p.call_id) calls.set(p.call_id, wrap);
       stats.tools[p.tool] = (stats.tools[p.tool] || 0) + 1;
@@ -658,10 +725,24 @@ function render(ev){
           hdr.appendChild(node('ms', p.duration_ms + 'ms'));
         }
       }
+      // The call is finished, so its output stops being the thing you are
+      // waiting on and becomes reference. Collapse it to the header and put a
+      // one-line summary there, unless it failed - an error is exactly what
+      // the reader needs to see without hunting for it.
+      if(wrap.classList.contains('call') && !p.is_error){
+        setPeek(wrap, p.content || '');
+        collapse(wrap, true);
+      }
+      break;
+    }
+
+    case 'action.approved': {
+      resolveApproval(p.call_id, 'approved');
       break;
     }
 
     case 'action.denied': {
+      resolveApproval(p.call_id, 'rejected');
       const wrap = calls.get(p.call_id) || turnEl || newTurn();
       wrap.classList.add('err');
       wrap.appendChild(node('out err', 'denied — ' + (p.reason || 'no reason given')));
@@ -679,6 +760,10 @@ function render(ev){
     case 'session.ended': {
       hideThinking();
       live = false;
+      // The session is over, so every remaining card is unanswerable. Leaving
+      // them clickable is what made a reopened session show a dead approval
+      // prompt that swallowed every click.
+      approvals.forEach((_, id) => resolveApproval(id, 'not answered'));
       $('stop').hidden = true;
       stats.reason = p.reason;
       stats.turns = p.turns || stats.turns;
@@ -728,6 +813,61 @@ function shortPath(p){
 
 function clip(s, n){ return s.length > n ? s.slice(0,n) + '\n… ' + (s.length-n) + ' more characters' : s; }
 
+function wordCount(s){ return String(s || '').trim().split(/\s+/).filter(Boolean).length; }
+
+/* --------------------------------------------------------------- collapsing */
+
+// makeCollapsible turns a header into a disclosure toggle for its block.
+//
+// A tool call is interesting while it runs and clutter once it has finished:
+// after twenty calls the answer is far off-screen. So a completed call keeps
+// only its header, and one click brings the output back. The state is per
+// block and never automatic after the first collapse - reopening something and
+// having it shut itself again is worse than never collapsing it.
+function makeCollapsible(wrap, hdr){
+  hdr.setAttribute('role','button');
+  hdr.setAttribute('tabindex','0');
+  hdr.setAttribute('aria-expanded','true');
+  const toggle = () => {
+    // A manual toggle is sticky: later events must not override the choice.
+    wrap.dataset.pinned = '1';
+    setCollapsed(wrap, !wrap.classList.contains('collapsed'));
+  };
+  hdr.onclick = e => {
+    // The drawer button and any other control inside the header keep their
+    // own behaviour rather than toggling the block.
+    if(e.target.closest('button') && !e.target.closest('.hdr[role=button]') ) return;
+    if(e.target.tagName === 'BUTTON') return;
+    toggle();
+  };
+  hdr.onkeydown = e => {
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+  };
+}
+
+// setCollapsed applies the state unconditionally. Use it for a user's own click.
+function setCollapsed(wrap, on){
+  wrap.classList.toggle('collapsed', on);
+  const hdr = wrap.querySelector('.hdr');
+  if(hdr) hdr.setAttribute('aria-expanded', String(!on));
+}
+
+// collapse is the automatic path: it yields to a choice the user already made,
+// so a block you expanded does not shut itself when the next event arrives.
+function collapse(wrap, on){
+  if(wrap.dataset.pinned === '1') return;
+  setCollapsed(wrap, on);
+}
+
+// setPeek puts the first meaningful line of the result in the header, so a
+// collapsed call still says what happened.
+function setPeek(wrap, content){
+  const el = wrap.querySelector('.peek');
+  if(!el) return;
+  const first = String(content).split('\n').map(l => l.trim()).find(l => l) || '';
+  el.textContent = first ? '· ' + clip(first, 80).split('\n')[0] : '';
+}
+
 /* ------------------------------------------------------------------ approvals */
 function approval(p){
   const card = node('approve');
@@ -751,8 +891,17 @@ function approval(p){
     try{
       await api('/v1/sessions/' + current + '/approve',
         {method:'POST', body: JSON.stringify({approved: ok})});
-      card.replaceWith(node('note', ok ? 'approved' : 'rejected'));
+      resolveApproval(p.call_id, ok ? 'approved' : 'rejected');
     }catch(e){
+      // A 409 means the session already moved on — the decision was made
+      // elsewhere, or this is a replay of a finished session. Say so and
+      // retire the card; re-enabling the buttons would invite a click that
+      // can never succeed.
+      const stale = /no approval is pending|session not found/i.test(e.message);
+      if(stale){
+        resolveApproval(p.call_id, 'no longer awaiting a decision');
+        return;
+      }
       card.appendChild(node('note', e.message));
       yes.disabled = no.disabled = false;
     }
@@ -761,6 +910,21 @@ function approval(p){
   row.append(yes, no);
   card.appendChild(row);
   ($('tx')).appendChild(card);
+  if(p.call_id) approvals.set(p.call_id, card);
+}
+
+// resolveApproval replaces a pending card with its outcome.
+//
+// An approval is answerable exactly once, while the session that raised it is
+// still running. Replaying a finished session re-delivers the original
+// action.requested, so without this the UI rebuilt a live-looking prompt for a
+// decision made yesterday: clicking it POSTed to a session with nothing
+// pending, the server answered 409, and the card sat there absorbing clicks.
+function resolveApproval(callID, outcome){
+  const card = approvals.get(callID);
+  if(!card) return;
+  approvals.delete(callID);
+  if(card.isConnected) card.replaceWith(node('note', outcome));
 }
 
 /* ------------------------------------------------------------------ actions */
@@ -794,7 +958,7 @@ async function send(){
       const r = await api('/v1/sessions',
         {method:'POST', body: JSON.stringify({prompt: withFiles(prompt, paths), mode: $('mode').value})});
       $('q').value = ''; autogrow();
-      openSession(r.session_id);
+      openSession(r.session_id, 'running');
       showThinking('waiting for the model');
     }
   }catch(e){
@@ -890,6 +1054,7 @@ $('new').onclick = () => {
   if(es){ es.close(); es = null; }
   current = null; live = false; lastSeq = 0; turnEl = null;
   calls.clear();
+  approvals.clear();
   pending = []; renderFiles();
   Object.assign(stats, {turns:0, tin:0, tout:0, cached:0, tools:{}, reason:null, compactions:0});
   $('sid').textContent = 'new chat';

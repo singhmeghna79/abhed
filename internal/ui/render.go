@@ -69,6 +69,21 @@ func (r *Renderer) Event(ev agent.Event) {
 			fmt.Fprintf(r.w, "\n%s\n", m.Text)
 		}
 
+	case agent.EvAgentReasoning:
+		if r.quiet {
+			return
+		}
+		var t agent.Reasoning
+		if json.Unmarshal(ev.Payload, &t) != nil || strings.TrimSpace(t.Text) == "" {
+			return
+		}
+		// The terminal has no disclosure triangle, so reasoning is announced
+		// rather than printed: it is usually longer than the answer, and
+		// dumping it inline buries the reply it was meant to explain. The full
+		// text is in the transcript and the web console.
+		fmt.Fprintf(r.w, "  %s %s\n", r.s.Dim("✻"),
+			r.s.Dim(fmt.Sprintf("thought for %d words", len(strings.Fields(t.Text)))))
+
 	case agent.EvActionRequested:
 		if r.quiet {
 			return

@@ -23,8 +23,9 @@ type scriptedAdapter struct {
 }
 
 type scriptedTurn struct {
-	text  string
-	calls []model.ToolCall
+	text      string
+	reasoning string
+	calls     []model.ToolCall
 }
 
 func (s *scriptedAdapter) Name() string                           { return "scripted" }
@@ -42,6 +43,9 @@ func (s *scriptedAdapter) Complete(ctx context.Context, req model.Request) (<-ch
 	}
 	t := s.turns[s.seen]
 	s.seen++
+	if t.reasoning != "" {
+		ch <- model.Chunk{Type: model.ChunkReasoning, Text: t.reasoning}
+	}
 	if t.text != "" {
 		ch <- model.Chunk{Type: model.ChunkText, Text: t.text}
 	}
@@ -528,5 +532,63 @@ func TestFlushablePreservesAllText(t *testing.T) {
 	want := strings.Join(tokens, "")
 	if got.String() != want {
 		t.Fatalf("coalescing lost or reordered text:\n got %q\nwant %q", got.String(), want)
+	}
+}
+
+
+// Reasoning is recorded as its own event so the UI can show it in a panel of
+// its own, and is NOT fed back as conversation history: it is the model's
+// scratch work, not something it should condition on next turn.
+func TestReasoningIsRecordedButNotReplayedAsHistory(t *testing.T) {
+	dir := tempDir(t)
+	loop, store := harnessIn(t, dir, []scriptedTurn{
+		{reasoning: "The user wants the answer to be four.", text: "4"},
+	}, policy.ModeAuto, true)
+
+	if _, err := loop.Run(context.Background(), "2+2?"); err != nil {
+		t.Fatal(err)
+	}
+
+	evs, _ := store.Events("sess1")
+	var think []Reasoning
+	for _, ev := range evs {
+		if ev.Type == EvAgentReasoning {
+			var r Reasoning
+			if err := json.Unmarshal(ev.Payload, &r); err != nil {
+				t.Fatalf("reasoning payload: %v", err)
+			}
+			think = append(think, r)
+		}
+	}
+	if len(think) != 1 {
+		t.Fatalf("want 1 reasoning event, got %d", len(think))
+	}
+	if think[0].Text != "The user wants the answer to be four." {
+		t.Errorf("reasoning text = %q", think[0].Text)
+	}
+	if think[0].Turn != 1 {
+		t.Errorf("reasoning turn = %d, want 1", think[0].Turn)
+	}
+
+	// The reasoning must not appear in the messages sent back to the model.
+	for _, m := range loop.Messages() {
+		if strings.Contains(m.Content, "wants the answer to be four") {
+			t.Fatalf("reasoning leaked into conversation history: %q", m.Content)
+		}
+	}
+}
+
+// A turn with no reasoning must not emit an empty panel.
+func TestNoReasoningEventWhenModelEmitsNone(t *testing.T) {
+	dir := tempDir(t)
+	loop, store := harnessIn(t, dir, []scriptedTurn{{text: "hello"}}, policy.ModeAuto, true)
+	if _, err := loop.Run(context.Background(), "hi"); err != nil {
+		t.Fatal(err)
+	}
+	evs, _ := store.Events("sess1")
+	for _, ev := range evs {
+		if ev.Type == EvAgentReasoning {
+			t.Fatal("emitted a reasoning event for a turn that had none")
+		}
 	}
 }

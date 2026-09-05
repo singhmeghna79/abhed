@@ -225,6 +225,7 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	}
 
 	var text strings.Builder
+	var reasoning strings.Builder
 	var pending strings.Builder // un-flushed delta fragment
 	deltaN := 0
 	lastFlush := time.Now()
@@ -256,8 +257,12 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 				lastFlush = time.Now()
 			}
 		case model.ChunkReasoning:
-			// Reasoning is observed but never fed back as history: it is not
-			// part of the conversation the model should condition on.
+			// Reasoning is recorded for display but never fed back as history:
+			// it is not part of the conversation the model should condition on.
+			// It is accumulated and emitted once at the end of the turn rather
+			// than streamed — a reader opens it after the fact, and per-token
+			// events would flood the stream for text nobody watches live.
+			reasoning.WriteString(chunk.Text)
 		case model.ChunkToolCall:
 			calls = append(calls, *chunk.ToolCall)
 		case model.ChunkError:
@@ -277,6 +282,11 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 		l.Recorder.Record(EvAgentDelta, ActorAgent, Trusted,
 			Delta{Text: pending.String(), Seq: deltaN})
 		pending.Reset()
+	}
+
+	if think := strings.TrimSpace(reasoning.String()); think != "" {
+		l.Recorder.Record(EvAgentReasoning, ActorAgent, Trusted,
+			Reasoning{Text: think, Turn: l.turns})
 	}
 
 	if ctx.Err() != nil {
