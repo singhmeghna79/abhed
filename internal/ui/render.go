@@ -22,6 +22,12 @@ func NewStyle(w io.Writer) Style {
 	if os.Getenv("NO_COLOR") != "" {
 		return Style{false}
 	}
+	// A writer that stands in for the terminal answers for itself. Without
+	// this, wrapping os.Stdout in anything at all silently turned colour off,
+	// because the check could only recognise an *os.File.
+	if t, ok := w.(interface{ IsTerminal() bool }); ok {
+		return Style{t.IsTerminal()}
+	}
 	f, isFile := w.(*os.File)
 	if !isFile {
 		return Style{false}

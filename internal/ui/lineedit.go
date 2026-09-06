@@ -182,3 +182,18 @@ func (l *LineReader) Capture() func() {
 type LazyStdout struct{}
 
 func (LazyStdout) Write(p []byte) (int, error) { return os.Stdout.Write(p) }
+
+// IsTerminal reports whether output is going to a terminal, so styling is
+// decided by where the bytes end up rather than by the type of the wrapper.
+//
+// The redirect installed for raw mode replaces os.Stdout with a pipe, and a
+// pipe is not a character device — so asking os.Stdout directly would say "not
+// a terminal" for exactly the case that needs colour most. The answer is fixed
+// at startup, before any redirect, which is when it was true.
+func (LazyStdout) IsTerminal() bool { return startedOnTerminal }
+
+// startedOnTerminal records what stdout was before anything replaced it.
+var startedOnTerminal = func() bool {
+	info, err := os.Stdout.Stat()
+	return err == nil && (info.Mode()&os.ModeCharDevice) != 0
+}()
