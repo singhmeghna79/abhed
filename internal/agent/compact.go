@@ -33,6 +33,12 @@ type Compactor struct {
 	// "manual"). Operators use it to archive the full transcript before it is
 	// discarded (docs §07).
 	PreCompact func(trigger string, messages []model.Message) error
+	// Summarizer, when set, replaces the model-written summary. It returns the
+	// summary to use, or cancel to leave the history alone. This is the seam
+	// the extension host plugs into: compaction is where the harness discards
+	// information deliberately, and only the deployment knows what must
+	// survive it.
+	Summarizer func(messages []model.Message) (summary string, cancel bool)
 }
 
 func NewCompactor(a model.Adapter, threshold float64) *Compactor {
@@ -187,9 +193,20 @@ func (c *Compactor) Compact(ctx context.Context, trigger string, system string,
 		return messages, Compaction{}, nil // nothing worth summarizing yet
 	}
 
-	summary, err := c.summarize(ctx, system, older)
-	if err != nil {
-		return messages, Compaction{}, err
+	var summary string
+	if c.Summarizer != nil {
+		s, cancel := c.Summarizer(older)
+		if cancel {
+			return messages, Compaction{}, nil
+		}
+		summary = s
+	}
+	if summary == "" {
+		var err error
+		summary, err = c.summarize(ctx, system, older)
+		if err != nil {
+			return messages, Compaction{}, err
+		}
 	}
 
 	compacted := make([]model.Message, 0, len(recent)+1)

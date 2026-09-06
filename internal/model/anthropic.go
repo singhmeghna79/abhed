@@ -37,6 +37,21 @@ type Anthropic struct {
 	// gated behind one.
 	Beta []string
 
+	// Bearer authenticates with an OAuth token rather than an API key.
+	//
+	// A Claude Pro or Max subscription is not an API key: it is an OAuth
+	// credential, sent as Authorization: Bearer, and the two headers are not
+	// interchangeable. Supporting it means a developer who already pays for a
+	// subscription can drive Titan with it instead of buying API credit
+	// separately, which for an evaluation is often the difference between
+	// trying the thing and not.
+	//
+	// Titan does not run the browser flow that mints these tokens: that is
+	// Anthropic's, it changes, and reimplementing someone else's login is a
+	// standing liability. `claude setup-token` prints a long-lived one, and
+	// this reads it.
+	Bearer string
+
 	// Defaults are the operator's configured sampling parameters, overridden
 	// per request by anything the request itself sets.
 	Defaults Params
@@ -276,11 +291,20 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("anthropic-version", orElse(c.Version, defaultAnthropicVersion))
-	if c.APIKey != "" {
+	// A subscription token and an API key are different credentials on
+	// different headers. Sending both would let the server pick, which makes
+	// "which account paid for this" depend on someone else's precedence rules.
+	switch {
+	case c.Bearer != "":
+		httpReq.Header.Set("Authorization", "Bearer "+c.Bearer)
+		// The OAuth beta is what makes a subscription token acceptable on the
+		// Messages API; without it the request is rejected as unauthenticated.
+		httpReq.Header.Set("anthropic-beta", betaHeader(c.Beta, "oauth-2025-04-20"))
+	case c.APIKey != "":
 		httpReq.Header.Set("x-api-key", c.APIKey)
-	}
-	if len(c.Beta) > 0 {
-		httpReq.Header.Set("anthropic-beta", strings.Join(c.Beta, ","))
+		if len(c.Beta) > 0 {
+			httpReq.Header.Set("anthropic-beta", strings.Join(c.Beta, ","))
+		}
 	}
 
 	resp, err := c.HTTP.Do(httpReq)
@@ -429,4 +453,16 @@ func truncateArgs(s string) string {
 		return s
 	}
 	return s[:200] + "…"
+}
+
+
+// betaHeader adds a required beta flag to whatever the operator configured,
+// without duplicating it if they already named it.
+func betaHeader(configured []string, required string) string {
+	for _, b := range configured {
+		if b == required {
+			return strings.Join(configured, ",")
+		}
+	}
+	return strings.Join(append([]string{required}, configured...), ",")
 }

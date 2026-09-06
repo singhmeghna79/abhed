@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 func init() {
 	Register("anthropic", "Anthropic Messages API (api.anthropic.com)", anthropicStyle(""))
@@ -39,6 +42,15 @@ func newAnthropicAdapter(s Spec) (Adapter, error) {
 				},
 			})
 			a.Defaults = s.Params
+			// A subscription token, if the operator supplied one. Named
+			// explicitly in config, or from the environment variable Claude
+			// Code's own `setup-token` writes — matching the name means an
+			// existing token works here without being moved.
+			a.Bearer = firstNonEmptyString(
+				s.Get("oauth_token"),
+				os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"),
+				os.Getenv("ANTHROPIC_AUTH_TOKEN"),
+			)
 			if v := s.Get("api_version"); v != "" {
 				a.Version = v
 			}
@@ -47,4 +59,14 @@ func newAnthropicAdapter(s Spec) (Adapter, error) {
 			}
 		return a, nil
 	}
+}
+
+
+func firstNonEmptyString(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

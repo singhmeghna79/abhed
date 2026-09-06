@@ -231,3 +231,31 @@ func firstNonEmpty(vals ...string) string {
 	}
 	return ""
 }
+
+
+// OnBeforeCompact asks extensions about a pending compaction.
+//
+// An extension may cancel it, or supply the summary itself. Summarizing is the
+// one place where the harness discards information on purpose, and the default
+// summarizer cannot know that this deployment must keep the ticket number, the
+// customer id, or whatever else the next turn will be judged against.
+//
+// The first extension to answer wins, and a cancel outranks a summary: both are
+// the stricter reading of "do not summarize this the usual way".
+func (h *Host) OnBeforeCompact(ctx context.Context, sessionID string, msgs []Message) (summary string, cancel bool) {
+	for _, e := range h.exts {
+		if !e.Subscribed(EvBeforeCompact) {
+			continue
+		}
+		reply := e.Call(ctx, Request{
+			Event: EvBeforeCompact, SessionID: sessionID, Messages: msgs,
+		})
+		if reply.Cancel {
+			return "", true
+		}
+		if reply.Summary != "" && summary == "" {
+			summary = reply.Summary
+		}
+	}
+	return summary, false
+}

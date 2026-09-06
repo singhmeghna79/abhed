@@ -217,3 +217,40 @@ func TestSilentProvidedToolIsAnError(t *testing.T) {
 		t.Fatal("no answer from an extension must be an error, not an empty success")
 	}
 }
+
+// Compaction is where the harness discards information on purpose, and only
+// the deployment knows what must survive it.
+func TestExtensionSuppliesACompactionSummary(t *testing.T) {
+	h := hostWith(t, "summarizer.sh")
+	summary, cancel := h.OnBeforeCompact(context.Background(), "s1",
+		[]Message{{Role: "user", Content: "about ticket ABC-123"}})
+	if cancel {
+		t.Fatal("this extension supplies a summary, it does not cancel")
+	}
+	if summary != "Ticket ABC-123 is the subject. Keep it." {
+		t.Errorf("summary = %q", summary)
+	}
+}
+
+func TestExtensionCanCancelCompaction(t *testing.T) {
+	h := hostWith(t, "canceller.sh")
+	_, cancel := h.OnBeforeCompact(context.Background(), "s1", nil)
+	if !cancel {
+		t.Fatal("the extension asked to cancel and was ignored")
+	}
+}
+
+// A cancel outranks a summary: both are the stricter reading of "do not
+// summarize this the usual way", so order must not decide the outcome.
+func TestCancelOutranksSummaryEitherOrder(t *testing.T) {
+	for _, order := range [][]string{
+		{"summarizer.sh", "canceller.sh"},
+		{"canceller.sh", "summarizer.sh"},
+	} {
+		h := hostWith(t, order...)
+		_, cancel := h.OnBeforeCompact(context.Background(), "s1", nil)
+		if !cancel {
+			t.Errorf("order %v: a cancel must win", order)
+		}
+	}
+}

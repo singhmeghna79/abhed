@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 // Registrations for every provider that speaks the OpenAI chat-completions
 // wire format. They differ in base URL, in which sampler knobs the server
@@ -69,7 +72,17 @@ func openAIStyle(defaultURL string, sampling Sampling) Factory {
 			ToolCallFormat:  orElse(s.ToolCallFormat, "json"),
 			Sampling:        sampling,
 		}
-		a := NewOpenAICompatible(base, s.APIKey, s.Model, profile)
+		key := s.APIKey
+		if key == "" {
+			// An OpenAI-shaped endpoint authenticates with a bearer token
+			// either way, so a subscription token and an API key take the same
+			// path here. Only the source differs.
+			key = firstNonEmptyString(
+				s.Get("oauth_token"),
+				os.Getenv("OPENAI_API_KEY"),
+			)
+		}
+		a := NewOpenAICompatible(base, key, s.Model, profile)
 		a.Defaults = s.Params
 		a.Think = s.Params.Think
 		if len(s.ReasoningTags) == 2 {

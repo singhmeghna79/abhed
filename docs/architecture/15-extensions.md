@@ -49,6 +49,9 @@ extension writes exactly one reply.
 | `tool_result` | before the model sees output | rewrite `content`, set `is_error` |
 | `context` | before each model call | `keep` a subset of messages, by index |
 | `before_agent_start` | once per run | append to `system` |
+| `before_compact` | before history is summarized | `cancel` it, or supply the `summary` |
+| `list_tools` | once at startup | declare `tools` this extension provides |
+| `invoke_tool` | the model called one | return its `result` |
 | `session_start`, `session_end` | run boundaries | nothing; for setup and teardown |
 
 Declaring no `events` subscribes to all of them.
@@ -63,6 +66,9 @@ Declaring no `events` subscribes to all of them.
 | `content`, `is_error` | replace a tool result |
 | `keep` | indices of the messages to send; `[]` sends none |
 | `system` | text appended to the system prompt |
+| `summary` | the compaction summary to use instead of asking the model |
+| `cancel` | leave the history alone this time |
+| `tools`, `result` | see "Providing a tool" |
 | `log` | written to Titan's log |
 
 An empty reply `{}` means no opinion, which is also how a crashed, hung or

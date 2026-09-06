@@ -64,6 +64,10 @@ const (
 	EvListTools Event = "list_tools"
 	// EvInvokeTool runs one of an extension's own tools.
 	EvInvokeTool Event = "invoke_tool"
+	// EvBeforeCompact fires before history is summarized. The reply may cancel
+	// the compaction or supply the summary itself, which is how an operator
+	// keeps something the default summarizer would drop.
+	EvBeforeCompact Event = "before_compact"
 )
 
 // Request is what Titan sends an extension.
@@ -117,6 +121,11 @@ type Reply struct {
 	Tools []ToolDef `json:"tools,omitempty"`
 	// Result answers invoke_tool.
 	Result string `json:"result,omitempty"`
+	// Summary answers before_compact: the summary to use instead of asking the
+	// model for one.
+	Summary string `json:"summary,omitempty"`
+	// Cancel answers before_compact: leave the history alone this time.
+	Cancel bool `json:"cancel,omitempty"`
 }
 
 // ToolDef is a tool an extension provides.
@@ -211,7 +220,7 @@ func Start(ctx context.Context, cfg Config, logf func(string, ...any)) (*Extensi
 	if len(e.subs) == 0 {
 		for _, ev := range []Event{EvToolCall, EvToolResult, EvContext,
 			EvBeforeAgentStart, EvSessionStart, EvSessionEnd,
-			EvListTools, EvInvokeTool} {
+			EvListTools, EvInvokeTool, EvBeforeCompact} {
 			e.subs[ev] = true
 		}
 	}

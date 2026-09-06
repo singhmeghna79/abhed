@@ -303,7 +303,7 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	if headless {
 		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, cfg, prompt, todos)
 	}
-	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace, todos)
+	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace, todos, extHost)
 }
 
 func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonOut bool,
@@ -351,7 +351,7 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
 	approver agent.Approver, sess *tools.Session, cfg agent.Config,
 	appCfg config.Config, provider config.ProviderConfig, workspace string,
-	todos *agent.LoopHolder) int {
+	todos *agent.LoopHolder, extHost *extension.Host) int {
 
 	s := r.Style()
 	sandboxLabel := "none"
@@ -443,6 +443,7 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		active := sessionState.adapter
 		loop := agent.NewLoop(active, registry, pol, approver, sess, rec, cfg)
 		loop.Compactor = agent.NewCompactor(active, cfg.CompactAt)
+		attachExtensionSummarizer(loop.Compactor, extHost, sessionID)
 		todos.Set(loop)
 		sessionState.loop = loop
 		sessionState.sessionID = sessionID
@@ -565,6 +566,7 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
   /model [name]     show or switch the model, keeping the conversation
   /sessions         list recent sessions (durable store)
   /resume <id>      replay a past session's transcript
+  /tree             show the session's steps, with the numbers /fork takes
   /fork [step]      rebuild the conversation up to a step and continue from it
   /export [path]    write the transcript (.html by default, .json for events)
   /cwd              show the workspace root
@@ -746,6 +748,18 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 		}
 		fmt.Printf("  %s\n", s.Dim("switched to "+p.Model+" — the conversation is kept"))
 		fmt.Printf("  %s\n", s.Dim("(the next turn re-prefills: the new provider has not seen this prefix)"))
+
+	case "/tree":
+		// Show the session as steps, so a user can see where it went wrong
+		// before deciding where to fork. Without it, /fork asks for a number
+		// nobody has any way to know.
+		events, err := st.store.Events(st.sessionID)
+		if err != nil || len(events) == 0 {
+			fmt.Println(s.Dim("  nothing recorded yet"))
+			return false
+		}
+		forkPoints(r, events)
+		fmt.Printf("  %s\n", s.Dim("/fork <step> rebuilds the conversation up to a step"))
 
 	case "/fork":
 		// Rebuild the conversation from the event log up to a point and carry
@@ -2124,4 +2138,24 @@ func firstLine(s string, n int) string {
 		return s[:n] + "…"
 	}
 	return s
+}
+
+
+// attachExtensionSummarizer lets an extension supply or refuse a compaction
+// summary. Compaction is the one place the harness discards information on
+// purpose, and the default summarizer cannot know what this deployment must
+// keep.
+func attachExtensionSummarizer(c *agent.Compactor, h *extension.Host, sessionID string) {
+	if c == nil || h == nil || h.Len() == 0 {
+		return
+	}
+	c.Summarizer = func(msgs []model.Message) (string, bool) {
+		out := make([]extension.Message, 0, len(msgs))
+		for _, m := range msgs {
+			out = append(out, extension.Message{
+				Role: string(m.Role), Content: m.Content,
+			})
+		}
+		return h.OnBeforeCompact(context.Background(), sessionID, out)
+	}
 }

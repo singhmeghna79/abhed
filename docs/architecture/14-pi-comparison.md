@@ -65,30 +65,43 @@ The asymmetry is the design. Titan ships the enterprise integrations (k8s, ssh,
 five search providers, MCP) because an air-gapped customer cannot npm-install an
 extension. Pi ships four tools and an API, because a developer on a laptop can.
 
-## Extensibility — where Pi is far ahead
+## Extensibility
 
-Pi's extension API is the most complete of any harness surveyed, including
-Claude Code's. Extensions are TypeScript modules loaded through jiti, needing no
-build step, and they can hook **more than thirty events**:
+Pi's extension API is the broadest of any harness surveyed, Claude Code
+included. Extensions are TypeScript modules loaded through jiti, needing no
+build step, and they hook more than thirty events across lifecycle, compaction,
+execution, tools, provider traffic and model selection, plus `registerTool`,
+`registerCommand`, `registerShortcut`, `registerFlag`, `registerProvider`,
+custom renderers, and durable session entries via `appendEntry`.
 
-- lifecycle: `project_trust`, `session_start`, `session_shutdown`, `session_before_switch`, `session_before_fork`, `resources_discover`
-- compaction: `session_before_compact` (can cancel, or supply its own summary), `session_compact`, `session_compact_failed`
-- execution: `before_agent_start` (can rewrite the system prompt or inject a message), `agent_start`, `agent_end`, `agent_settled`, `turn_start`, `turn_end`, `message_start/update/end`, `input`
-- tools: `tool_execution_start/update/end`, `tool_call` (**can block**), `tool_result` (**can modify the result**), `user_bash`
-- provider: `context` (filter or rewrite the messages sent), `before_provider_headers`, `before_provider_request`, `after_provider_response`
-- model: `model_select`, `thinking_level_select`
+Titan now has an extension API too, deliberately narrower. Extensions are
+separate processes speaking JSONL, in any language, and hook eight events:
 
-Plus `registerTool`, `registerCommand`, `registerShortcut`, `registerFlag`,
-`registerProvider`, custom message and entry renderers, and durable custom
-session entries via `appendEntry`.
+| Event | The extension may |
+|---|---|
+| `tool_call` | block the call, force an approval prompt, rewrite the arguments |
+| `tool_result` | rewrite what the model reads |
+| `context` | drop messages before they are sent upstream |
+| `before_agent_start` | append to the system prompt |
+| `before_compact` | cancel the compaction, or supply the summary itself |
+| `list_tools` | provide tools the harness never had |
+| `invoke_tool` | run one of its own tools |
+| `session_start`, `session_end` | set up and tear down |
 
-Titan has one hook type, `policy.Hook`, which can veto a call — the hard part —
-and no way to register one without editing Go and recompiling. Everything else
-on that list has no Titan equivalent.
+That covers what an operator most often forks a harness to do — gate a
+dangerous call, redact a result, filter context for privacy or RAG, add a
+company-specific tool, keep something the summarizer would drop. It is not
+Pi's surface. There is no equivalent of `before_provider_request`,
+`registerShortcut`, custom renderers, session-fork hooks or the TUI, and
+"an extension can do anything" remains true of Pi and not of Titan.
 
-**This is the single largest capability gap in this document.** Pi's `context`
-event alone — filter the message list before every provider call — is a
-production-grade RAG and privacy mechanism that Titan cannot express at all.
+**One difference is a decision rather than a gap.** A Titan extension may veto
+and never permit: it can block a call or force it to a prompt, and cannot turn a
+denied action into an allowed one. Pi's answer to permissions is to containerise
+or write an extension, which is coherent for one developer and unavailable to a
+deployment that must prove to an auditor what the agent was permitted to do —
+because a gate an extension supplies is one an extension can also remove. Two
+tests hold that line, and they are the first thing to read if it ever changes.
 
 ## Sessions
 
@@ -97,8 +110,8 @@ production-grade RAG and privacy mechanism that Titan cannot express at all.
 | Storage | Postgres, append-only, trigger-enforced | JSONL under `~/.pi/agent/sessions/`, by working directory |
 | Model | flat event stream per session | tree: every entry has `id` and `parentId` |
 | Branching | ✅ `Fork` rebuilds a conversation from any sequence number | ✅ in-place, no new file |
-| Navigate history | ❌ | ✅ `/tree` |
-| Fork from a past point | ❌ | ✅ `/fork`, `/clone` |
+| Navigate history | ✅ `/tree` lists the steps and the numbers `/fork` takes | ✅ `/tree` |
+| Fork from a past point | ✅ `/fork <step>`, and `Fork` in the SDK | ✅ `/fork`, `/clone` |
 | Resume | ✅ `/resume` replays a transcript | ✅ `/resume` |
 | Deterministic replay | ✅ the point of the design | ⚠️ full history is retained, replay is not a stated feature |
 | Share | ✅ `/export` writes a self-contained HTML transcript; `.json` still writes events | ✅ `/export` to HTML, `/share` to a gist |
@@ -117,7 +130,7 @@ experience; Titan's replay and tenant isolation are the things a bank asks for.
 |---|---|---|
 | Auto-compaction | ✅ proactive, with headroom for the coming turn | ✅ proactive and reactive after overflow |
 | Manual | ✅ `/compact` | ✅ `/compact` |
-| Custom summary | ⚠️ `PreCompact` hook, Go only | ✅ `session_before_compact` can cancel or supply the summary |
+| Custom summary | ✅ the `before_compact` event can cancel or supply the summary | ✅ `session_before_compact` can cancel or supply the summary |
 | Full history preserved | ✅ event store | ✅ JSONL |
 | Memory files | ✅ TITAN.md | ✅ AGENTS.md, SYSTEM.md |
 | Per-result size cap | ✅ a quarter of the window | ? |
@@ -135,7 +148,7 @@ published measurement was found — absence of a number, not absence of quality.
 | Named providers | 20 | 25+, "hundreds of models" |
 | Wire formats | 3 (OpenAI, Anthropic Messages, Gemini) | OpenAI- and Anthropic-compatible, plus per-provider |
 | Switch model mid-session | ✅ `/model` swaps the adapter and keeps the conversation; the next turn re-prefills | ✅ `/model`, or a shortcut, mid-run |
-| Subscription auth (Claude Pro, ChatGPT Plus, Copilot) | ❌ **still open** — needs each vendor's OAuth device flow and token refresh | ✅ |
+| Subscription auth (Claude Pro, ChatGPT Plus) | ⚠️ a subscription token authenticates — `CLAUDE_CODE_OAUTH_TOKEN` or `oauth_token` in config — but Titan does not run the browser flow that mints one | ✅ built-in login |
 | Custom provider without recompiling | ✅ `custom_providers` in config | ✅ `models.json`, or `registerProvider` |
 | Sampling parameters | ✅ 13, refused at startup when unsupported | ⚠️ thinking level is first-class; full sampling surface not documented |
 
@@ -170,8 +183,8 @@ That is the sentence that separates the two products.
 
 | Capability | Why it is still open |
 |---|---|
-| Subscription auth (Claude Pro, ChatGPT Plus, Copilot) | Each vendor needs its own OAuth device flow, token store and refresh. Real work, one provider at a time, and none of it changes the harness. Titan takes an API key today. |
-| The breadth of Pi's extension surface | Titan hooks six events; Pi hooks more than thirty, including provider request and response, session fork, and the whole TUI. The six chosen cover blocking, rewriting, context filtering and tool provision — most of what an operator cannot otherwise do without a fork — but "an extension can do anything" remains Pi's, not Titan's. |
+| Minting a subscription token | A token authenticates once you have one, but Titan does not run the browser flow that produces it: `claude setup-token` prints one for Claude, and an OpenAI subscription needs its own. Reimplementing someone else's login is a standing liability — it changes without notice and a broken copy locks users out — so Titan reads the token and does not mint it. GitHub Copilot is not supported at all. |
+| The breadth of Pi's extension surface | Titan hooks eight events; Pi hooks more than thirty, including provider request and response, session fork, keyboard shortcuts and the whole TUI. The eight cover blocking, rewriting, context filtering, compaction and tool provision — most of what an operator forks a harness to do — but "an extension can do anything" remains Pi's, not Titan's. |
 | Themes, prompt templates, packaged distribution | Pi ships themes, `{{variable}}` prompt templates, and npm/git distribution for extension bundles. Titan has none of it. Cosmetic next to the rest, and genuinely missing. |
 
 ## What Titan should take from Pi
