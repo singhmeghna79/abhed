@@ -1,0 +1,432 @@
+package model
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+)
+
+// Anthropic speaks the Messages API.
+//
+// This is not the OpenAI adapter with a different URL. The shapes genuinely
+// differ: the system prompt is a top-level field rather than a message, content
+// is a list of typed blocks rather than a string, tool calls arrive as
+// tool_use blocks whose arguments stream as JSON fragments, and the streaming
+// protocol is a set of named events rather than one delta shape.
+//
+// Two of those differences carry real weight for Titan. Caching is explicit —
+// a cache_control marker on the last system block is what makes the stable
+// prefix cheap, which is exactly the economics docs P8 is about, and it has to
+// be asked for rather than inferred. And thinking is a first-class request
+// field with its own response blocks, so reasoning arrives structured instead
+// of having to be scraped out of the text with tag matching.
+type Anthropic struct {
+	BaseURL string
+	APIKey  string
+	Model   string
+	Version string // anthropic-version header
+	HTTP    *http.Client
+
+	// Beta carries anthropic-beta feature flags, for capabilities that are
+	// gated behind one.
+	Beta []string
+
+	// Defaults are the operator's configured sampling parameters, overridden
+	// per request by anything the request itself sets.
+	Defaults Params
+
+	profile Profile
+}
+
+const defaultAnthropicVersion = "2023-06-01"
+
+func NewAnthropic(baseURL, apiKey, model string, p Profile) *Anthropic {
+	if p.Name == "" {
+		p.Name = model
+	}
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com"
+	}
+	return &Anthropic{
+		BaseURL: strings.TrimSuffix(baseURL, "/"),
+		APIKey:  apiKey,
+		Model:   model,
+		Version: defaultAnthropicVersion,
+		HTTP:    &http.Client{Timeout: 10 * time.Minute},
+		profile: p,
+	}
+}
+
+func (c *Anthropic) Name() string     { return c.profile.Name }
+func (c *Anthropic) Profile() Profile { return c.profile }
+
+// ---------------------------------------------------------------- wire types
+
+type anthropicBlock struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
+
+	// tool_use
+	ID    string          `json:"id,omitempty"`
+	Name  string          `json:"name,omitempty"`
+	Input json.RawMessage `json:"input,omitempty"`
+
+	// tool_result
+	ToolUseID string `json:"tool_use_id,omitempty"`
+	Content   string `json:"content,omitempty"`
+	IsError   bool   `json:"is_error,omitempty"`
+
+	// thinking
+	Thinking string `json:"thinking,omitempty"`
+
+	CacheControl *anthropicCache `json:"cache_control,omitempty"`
+}
+
+type anthropicCache struct {
+	Type string `json:"type"`
+}
+
+type anthropicMessage struct {
+	Role    string           `json:"role"`
+	Content []anthropicBlock `json:"content"`
+}
+
+type anthropicTool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	InputSchema json.RawMessage `json:"input_schema"`
+}
+
+type anthropicThinking struct {
+	Type string `json:"type"`
+	// BudgetTokens applies to the older enabled-with-budget form. Adaptive
+	// thinking omits it; sending it to a model that removed it is a 400.
+	BudgetTokens *int `json:"budget_tokens,omitempty"`
+}
+
+type anthropicRequest struct {
+	Model         string             `json:"model"`
+	Messages      []anthropicMessage `json:"messages"`
+	System        []anthropicBlock   `json:"system,omitempty"`
+	Tools         []anthropicTool    `json:"tools,omitempty"`
+	MaxTokens     int                `json:"max_tokens"`
+	Temperature   *float64           `json:"temperature,omitempty"`
+	TopP          *float64           `json:"top_p,omitempty"`
+	TopK          *int               `json:"top_k,omitempty"`
+	StopSequences []string           `json:"stop_sequences,omitempty"`
+	Stream        bool               `json:"stream"`
+	Thinking      *anthropicThinking `json:"thinking,omitempty"`
+}
+
+func (c *Anthropic) buildRequest(req Request) anthropicRequest {
+	sp := c.Defaults.Merge(req.Sampling())
+
+	var msgs []anthropicMessage
+	for _, m := range req.Messages {
+		switch m.Role {
+		case RoleTool:
+			// A tool result is a user-role message carrying a tool_result
+			// block, not a role of its own.
+			msgs = append(msgs, anthropicMessage{
+				Role: "user",
+				Content: []anthropicBlock{{
+					Type: "tool_result", ToolUseID: m.ToolCallID,
+					Content: m.Content, IsError: m.IsError,
+				}},
+			})
+		case RoleAssistant:
+			var blocks []anthropicBlock
+			if strings.TrimSpace(m.Content) != "" {
+				blocks = append(blocks, anthropicBlock{Type: "text", Text: m.Content})
+			}
+			for _, tc := range m.ToolCalls {
+				args := tc.Args
+				if len(args) == 0 {
+					args = json.RawMessage("{}")
+				}
+				blocks = append(blocks, anthropicBlock{
+					Type: "tool_use", ID: tc.ID, Name: tc.Name, Input: args,
+				})
+			}
+			if len(blocks) == 0 {
+				// An assistant turn with neither text nor calls is not a legal
+				// message; drop it rather than have the API reject the whole
+				// request for an empty block list.
+				continue
+			}
+			msgs = append(msgs, anthropicMessage{Role: "assistant", Content: blocks})
+		default:
+			msgs = append(msgs, anthropicMessage{
+				Role:    "user",
+				Content: []anthropicBlock{{Type: "text", Text: m.Content}},
+			})
+		}
+	}
+
+	var system []anthropicBlock
+	if req.System != "" {
+		// The marker on the last system block is what makes the stable prefix
+		// — prompt plus tools — a cache read on every later turn. Without it
+		// the whole prefix is re-billed each request, which is the difference
+		// docs P8 measures.
+		system = []anthropicBlock{{
+			Type: "text", Text: req.System,
+			CacheControl: &anthropicCache{Type: "ephemeral"},
+		}}
+	}
+
+	var tools []anthropicTool
+	for _, t := range req.Tools {
+		schema := t.InputSchema
+		if len(schema) == 0 {
+			schema = json.RawMessage(`{"type":"object","properties":{}}`)
+		}
+		tools = append(tools, anthropicTool{
+			Name: t.Name, Description: t.Description, InputSchema: schema,
+		})
+	}
+
+	maxTokens := sp.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = c.profile.MaxOutputTokens
+	}
+	if maxTokens <= 0 {
+		maxTokens = 8192 // the API requires this field
+	}
+
+	out := anthropicRequest{
+		Model:         c.Model,
+		Messages:      msgs,
+		System:        system,
+		Tools:         tools,
+		MaxTokens:     maxTokens,
+		Temperature:   sp.Temperature,
+		TopP:          sp.TopP,
+		TopK:          sp.TopK,
+		StopSequences: sp.Stop,
+		Stream:        true,
+	}
+
+	// Thinking is requested explicitly. A budget is only sent when one was
+	// configured: current models removed budget_tokens and reject it, while
+	// adaptive thinking takes no budget at all.
+	if sp.ThinkingBudget != nil {
+		out.Thinking = &anthropicThinking{Type: "enabled", BudgetTokens: sp.ThinkingBudget}
+	} else if sp.Think != nil && *sp.Think {
+		out.Thinking = &anthropicThinking{Type: "adaptive"}
+	} else if sp.Effort != EffortNone {
+		out.Thinking = &anthropicThinking{Type: "adaptive"}
+	}
+	return out
+}
+
+// ---------------------------------------------------------------- streaming
+
+type anthropicEvent struct {
+	Type  string `json:"type"`
+	Index int    `json:"index"`
+
+	Message *struct {
+		StopReason string          `json:"stop_reason"`
+		Usage      *anthropicUsage `json:"usage"`
+	} `json:"message"`
+
+	ContentBlock *anthropicBlock `json:"content_block"`
+
+	Delta *struct {
+		Type        string `json:"type"`
+		Text        string `json:"text"`
+		Thinking    string `json:"thinking"`
+		PartialJSON string `json:"partial_json"`
+		StopReason  string `json:"stop_reason"`
+	} `json:"delta"`
+
+	Usage *anthropicUsage `json:"usage"`
+
+	Error *struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+type anthropicUsage struct {
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+}
+
+func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, error) {
+	body, err := json.Marshal(c.buildRequest(req))
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.BaseURL+"/v1/messages", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "text/event-stream")
+	httpReq.Header.Set("anthropic-version", orElse(c.Version, defaultAnthropicVersion))
+	if c.APIKey != "" {
+		httpReq.Header.Set("x-api-key", c.APIKey)
+	}
+	if len(c.Beta) > 0 {
+		httpReq.Header.Set("anthropic-beta", strings.Join(c.Beta, ","))
+	}
+
+	resp, err := c.HTTP.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("%s is unreachable: %w", c.BaseURL, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+		return nil, fmt.Errorf("anthropic returned %s: %s",
+			resp.Status, strings.TrimSpace(string(msg)))
+	}
+
+	out := make(chan Chunk, 32)
+	go c.stream(ctx, resp, out)
+	return out, nil
+}
+
+func (c *Anthropic) stream(ctx context.Context, resp *http.Response, out chan<- Chunk) {
+	defer close(out)
+	defer resp.Body.Close()
+
+	// Tool arguments arrive as JSON fragments across many events, keyed by the
+	// block index they belong to. They are only parseable once the block ends.
+	type pending struct {
+		id, name string
+		args     strings.Builder
+	}
+	blocks := map[int]*pending{}
+	usage := Usage{}
+	stop := ""
+
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 0, 64<<10), 8<<20)
+
+	for sc.Scan() {
+		line := sc.Text()
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if payload == "" {
+			continue
+		}
+
+		var ev anthropicEvent
+		if err := json.Unmarshal([]byte(payload), &ev); err != nil {
+			continue // a malformed frame is not worth ending the turn over
+		}
+
+		switch ev.Type {
+		case "message_start":
+			if ev.Message != nil && ev.Message.Usage != nil {
+				usage.InputTokens += ev.Message.Usage.InputTokens
+				usage.CachedInputTokens += ev.Message.Usage.CacheReadInputTokens
+			}
+
+		case "content_block_start":
+			if ev.ContentBlock != nil && ev.ContentBlock.Type == "tool_use" {
+				blocks[ev.Index] = &pending{id: ev.ContentBlock.ID, name: ev.ContentBlock.Name}
+			}
+
+		case "content_block_delta":
+			if ev.Delta == nil {
+				continue
+			}
+			switch ev.Delta.Type {
+			case "text_delta":
+				if ev.Delta.Text != "" {
+					out <- Chunk{Type: ChunkText, Text: ev.Delta.Text}
+				}
+			case "thinking_delta":
+				if ev.Delta.Thinking != "" {
+					out <- Chunk{Type: ChunkReasoning, Text: ev.Delta.Thinking}
+				}
+			case "input_json_delta":
+				if b := blocks[ev.Index]; b != nil {
+					b.args.WriteString(ev.Delta.PartialJSON)
+				}
+			}
+
+		case "content_block_stop":
+			b := blocks[ev.Index]
+			if b == nil {
+				continue
+			}
+			delete(blocks, ev.Index)
+			args := strings.TrimSpace(b.args.String())
+			if args == "" {
+				args = "{}"
+			}
+			if !json.Valid([]byte(args)) {
+				out <- Chunk{Type: ChunkError, Err: fmt.Errorf(
+					"tool %q arguments were not valid JSON: %s", b.name, truncateArgs(args))}
+				continue
+			}
+			out <- Chunk{Type: ChunkToolCall, ToolCall: &ToolCall{
+				ID: b.id, Name: b.name, Args: json.RawMessage(args),
+			}}
+
+		case "message_delta":
+			if ev.Delta != nil && ev.Delta.StopReason != "" {
+				stop = ev.Delta.StopReason
+			}
+			if ev.Usage != nil {
+				usage.OutputTokens += ev.Usage.OutputTokens
+			}
+
+		case "message_stop":
+			out <- Chunk{Type: ChunkDone, Usage: &usage, StopReason: stop}
+			return
+
+		case "error":
+			if ev.Error != nil {
+				out <- Chunk{Type: ChunkError, Err: fmt.Errorf("anthropic: %s: %s",
+					ev.Error.Type, ev.Error.Message)}
+			}
+			return
+		}
+
+		if ctx.Err() != nil {
+			return
+		}
+	}
+	if err := sc.Err(); err != nil {
+		out <- Chunk{Type: ChunkError, Err: fmt.Errorf("stream read failed: %w", err)}
+		return
+	}
+	// The stream ended without message_stop: report what was counted rather
+	// than leaving the loop with no terminal chunk.
+	out <- Chunk{Type: ChunkDone, Usage: &usage, StopReason: stop}
+}
+
+// CountTokens estimates prompt size.
+//
+// The Messages API has a real counting endpoint, but calling it costs a round
+// trip on every compaction check — several per session — for a number that only
+// decides when to summarize. The same character-based estimate the other
+// adapters use is close enough for that decision and free.
+func (c *Anthropic) CountTokens(req Request) (int, error) {
+	return estimateTokens(req), nil
+}
+
+func truncateArgs(s string) string {
+	if len(s) <= 200 {
+		return s
+	}
+	return s[:200] + "…"
+}

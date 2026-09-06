@@ -54,13 +54,38 @@ const (
 )
 
 type Request struct {
-	System      string // the cached prefix (docs §07 layers 1-4)
-	Messages    []Message
-	Tools       []ToolDef
+	System   string // the cached prefix (docs §07 layers 1-4)
+	Messages []Message
+	Tools    []ToolDef
+	// Params carries sampling and decoding controls. MaxTokens, Stop and
+	// Effort live here too; the older top-level fields are kept as the
+	// per-request override that composes over the configured defaults.
+	Params Params
+
 	MaxTokens   int
 	Effort      EffortLevel
 	Stop        []string
 	Temperature *float64
+}
+
+// Sampling resolves the effective parameters for this request: the configured
+// Params, with any per-request field set on the legacy top-level fields taking
+// precedence.
+func (r Request) Sampling() Params {
+	out := r.Params
+	if r.MaxTokens != 0 {
+		out.MaxTokens = r.MaxTokens
+	}
+	if r.Effort != EffortNone {
+		out.Effort = r.Effort
+	}
+	if len(r.Stop) > 0 {
+		out.Stop = r.Stop
+	}
+	if r.Temperature != nil {
+		out.Temperature = r.Temperature
+	}
+	return out
 }
 
 // ChunkType distinguishes the pieces of a streamed response.
@@ -103,6 +128,9 @@ type Profile struct {
 	GuidedDecoding  bool               `json:"guided_decoding"`
 	CachePrefix     bool               `json:"cache_prefix"`
 	Conformance     map[string]float64 `json:"conformance,omitempty"`
+	// Sampling reports which decoding knobs this provider honours, so a
+	// config naming one it does not is rejected rather than ignored.
+	Sampling Sampling `json:"-"`
 }
 
 // Adapter is the single seam that makes Titan model-agnostic.
@@ -113,4 +141,28 @@ type Adapter interface {
 	Complete(ctx context.Context, req Request) (<-chan Chunk, error)
 	// CountTokens estimates prompt size for budget and compaction decisions.
 	CountTokens(req Request) (int, error)
+}
+
+
+// estimateTokens approximates prompt size from character counts.
+//
+// Every adapter needs this for the same decision — when to compact — and none
+// of them needs it to be exact. A real tokenizer would mean shipping vocabulary
+// files per model family, and the counting endpoints that exist cost a round
+// trip on a question asked several times a session. An estimate that is close
+// and free is the right trade for a threshold check; the model reports true
+// usage afterwards, which is what the budget is actually reconciled against.
+func estimateTokens(req Request) int {
+	n := len(req.System)
+	for _, m := range req.Messages {
+		n += len(m.Content) + 16 // per-message framing overhead
+		for _, tc := range m.ToolCalls {
+			n += len(tc.Name) + len(tc.Args) + 16
+		}
+	}
+	for _, t := range req.Tools {
+		n += len(t.Name) + len(t.Description) + len(t.InputSchema)
+	}
+	// ~3.6 chars/token is a reasonable average for code-heavy English text.
+	return n * 10 / 36
 }

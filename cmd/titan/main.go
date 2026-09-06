@@ -81,6 +81,8 @@ func main() {
 		return
 	case "doctor":
 		os.Exit(doctor(workspace))
+	case "providers":
+		os.Exit(providersCmd())
 	case "user":
 		os.Exit(userCmd(workspace, flag.Args()[1:]))
 	case "index":
@@ -1603,31 +1605,18 @@ func buildRAG(cfg config.Config) []tools.Tool {
 	return out
 }
 
+// buildAdapter constructs the configured provider.
+//
+// Every provider is reached through the registry in internal/model, so adding
+// one is a new file with an init rather than another branch here. A build
+// failure is fatal by design: a mistyped provider type or an unsupported
+// sampling parameter is a configuration error, and discovering it now beats
+// discovering it on the first model call of a long session.
 func buildAdapter(p config.ProviderConfig) model.Adapter {
-	if p.Type == "watsonx" {
-		return model.NewWatsonX(model.WatsonXConfig{
-			BaseURL: p.BaseURL, APIKey: p.APIKey,
-			ProjectID: p.ProjectID, SpaceID: p.SpaceID,
-			ModelID: p.Model, Version: p.APIVersion, IAMURL: p.IAMURL,
-			Profile: model.Profile{
-				Name:            p.Model,
-				ContextWindow:   p.ContextWindow,
-				MaxOutputTokens: p.MaxOutputTokens,
-			},
-		})
-	}
-	profile := model.Profile{
-		Name:            p.Model,
-		ContextWindow:   p.ContextWindow,
-		MaxOutputTokens: p.MaxOutputTokens,
-		SupportsTools:   true,
-		SupportsStream:  true,
-		ToolCallFormat:  orDefault(p.ToolCallFormat, "json"),
-	}
-	a := model.NewOpenAICompatible(p.BaseURL, p.APIKey, p.Model, profile)
-	a.Think = p.Think
-	if len(p.ReasoningTags) == 2 {
-		a.ReasoningTags = [2]string{p.ReasoningTags[0], p.ReasoningTags[1]}
+	a, err := p.Adapter()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "model: %v\n", err)
+		os.Exit(1)
 	}
 	return a
 }
@@ -1862,4 +1851,24 @@ func must(err error) {
 func fail(err error) {
 	fmt.Fprintf(os.Stderr, "titan: %v\n", err)
 	os.Exit(1)
+}
+
+
+// providersCmd lists the model providers this build supports.
+//
+// The set is whatever registered itself at init, so it is accurate for the
+// binary in hand rather than for the documentation — which matters for a build
+// that deliberately drops the cloud providers for an air-gapped install.
+func providersCmd() int {
+	fmt.Println("Model providers in this build:")
+	fmt.Println()
+	for _, d := range model.Describe() {
+		fmt.Println("  " + d)
+	}
+	fmt.Println()
+	fmt.Println("Set one as \"type\" in .titan/config.json under model.providers.")
+	fmt.Println("Sampling parameters go in that provider's \"params\" object;")
+	fmt.Println("a parameter the provider cannot honour is reported at startup")
+	fmt.Println("rather than silently ignored.")
+	return 0
 }
