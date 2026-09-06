@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -48,7 +49,17 @@ type Task struct {
 
 // Assertion is an objective check against the final workspace state.
 type Assertion struct {
-	Type  string `json:"type"` // file_contains | file_absent | file_exists | command_succeeds | file_unchanged
+	// Type is one of file_contains, file_absent, file_exists,
+	// command_succeeds, file_unchanged, or response_matches.
+	//
+	// response_matches checks the agent's final answer against a regular
+	// expression. It exists because not every task produces a file: a
+	// retrieval question is answered in prose, and whether that prose carries
+	// citations is exactly what needs measuring. It stays within the
+	// no-LLM-judge rule — a regex is a decidable check, not an opinion — so it
+	// can assert that a marker like [1] is present, or that a shell command
+	// leaked into the reply, but never that an answer is "good".
+	Type  string `json:"type"`
 	Path  string `json:"path,omitempty"`
 	Value string `json:"value,omitempty"`
 	// Negate inverts the check.
@@ -124,20 +135,38 @@ func (t Task) Seed(dir string) error {
 }
 
 // Check evaluates assertions against the final workspace.
-func (t Task) Check(dir string) []string {
+func (t Task) Check(dir string) []string { return t.CheckWith(dir, "") }
+
+// CheckWith runs the assertions, including any that examine the agent's reply.
+func (t Task) CheckWith(dir, response string) []string {
 	var failures []string
 	for _, a := range t.Assertions {
-		if err := a.check(dir, t.Files); err != nil {
+		if err := a.check(dir, t.Files, response); err != nil {
 			failures = append(failures, err.Error())
 		}
 	}
 	return failures
 }
 
-func (a Assertion) check(dir string, seeded map[string]string) error {
+func (a Assertion) check(dir string, seeded map[string]string, response string) error {
 	path := filepath.Join(dir, a.Path)
 
 	switch a.Type {
+	case "response_matches":
+		re, err := regexp.Compile(a.Value)
+		if err != nil {
+			return fmt.Errorf("response_matches(%q): not a valid regexp: %v", a.Value, err)
+		}
+		found := re.MatchString(response)
+		if found == a.Negate {
+			verb := "does not match"
+			if a.Negate {
+				verb = "matches"
+			}
+			return fmt.Errorf("response_matches: the answer %s %q", verb, a.Value)
+		}
+		return nil
+
 	case "file_exists":
 		_, err := os.Stat(path)
 		exists := err == nil
@@ -418,7 +447,7 @@ func Run(ctx context.Context, tasks []Task, workRoot string, run Runner) ([]Resu
 			res.Failures = append(res.Failures, err.Error())
 		}
 
-		res.Failures = append(res.Failures, task.Check(dir)...)
+		res.Failures = append(res.Failures, task.CheckWith(dir, finalAnswer(events))...)
 		res.Flags = Inspect(events, task)
 		// A blocking flag fails the task even when every assertion passed.
 		res.Passed = len(res.Failures) == 0 && !Blocking(res.Flags)
@@ -426,4 +455,20 @@ func Run(ctx context.Context, tasks []Task, workRoot string, run Runner) ([]Resu
 		results = append(results, res)
 	}
 	return results, nil
+}
+
+
+// finalAnswer returns the agent's last message, which is the answer a
+// prose-answering task is judged on.
+func finalAnswer(events []agent.Event) string {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type != agent.EvAgentMessage {
+			continue
+		}
+		var m agent.Message
+		if json.Unmarshal(events[i].Payload, &m) == nil && strings.TrimSpace(m.Text) != "" {
+			return m.Text
+		}
+	}
+	return ""
 }

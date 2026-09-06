@@ -832,6 +832,7 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 	fmt.Printf("running %d tasks against %s\n\n", len(tasks), provider.Model)
 
 	adapter := buildAdapter(provider)
+	evalSkills, evalSkillListing := buildSkills(cfg)
 	workRoot, err := os.MkdirTemp("", "titan-eval-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
@@ -852,9 +853,23 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 			tools.Read{}, tools.Write{}, tools.Edit{},
 			tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
 		)
+		// Skills and web search are part of the agent under test, not extras.
+		// Without them a corpus that exercises a retrieval skill measures an
+		// agent that never had one — it would score zero and say nothing about
+		// the harness.
+		if evalSkills.Len() > 0 {
+			registry.Add(skills.Tool{R: evalSkills})
+		}
+		if t, err := buildWebSearch(cfg); err == nil && t != nil {
+			registry.Add(t)
+		}
 
 		pol := policy.New(policy.ModeAuto)
 		must(pol.AddDeny(cfg.Permissions.Deny...))
+		// The operator's own allow rules apply, so an eval run is governed the
+		// same way a real session is. The build-tool defaults stay for corpora
+		// that compile and test code.
+		must(pol.AddAllow(cfg.Permissions.Allow...))
 		must(pol.AddAllow("bash(go *)", "bash(npm *)", "bash(python *)", "bash(cat *)", "bash(ls*)"))
 
 		store := agent.NewMemStore()
@@ -865,6 +880,7 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 		loopCfg.SystemPrompt = agent.BuildSystemPrompt(agent.BuildOptions{
 			Profile: "main", Workspace: ws,
 			Model: provider.Model, ContextWindow: provider.ContextWindow,
+			Skills: evalSkillListing,
 		})
 		if task.MaxTurns > 0 {
 			loopCfg.MaxTurns = task.MaxTurns
