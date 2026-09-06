@@ -217,3 +217,85 @@ func TestRetryableStatuses(t *testing.T) {
 	}
 	_ = fmt.Sprint()
 }
+
+// A subscription token is accepted and then refused for anything that is not
+// Claude Code, and the refusal arrives as a 429. Telling the user to wait for a
+// limit that will never clear sends them to look in the wrong place entirely.
+func TestSubscriptionRefusalIsExplainedNotRetried(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		// No Retry-After, no ratelimit headers: what the refusal looks like.
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"type":"error","error":{"type":"rate_limit_error","message":"Error"}}`))
+	}))
+	defer srv.Close()
+
+	a := NewAnthropic(srv.URL, "", "claude-opus-5", Profile{})
+	a.Bearer = "sk-ant-oat01-example"
+	a.Retry = fastRetry()
+
+	_, err := a.Complete(context.Background(), Request{})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Errorf("made %d attempts; a limit that names no reset will not clear", got)
+	}
+	msg := err.Error()
+	for _, want := range []string{"restricted to Claude Code", "ANTHROPIC_API_KEY"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the error should say %q and what to do instead:\n%s", want, msg)
+		}
+	}
+}
+
+// A real rate limit must still be retried and reported as one. Misreporting it
+// as a policy refusal would send the user to change a credential that is fine.
+func TestRealRateLimitIsStillRetried(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) < 2 {
+			w.Header().Set("Retry-After", "0")
+			w.Header().Set("anthropic-ratelimit-requests-remaining", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
+	}))
+	defer srv.Close()
+
+	a := NewAnthropic(srv.URL, "", "m", Profile{})
+	a.Bearer = "sk-ant-oat01-example"
+	a.Retry = fastRetry()
+
+	ch, err := a.Complete(context.Background(), Request{})
+	if err != nil {
+		t.Fatalf("a real rate limit that clears must not be reported as a refusal: %v", err)
+	}
+	for range ch {
+	}
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Errorf("attempts = %d, want 2", got)
+	}
+}
+
+// An API key hitting the same 429 is a rate limit, not a subscription problem.
+func TestAPIKeyIsNotToldAboutSubscriptions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error":{"type":"rate_limit_error"}}`))
+	}))
+	defer srv.Close()
+
+	a := NewAnthropic(srv.URL, "sk-ant-api03-key", "m", Profile{})
+	a.Retry = fastRetry()
+	_, err := a.Complete(context.Background(), Request{})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if strings.Contains(err.Error(), "restricted to Claude Code") {
+		t.Errorf("an API key must not be told its subscription is restricted:\n%s", err)
+	}
+}

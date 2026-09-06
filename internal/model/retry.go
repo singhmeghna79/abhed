@@ -119,7 +119,8 @@ func retryNote(status, attempt, total int, wait time.Duration) string {
 // notify is called before each wait so an interactive caller can say why it has
 // gone quiet. A silent pause is indistinguishable from a hang.
 func send(ctx context.Context, client *http.Client, p RetryPolicy,
-	build func() (*http.Request, error), notify func(string)) (*http.Response, error) {
+	build func() (*http.Request, error), notify func(string),
+	fatal func(*StatusError) bool) (*http.Response, error) {
 
 	attempts := p.Attempts
 	if attempts < 1 {
@@ -128,6 +129,7 @@ func send(ctx context.Context, client *http.Client, p RetryPolicy,
 
 	var lastStatus int
 	var lastBody string
+	var lastRetryAfter, lastRateLimitHeaders bool
 	for attempt := 1; attempt <= attempts; attempt++ {
 		req, err := build()
 		if err != nil {
@@ -152,11 +154,46 @@ func send(ctx context.Context, client *http.Client, p RetryPolicy,
 		if resp.StatusCode == http.StatusOK || !Retryable(resp.StatusCode) {
 			return resp, nil
 		}
+		// Fatal lets a caller stop early on a status that is retryable in
+		// general but hopeless in its particular case — a refusal that arrives
+		// wearing a 429, for instance. Deciding that here would be wrong:
+		// plenty of real rate limiters omit Retry-After, and treating its
+		// absence as fatal would stop retrying the very failures retrying
+		// exists for.
+		if fatal != nil {
+			h := resp.Header
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+			resp.Body.Close()
+			se := &StatusError{
+				Status: resp.StatusCode, Body: strings.TrimSpace(string(body)),
+				Attempts: attempt,
+				RetryAfter: h.Get("Retry-After") != "",
+				HasRateLimitHeaders: hasRateLimitHeaders(h),
+			}
+			if fatal(se) {
+				return nil, se
+			}
+			// Not fatal after all: carry on with what was already read.
+			lastStatus, lastBody = se.Status, se.Body
+			lastRetryAfter, lastRateLimitHeaders = se.RetryAfter, se.HasRateLimitHeaders
+			if attempt == attempts {
+				break
+			}
+			if notify != nil {
+				notify(retryNote(lastStatus, attempt+1, attempts, p.Base))
+			}
+			if err := p.Wait(ctx, attempt, h); err != nil {
+				return nil, err
+			}
+			continue
+		}
 
+		header := resp.Header
 		lastStatus = resp.StatusCode
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 		lastBody = strings.TrimSpace(string(body))
-		header := resp.Header
+		lastRetryAfter = header.Get("Retry-After") != ""
+		lastRateLimitHeaders = hasRateLimitHeaders(header)
 		resp.Body.Close()
 
 		if attempt == attempts {
@@ -177,7 +214,10 @@ func send(ctx context.Context, client *http.Client, p RetryPolicy,
 		}
 	}
 
-	return nil, &StatusError{Status: lastStatus, Body: lastBody, Attempts: attempts}
+	return nil, &StatusError{
+		Status: lastStatus, Body: lastBody, Attempts: attempts,
+		RetryAfter: lastRetryAfter, HasRateLimitHeaders: lastRateLimitHeaders,
+	}
 }
 
 // StatusError is a request that kept failing. It names the attempts so the
@@ -186,6 +226,11 @@ type StatusError struct {
 	Status   int
 	Body     string
 	Attempts int
+	// RetryAfter and HasRateLimitHeaders record whether the server said when
+	// its limit resets. A 429 that says neither is not behaving like a rate
+	// limit, whatever its body claims.
+	RetryAfter          bool
+	HasRateLimitHeaders bool
 }
 
 func (e *StatusError) Error() string {
@@ -202,3 +247,16 @@ func (e *StatusError) Error() string {
 func (c *Anthropic) SetNotify(f func(string))         { c.Notify = f }
 func (c *OpenAICompatible) SetNotify(f func(string))  { c.Notify = f }
 func (g *Gemini) SetNotify(f func(string))            { g.Notify = f }
+
+
+// hasRateLimitHeaders reports whether the server described its own limit. A
+// real rate limit says when it resets; a refusal wearing a 429 does not.
+func hasRateLimitHeaders(h http.Header) bool {
+	for k := range h {
+		if strings.HasPrefix(strings.ToLower(k), "anthropic-ratelimit") ||
+			strings.HasPrefix(strings.ToLower(k), "x-ratelimit") {
+			return true
+		}
+	}
+	return false
+}

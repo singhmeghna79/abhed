@@ -64,16 +64,45 @@ An API key, from config or the environment:
 { "type": "anthropic", "model": "claude-opus-5", "api_key_env": "ANTHROPIC_API_KEY" }
 ```
 
-A subscription token also works, where you have one. It is an OAuth credential
-rather than a key — a different header, not interchangeable — and Titan reads
-`CLAUDE_CODE_OAUTH_TOKEN`, or `oauth_token` in the provider's `extra`.
+### Subscriptions do not work, and this is not a Titan limitation
 
-Titan does not run the browser flow that mints such a token. That flow belongs
-to the vendor, changes without notice, and a broken copy of someone else's login
-locks users out of their own account.
+A Claude Pro or Max token — the kind `claude setup-token` prints — is **restricted
+to Claude Code**. Anthropic accepts the credential and then refuses the request
+unless the system prompt is Claude Code's own. Measured directly: same token,
+same model, same second, the only difference being the first system block.
 
-A token and a key are never sent together: the server would choose, and which
-account paid for the request would depend on someone else's precedence rules.
+| First system block | Result |
+|---|---|
+| exactly Claude Code's identity line | 200 |
+| that line with anything appended | 429 |
+| any other prompt, or none | 429 |
+
+The refusal arrives as `429 rate_limit_error`, which is misleading — it is a
+policy decision, not a limit that clears. Titan recognises the shape (a 429
+carrying none of the headers a real rate limit carries), reports it as what it
+is, and does not retry.
+
+Titan reads `CLAUDE_CODE_OAUTH_TOKEN` and `oauth_token` because the mechanism is
+correct and the restriction may not be permanent. Today it is useful only for
+models outside the check.
+
+Working around it means sending Claude Code's identity string from a product
+that is not Claude Code. That circumvents an access control, misrepresents the
+product, and breaks the moment the check changes — so Titan does not do it, and
+neither should anything built on it.
+
+Some models outside the check still answer. That is not a reason to rely on it:
+third-party usage of a subscription is billed as *extra usage* rather than drawn
+from the plan, so a path that looks free is metered somewhere the Console does
+not show — a subscription token is not a Console credential, and spending under
+it appears only in claude.ai settings.
+
+**Use an API key.** From platform.claude.com, billed per token, no gate, and
+visible where you would look for it:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-api03-...
+```
 
 ## Adding a provider without a rebuild
 

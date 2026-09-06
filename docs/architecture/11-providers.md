@@ -103,42 +103,35 @@ naming its default URL and its sampling set.
 
 ## Authenticating with a subscription
 
-A Claude Pro or Max subscription is an OAuth credential, not an API key: it is
-sent as `Authorization: Bearer` where a key goes on `x-api-key`, and the two are
-not interchangeable. Titan accepts one, so a developer who already pays for a
-subscription can drive it without buying API credit separately — which for an
-evaluation is often the difference between trying the thing and not.
+**A Claude Pro or Max token does not work outside Claude Code**, and this is
+enforced rather than merely written down. Anthropic accepts the credential and
+then refuses the request unless the first system block is Claude Code's own
+identity line; the refusal arrives as `429 rate_limit_error`, which reads as a
+limit that will clear and is not one.
+
+Titan still reads `CLAUDE_CODE_OAUTH_TOKEN` and `oauth_token`: the mechanism is
+correct, the restriction may not be permanent, and models outside the check do
+answer. It recognises the refusal by its shape — a 429 carrying none of the
+headers a real rate limit carries — reports what it actually is, and does not
+retry a decision that will not change.
+
+Working around it means sending Claude Code's identity string from something
+that is not Claude Code. Titan does not, and nothing built on Titan should:
+it circumvents an access control, misrepresents the product, and breaks the
+moment the check changes.
+
+Use an API key. And note that third-party usage under a subscription is billed
+as extra usage rather than drawn from the plan, so it is metered in claude.ai
+settings and not in the Console — a subscription token is not a Console
+credential.
 
 ```bash
-# Claude Pro / Max. `claude setup-token` prints a long-lived token.
-export CLAUDE_CODE_OAUTH_TOKEN=...
-
-# Or name it in the provider, for a deployment that manages its own secrets.
-```
-
-```json
-{
-  "model": {
-    "default": "claude",
-    "providers": {
-      "claude": {
-        "type": "anthropic",
-        "model": "claude-opus-5",
-        "extra": {"oauth_token": "..."}
-      }
-    }
-  }
-}
+export ANTHROPIC_API_KEY=sk-ant-api03-...
 ```
 
 An OpenAI-shaped endpoint authenticates with a bearer token either way, so a
-ChatGPT subscription token and an API key take the same path; only the source
-differs. `OPENAI_API_KEY` is read when no key is configured.
-
-**Titan does not mint these tokens.** The browser flow that produces one belongs
-to the vendor, changes without notice, and a broken copy of someone else's login
-locks users out of their own account. `claude setup-token` prints one for
-Claude; Titan reads it. GitHub Copilot is not supported.
+key and a subscription token take the same path there; only the source differs.
+`OPENAI_API_KEY` is read when no key is configured.
 
 **A token and a key are never sent together.** Sending both would let the server
 choose, which makes "which account paid for this" depend on someone else's
