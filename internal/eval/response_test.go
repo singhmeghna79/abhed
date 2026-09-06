@@ -1,6 +1,11 @@
 package eval
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 // The retrieval corpus is graded on the agent's prose, not on files it wrote.
 // These are the exact checks the Paver zrag benchmark applies, so a change that
@@ -84,5 +89,32 @@ func TestErrorLeakPatternSparesDomainVocabulary(t *testing.T) {
 		if err := a.check(t.TempDir(), nil, s); err == nil {
 			t.Errorf("real error text was not caught: %q", s)
 		}
+	}
+}
+
+// A corpus directory holds task files. Anything else in it — most easily a
+// report written back beside the corpus — used to parse as one empty task and
+// fail the run with a confusing model error about empty message content.
+func TestLoadTasksRejectsNonTaskJSON(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "tasks.json"),
+		[]byte(`[{"id":"t1","prompt":"go"}]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadTasks(dir); err != nil {
+		t.Fatalf("a valid corpus must load: %v", err)
+	}
+
+	// A results report dropped in the same directory.
+	if err := os.WriteFile(filepath.Join(dir, "result.json"),
+		[]byte(`{"model":"m","results":[{"task_id":"t1","passed":true}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadTasks(dir)
+	if err == nil {
+		t.Fatal("a report beside the corpus must be refused, not run as an empty task")
+	}
+	if !strings.Contains(err.Error(), "result.json") {
+		t.Errorf("the error should name the offending file, got: %v", err)
 	}
 }

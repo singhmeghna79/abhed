@@ -114,7 +114,19 @@ func LoadTasks(dir string) ([]Task, error) {
 			}
 			batch = []Task{one}
 		}
-		tasks = append(tasks, batch...)
+		for _, t := range batch {
+			// A task with no id is not a task. The loader reads every .json in
+			// the directory, so a report written back beside the corpus — which
+			// is exactly what happens when a run is told to put its output
+			// there — parses as one empty task and then fails the run with a
+			// model error about empty content. Refusing it names the file
+			// instead of leaving a blank row in the results.
+			if strings.TrimSpace(t.ID) == "" {
+				return nil, fmt.Errorf("%s contains a task with no id; a corpus "+
+					"directory must hold only task files", e.Name())
+			}
+			tasks = append(tasks, t)
+		}
 	}
 	sort.Slice(tasks, func(i, j int) bool { return tasks[i].ID < tasks[j].ID })
 	return tasks, nil
