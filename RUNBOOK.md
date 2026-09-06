@@ -377,6 +377,31 @@ psql -d titan_local -c "SELECT id, terminal_reason, turns, tokens_in
 psql -d titan_local -c "SELECT type, count(*) FROM events GROUP BY type;"
 ```
 
+### Permission rules for skills
+
+Auto mode approves file edits but always asks for `bash`, because its blast
+radius is unbounded. A skill that shells out — zrag runs its retrieval through
+`run.sh` — therefore prompts for approval on every call, which in the web UI
+looks like auto mode not working at all.
+
+The fix is a narrow allow rule in `.titan-workspace/.titan/config.json`, not a
+broader mode:
+
+```json
+"permissions": {
+  "mode": "auto",
+  "allow": [
+    "bash(*/.titan/skills-active/zrag/scripts/run.sh*)",
+    "web_search"
+  ]
+}
+```
+
+Match the script, not a prefix of one invocation form: the model calls it both
+as `bash /path/run.sh …` and as `/path/run.sh …`, and a rule written for the
+first silently denies the second. Verify a rule allows what you meant and still
+refuses what you did not before trusting it.
+
 **Do not connect Titan as a superuser** — row-level security is what isolates
 tenants, and superusers bypass it.
 
