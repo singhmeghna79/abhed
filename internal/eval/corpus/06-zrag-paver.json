@@ -22,7 +22,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -51,7 +51,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -80,7 +80,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -109,7 +109,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -138,7 +138,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -167,7 +167,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -196,7 +196,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -225,7 +225,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -254,7 +254,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -283,7 +283,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -312,7 +312,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -341,7 +341,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -370,7 +370,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -399,7 +399,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -428,7 +428,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -457,7 +457,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -486,7 +486,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -515,7 +515,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -544,7 +544,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -573,7 +573,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -602,7 +602,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -631,7 +631,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -660,7 +660,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -689,7 +689,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],
@@ -718,7 +718,7 @@
       },
       {
         "type": "response_matches",
-        "value": "(?i)traceback|stack trace|\\bexception\\b|\\\"ok\\\":\\s*false",
+        "value": "(?i)traceback \\(most recent call last\\)|^\\s+at [\\w.$]+\\(|\"ok\":\\s*false|\"error\":\\s*\"|command not found|exit code [1-9]",
         "negate": true
       }
     ],

@@ -52,3 +52,37 @@ func TestResponseMatchesRejectsBadRegexp(t *testing.T) {
 		t.Fatal("an invalid regexp must be reported, not treated as a pass")
 	}
 }
+
+// The corpus asks whether the agent leaked an error into its answer. An early
+// version matched the bare word "exception", which is ordinary IBM Z
+// vocabulary — exception conditions, ABEND exceptions, S0C7 — so a correct Db2
+// answer failed for using the term the domain uses. The pattern must match what
+// an error actually leaves behind, not a word that appears in correct prose.
+func TestErrorLeakPatternSparesDomainVocabulary(t *testing.T) {
+	const pattern = `(?i)traceback \(most recent call last\)|^\s+at [\w.$]+\(|"ok":\s*false|"error":\s*"|command not found|exit code [1-9]`
+	a := Assertion{Type: "response_matches", Value: pattern, Negate: true}
+
+	legitimate := []string{
+		"An S0C7 exception occurs when invalid packed decimal data is processed.",
+		"The exception condition is raised by Db2 for z/OS.",
+		"Handle ABEND exceptions with an ESTAE recovery routine.",
+		"Traceback analysis is a standard debugging technique.",
+	}
+	for _, s := range legitimate {
+		if err := a.check(t.TempDir(), nil, s); err != nil {
+			t.Errorf("correct answer flagged as an error leak: %q", s)
+		}
+	}
+
+	leaks := []string{
+		"Traceback (most recent call last):\n  File \"x.py\"",
+		`{"ok": false, "error": "cannot reach the retriever"}`,
+		"bash: run.sh: command not found",
+		"the process ended with exit code 5",
+	}
+	for _, s := range leaks {
+		if err := a.check(t.TempDir(), nil, s); err == nil {
+			t.Errorf("real error text was not caught: %q", s)
+		}
+	}
+}
