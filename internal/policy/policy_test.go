@@ -165,3 +165,28 @@ func TestAutoModeApprovesEditsButNotBash(t *testing.T) {
 		t.Fatalf("destructive must still ask in auto mode, got %s", rm.Decision)
 	}
 }
+
+// A malformed rule must be refused rather than becoming a rule that matches
+// nothing. Silently accepting a deny rule that can never fire tells an operator
+// they are protected when they are not.
+func TestParseRuleRejectsUnbalancedParentheses(t *testing.T) {
+	bad := []string{
+		"bash(",
+		"bash(go test",
+		"(go test*)",
+		"bash)",
+	}
+	for _, s := range bad {
+		if _, err := ParseRule(s); err == nil {
+			t.Errorf("ParseRule(%q) was accepted; a rule that can never match "+
+				"must be an error, not a silent no-op", s)
+		}
+	}
+
+	good := []string{"bash", "bash(go test*)", "read(*.go)", "*"}
+	for _, s := range good {
+		if _, err := ParseRule(s); err != nil {
+			t.Errorf("ParseRule(%q) = %v, want it accepted", s, err)
+		}
+	}
+}

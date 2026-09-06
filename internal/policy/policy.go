@@ -59,7 +59,24 @@ func ParseRule(s string) (Rule, error) {
 	}
 	r := Rule{raw: s, tool: s}
 
-	if i := strings.Index(s, "("); i > 0 && strings.HasSuffix(s, ")") {
+	// An unbalanced parenthesis used to fall through and become a tool named
+	// "bash(", which matches nothing. For a deny rule that is worse than an
+	// error: the operator writes it, sees no complaint, and believes they are
+	// protected by a rule that can never fire.
+	open := strings.Index(s, "(")
+	if open >= 0 && !strings.HasSuffix(s, ")") {
+		return Rule{}, fmt.Errorf("rule %q: missing the closing parenthesis "+
+			"(a rule is a tool name, optionally followed by a pattern in "+
+			"parentheses, e.g. bash(go test*))", s)
+	}
+	if open == 0 {
+		return Rule{}, fmt.Errorf("rule %q: no tool name before the pattern", s)
+	}
+	if strings.HasSuffix(s, ")") && open < 0 {
+		return Rule{}, fmt.Errorf("rule %q: closing parenthesis with no opening one", s)
+	}
+
+	if i := open; i > 0 && strings.HasSuffix(s, ")") {
 		r.tool = s[:i]
 		glob := s[i+1 : len(s)-1]
 		re, err := globToRegexp(glob)

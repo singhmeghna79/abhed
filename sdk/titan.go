@@ -1,0 +1,303 @@
+// Package titan embeds the agent in another Go program.
+//
+// Everything Titan does lives under internal/, which Go refuses to let another
+// module import — deliberate for a binary, and a wall for anyone who wants the
+// agent inside their own service. This package is the supported surface across
+// that wall: it is small on purpose, so the internals stay free to change.
+//
+// The guarantees do not weaken when embedded. Policy still decides what runs,
+// every action is still recorded as an event, and an extension still cannot
+// permit what a deny rule forbids. A caller supplies its own approver and
+// receives the event stream, which is the point — a host application usually
+// has better ideas than a terminal prompt about how to ask for permission.
+package titan
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/extension"
+	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/titan/internal/tools"
+)
+
+// Event is one recorded action or observation. The stream is the session: a
+// caller that stores it can replay the run exactly.
+type Event = agent.Event
+
+// Usage reports what a run cost.
+type Usage = agent.Usage
+
+// Decision is what policy decided about a tool call.
+type Decision = policy.Result
+
+// ExtensionConfig describes an extension process. It may veto a call, never
+// permit one.
+type ExtensionConfig = extension.Config
+
+// Options configures an Agent. Workspace and a model are the minimum.
+type Options struct {
+	// Workspace is the directory the agent may read and write. Every file
+	// tool is scoped to it.
+	Workspace string
+
+	// ConfigDir loads .titan/config.json from a directory, the same file the
+	// CLI reads. Provider overrides what it names.
+	ConfigDir string
+
+	// Provider names the model directly, for a caller that would rather not
+	// keep a config file.
+	Provider *Provider
+
+	// Mode is the permission mode: default, plan, accept-edits, auto, bypass.
+	// Empty means default, which asks before every mutation.
+	Mode string
+
+	// Allow and Deny are policy rules, e.g. "bash(go test*)". Deny is
+	// absolute: no mode, extension or approver overrides it.
+	Allow []string
+	Deny  []string
+
+	// Approve decides tool calls that policy routes to a prompt. Nil refuses
+	// them, which is the safe default when there is nobody to ask.
+	Approve func(ctx context.Context, tool string, args json.RawMessage, d Decision) (bool, error)
+
+	// OnEvent receives every event as it happens. It must not block for long:
+	// the agent waits on it.
+	OnEvent func(Event)
+
+	// MaxTurns bounds one conversation. Zero uses the default.
+	MaxTurns int
+
+	// SystemPrompt replaces the built-in prompt entirely. Most callers want
+	// AppendSystem instead.
+	SystemPrompt string
+	// AppendSystem adds host-specific rules to the built-in prompt.
+	AppendSystem string
+
+	// Extensions are subprocesses that may veto a tool call.
+	Extensions []ExtensionConfig
+}
+
+// Provider names a model endpoint.
+type Provider struct {
+	Type          string // anthropic, openai, ollama, vllm, … see Providers()
+	BaseURL       string
+	Model         string
+	APIKey        string
+	ContextWindow int
+	Temperature   *float64
+	TopP          *float64
+	MaxTokens     int
+}
+
+// Agent is an embedded Titan.
+type Agent struct {
+	loop  *agent.Loop
+	store *agent.MemStore
+	host  *extension.Host
+	id    string
+}
+
+// New builds an agent.
+func New(ctx context.Context, opts Options) (*Agent, error) {
+	if opts.Workspace == "" {
+		return nil, fmt.Errorf("titan: Workspace is required")
+	}
+
+	cfg := config.Default()
+	if opts.ConfigDir != "" {
+		loaded, err := config.Load(opts.ConfigDir)
+		if err != nil {
+			return nil, fmt.Errorf("titan: %w", err)
+		}
+		cfg = loaded
+	}
+	if p := opts.Provider; p != nil {
+		cfg.Model.Default = "embedded"
+		cfg.Model.Providers = map[string]config.ProviderConfig{"embedded": {
+			Type: p.Type, BaseURL: p.BaseURL, Model: p.Model, APIKey: p.APIKey,
+			ContextWindow: p.ContextWindow,
+			Params: config.ParamsConfig{
+				Temperature: p.Temperature, TopP: p.TopP, MaxTokens: p.MaxTokens,
+			},
+		}}
+	}
+
+	provider, err := cfg.Provider()
+	if err != nil {
+		return nil, fmt.Errorf("titan: %w", err)
+	}
+	adapter, err := provider.Adapter()
+	if err != nil {
+		return nil, fmt.Errorf("titan: %w", err)
+	}
+
+	sess, err := tools.NewSession(opts.Workspace)
+	if err != nil {
+		return nil, fmt.Errorf("titan: %w", err)
+	}
+
+	mode := opts.Mode
+	if mode == "" {
+		mode = cfg.Permissions.Mode
+	}
+	pol := policy.New(policy.Mode(orDefault(mode, "default")))
+	if err := pol.AddDeny(append(cfg.Permissions.Deny, opts.Deny...)...); err != nil {
+		return nil, fmt.Errorf("titan: deny rule: %w", err)
+	}
+	if err := pol.AddAllow(append(cfg.Permissions.Allow, opts.Allow...)...); err != nil {
+		return nil, fmt.Errorf("titan: allow rule: %w", err)
+	}
+
+	host := extension.NewHost(nil)
+	specs := append(cfg.ExtensionSpecs(), opts.Extensions...)
+	if len(specs) > 0 {
+		host.Load(ctx, specs)
+		if host.Len() > 0 {
+			pol.Hooks = append(pol.Hooks, host.PolicyHook(ctx, "embedded"))
+		}
+	}
+
+	store := agent.NewMemStore()
+	id := fmt.Sprintf("embedded-%d", time.Now().UnixNano())
+	rec := agent.NewRecorder(store, id, "")
+
+	system := opts.SystemPrompt
+	if system == "" {
+		system = agent.BuildSystemPrompt(agent.BuildOptions{
+			Profile: "main", Workspace: opts.Workspace,
+			Model: provider.Model, ContextWindow: provider.ContextWindow,
+		})
+	}
+	if opts.AppendSystem != "" {
+		system += "\n\n" + opts.AppendSystem
+	}
+
+	loopCfg := agent.DefaultConfig()
+	loopCfg.SystemPrompt = system
+	if opts.MaxTurns > 0 {
+		loopCfg.MaxTurns = opts.MaxTurns
+	}
+
+	registry := tools.NewRegistry(
+		tools.Read{}, tools.Write{}, tools.Edit{},
+		tools.Glob{}, tools.Grep{}, tools.Bash{}, tools.Todo{},
+	)
+
+	loop := agent.NewLoop(adapter, registry, pol, approverFor(opts.Approve),
+		sess, rec, loopCfg)
+	loop.Compactor = agent.NewCompactor(adapter, loopCfg.CompactAt)
+
+	a := &Agent{loop: loop, store: store, host: host, id: id}
+	if opts.OnEvent != nil {
+		go func() {
+			for ev := range store.Subscribe(id) {
+				opts.OnEvent(ev)
+			}
+		}()
+	}
+	return a, nil
+}
+
+// Run sends a prompt and returns the agent's final message.
+func (a *Agent) Run(ctx context.Context, prompt string) (string, error) {
+	reason, err := a.loop.Run(ctx, prompt)
+	if err != nil {
+		return "", err
+	}
+	if reason != agent.TermCompleted {
+		return a.lastMessage(), fmt.Errorf("titan: ended as %s", reason)
+	}
+	return a.lastMessage(), nil
+}
+
+// Continue sends a follow-up on the same conversation.
+func (a *Agent) Continue(ctx context.Context, prompt string) (string, error) {
+	return a.Run(ctx, prompt)
+}
+
+// Steer redirects a run already in progress, applied at the next turn
+// boundary. Safe to call from another goroutine.
+func (a *Agent) Steer(text string) { a.loop.Steer(text) }
+
+// Events returns everything recorded so far.
+func (a *Agent) Events() []Event {
+	evs, _ := a.store.Events(a.id)
+	return evs
+}
+
+// Usage reports what the conversation has cost.
+func (a *Agent) Usage() Usage { return a.loop.Usage() }
+
+// Fork rebuilds the conversation up to a sequence number and continues from
+// there, discarding what came after.
+func (a *Agent) Fork(throughSeq int64) error {
+	msgs, err := agent.Fork(a.Events(), throughSeq)
+	if err != nil {
+		return err
+	}
+	a.loop.Restore(msgs)
+	return nil
+}
+
+// ExportHTML renders the session as a self-contained page.
+func (a *Agent) ExportHTML() string { return agent.ExportHTML(a.id, a.Events()) }
+
+// SetModel swaps the provider mid-conversation, keeping the history.
+func (a *Agent) SetModel(p Provider) error {
+	cfg := config.ProviderConfig{
+		Type: p.Type, BaseURL: p.BaseURL, Model: p.Model, APIKey: p.APIKey,
+		ContextWindow: p.ContextWindow,
+	}
+	next, err := cfg.Adapter()
+	if err != nil {
+		return err
+	}
+	a.loop.SetAdapter(next)
+	return nil
+}
+
+// Close releases the extensions.
+func (a *Agent) Close() { a.host.Close() }
+
+// Providers lists the model provider types this build supports.
+func Providers() []string { return model.Providers() }
+
+type approverFn func(context.Context, string, json.RawMessage, policy.Result) (bool, error)
+
+func (f approverFn) Approve(ctx context.Context, tool string, args json.RawMessage, d policy.Result) (bool, error) {
+	return f(ctx, tool, args, d)
+}
+
+func approverFor(f func(context.Context, string, json.RawMessage, Decision) (bool, error)) agent.Approver {
+	if f == nil {
+		// No approver means nobody to ask, so anything needing approval is
+		// refused. Defaulting to yes would make an embedded agent quietly more
+		// permissive than the same policy on the command line.
+		return agent.AutoApprove{Yes: false}
+	}
+	return approverFn(f)
+}
+
+func (a *Agent) lastMessage() string {
+	msgs := a.loop.Messages()
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == model.RoleAssistant && msgs[i].Content != "" {
+			return msgs[i].Content
+		}
+	}
+	return ""
+}
+
+func orDefault(v, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
+}

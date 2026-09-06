@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -350,7 +351,24 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		sandboxLabel, storageLabel(appCfg)))
 	fmt.Printf("\n%s\n\n", s.Dim("Type a task, or /help. Ctrl-C interrupts, Ctrl-D exits."))
 
-	in := bufio.NewReader(os.Stdin)
+	// Input is read on its own goroutine so a line typed while the agent is
+	// working can steer it. Reading inline meant the prompt was simply not
+	// there during a turn: the only way to correct a run that had misunderstood
+	// was Ctrl-C, which discards every file it had read and every result it had
+	// gathered, and then the user retypes the request.
+	lines := make(chan string)
+	readErr := make(chan struct{})
+	go func() {
+		in := bufio.NewReader(os.Stdin)
+		for {
+			line, err := in.ReadString('\n')
+			if err != nil {
+				close(readErr)
+				return
+			}
+			lines <- strings.TrimSpace(line)
+		}
+	}()
 	turn := 0
 	// Session-level state the slash commands operate on.
 	undo := agent.NewUndoLog()
@@ -362,12 +380,15 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 
 	for {
 		fmt.Print(ui.Prompt(s))
-		line, err := in.ReadString('\n')
-		if err != nil {
+		var line string
+		select {
+		case <-readErr:
 			fmt.Println()
 			return 0
+		case <-ctx.Done():
+			return 0
+		case line = <-lines:
 		}
-		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
@@ -395,13 +416,58 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		// Each task gets its own cancellable context so Ctrl-C interrupts the
 		// task without killing the session.
 		taskCtx, cancelTask := context.WithCancel(ctx)
-		loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
-		loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
+		// Read the adapter from session state rather than the value captured
+		// at startup, or a /model switch is silently reverted on the next turn.
+		active := sessionState.adapter
+		loop := agent.NewLoop(active, registry, pol, approver, sess, rec, cfg)
+		loop.Compactor = agent.NewCompactor(active, cfg.CompactAt)
 		todos.Set(loop)
 		sessionState.loop = loop
 		sessionState.sessionID = sessionID
 		undo.BeginTurn()
-		_, runErr := loop.Run(taskCtx, line)
+
+		// Run on a goroutine so the reader stays live: anything typed now is a
+		// steering message, applied at the next turn boundary rather than
+		// killing the run.
+		type outcome struct{ err error }
+		finished := make(chan outcome, 1)
+		go func() {
+			_, err := loop.Run(taskCtx, line)
+			finished <- outcome{err}
+		}()
+
+		var runErr error
+		var queued []string
+		eof := false
+	steering:
+		for {
+			select {
+			case o := <-finished:
+				runErr = o.err
+				break steering
+			case <-readErr:
+				// End of input is not a reason to abandon the work. A piped
+				// script sends every line at once and closes stdin long before
+				// the agent has finished; cancelling there killed the run and
+				// discarded the commands that were meant to follow it.
+				readErr = nil // stop selecting on a closed channel
+				eof = true
+			case msg := <-lines:
+				if msg == "" {
+					continue
+				}
+				if strings.HasPrefix(msg, "/") {
+					// A command typed mid-run is held, not dropped. Discarding
+					// it loses what the user asked for, and running it now
+					// would act on a session that is still changing under it.
+					queued = append(queued, msg)
+					fmt.Printf("  %s\n", s.Dim("queued "+msg+" — runs when this finishes"))
+					continue
+				}
+				loop.Steer(msg)
+				fmt.Printf("  %s\n", s.Dim("steering — applied at the next step"))
+			}
+		}
 		cancelTask()
 		sessionState.accumulate(loop.Usage())
 
@@ -413,6 +479,19 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		}
 		printUsage(r, loop.Usage())
 		fmt.Println()
+
+		// Anything typed as a command while the agent worked runs now, in the
+		// order it was typed.
+		for _, cmd := range queued {
+			fmt.Printf("%s%s\n", ui.Prompt(s), cmd)
+			if quit := handleCommand(ctx, cmd, r, pol, sess, sessionState); quit {
+				return 0
+			}
+		}
+		if eof {
+			fmt.Println()
+			return 0
+		}
 
 		if ctx.Err() != nil {
 			return 130
@@ -461,10 +540,11 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
   /compact [hint]   compact the context now
   /clear            clear the context, keep the workspace
   /memory           show the TITAN.md files in effect
-  /model [name]     show or switch the configured provider
+  /model [name]     show or switch the model, keeping the conversation
   /sessions         list recent sessions (durable store)
   /resume <id>      replay a past session's transcript
-  /export [path]    write the transcript to a JSON file
+  /fork [step]      rebuild the conversation up to a step and continue from it
+  /export [path]    write the transcript (.html by default, .json for events)
   /cwd              show the workspace root
   /quit             exit`))
 
@@ -631,10 +711,52 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 			fmt.Printf("  %s no provider %q in config\n", s.Red("✕"), fields[1])
 			return false
 		}
+		next, buildErr := p.Adapter()
+		if buildErr != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), buildErr)
+			return false
+		}
 		st.appCfg.Model.Default = fields[1]
 		st.provider = p
-		fmt.Printf("  %s\n", s.Dim("switched to "+p.Model+"; restart titan for it to take effect"))
-		fmt.Printf("  %s\n", s.Dim("(mid-session switching would invalidate the prefix cache)"))
+		st.adapter = next
+		if st.loop != nil {
+			st.loop.SetAdapter(next)
+		}
+		fmt.Printf("  %s\n", s.Dim("switched to "+p.Model+" — the conversation is kept"))
+		fmt.Printf("  %s\n", s.Dim("(the next turn re-prefills: the new provider has not seen this prefix)"))
+
+	case "/fork":
+		// Rebuild the conversation from the event log up to a point and carry
+		// on from there. A wrong turn three steps back should cost three
+		// steps, not the session: everything before it was still right, and
+		// re-establishing it means paying for the same reading twice.
+		events, err := st.store.Events(st.sessionID)
+		if err != nil || len(events) == 0 {
+			fmt.Println(s.Dim("  nothing to fork from yet"))
+			return false
+		}
+		if len(fields) < 2 {
+			fmt.Println(s.Dim("  /fork <step> — rebuild the conversation up to a step and continue from it"))
+			forkPoints(r, events)
+			return false
+		}
+		seq, convErr := strconv.ParseInt(fields[1], 10, 64)
+		if convErr != nil {
+			fmt.Printf("  %s %q is not a step number\n", s.Red("✕"), fields[1])
+			return false
+		}
+		msgs, forkErr := agent.Fork(events, seq)
+		if forkErr != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), forkErr)
+			return false
+		}
+		if st.loop == nil {
+			fmt.Println(s.Dim("  no active session to fork into"))
+			return false
+		}
+		st.loop.Restore(msgs)
+		fmt.Printf("  %s\n", s.Dim(fmt.Sprintf(
+			"forked at step %d — %d messages kept; the next thing you type continues from there", seq, len(msgs))))
 
 	case "/export":
 		// HTML by default, because a transcript that needs a parser before a
@@ -1939,4 +2061,45 @@ func toAgentTodos(items []tools.TodoItem) []agent.Todo {
 		out = append(out, agent.Todo{ID: i.ID, Text: i.Text, Status: i.Status})
 	}
 	return out
+}
+
+
+// forkPoints lists the steps a session can be forked at, so the user has
+// something to name rather than guessing a sequence number.
+func forkPoints(r *ui.Renderer, events []agent.Event) {
+	s := r.Style()
+	shown := 0
+	for _, ev := range events {
+		var label string
+		switch ev.Type {
+		case agent.EvUserMessage:
+			var m agent.Message
+			if json.Unmarshal(ev.Payload, &m) == nil {
+				label = "you: " + firstLine(m.Text, 60)
+			}
+		case agent.EvActionRequested:
+			var a agent.ActionRequested
+			if json.Unmarshal(ev.Payload, &a) == nil {
+				label = a.Tool + " " + firstLine(string(a.Args), 50)
+			}
+		default:
+			continue
+		}
+		fmt.Printf("    %s  %s\n", s.Dim(fmt.Sprintf("%4d", ev.Seq)), label)
+		shown++
+		if shown >= 30 {
+			fmt.Println(s.Dim("    …"))
+			break
+		}
+	}
+}
+
+func firstLine(s string, n int) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > n {
+		return s[:n] + "…"
+	}
+	return s
 }

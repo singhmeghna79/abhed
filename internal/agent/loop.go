@@ -281,6 +281,24 @@ func (l *Loop) Compact(ctx context.Context) (Compaction, error) {
 	return info, nil
 }
 
+// SetAdapter swaps the model mid-session.
+//
+// The conversation is kept: the messages are provider-neutral, so a session can
+// start on a fast local model and move to a larger one when the work turns out
+// to be harder than it looked, without losing what has been established.
+//
+// This does invalidate the prefix cache — the new provider has never seen this
+// prefix — so the next turn pays cold prefill. That is a real cost and the
+// reason this was once a restart-only operation; it is a worse trade than
+// making the user rebuild the session by hand, which pays the same cost and
+// loses the history too.
+func (l *Loop) SetAdapter(a model.Adapter) {
+	l.Adapter = a
+	if l.Compactor != nil {
+		l.Compactor.Adapter = a
+	}
+}
+
 // Messages exposes the current history for inspection and testing.
 func (l *Loop) Messages() []model.Message { return l.messages }
 

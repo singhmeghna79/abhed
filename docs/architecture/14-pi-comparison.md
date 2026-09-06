@@ -27,9 +27,10 @@ it is marked **?**, and a **?** is not evidence of absence.
 | | Titan | Pi |
 |---|---|---|
 | Loop | turn-based, ~10 typed terminal reasons | turn-based, steerable mid-run |
-| Mid-run steering | ✅ a message to a working session steers it at the next turn boundary | ✅ Enter steers, Alt+Enter queues a follow-up |
-| Run modes | interactive CLI, headless `-p`, server + web console | interactive, print/JSON, RPC, SDK |
-| Embeddable as a library | ❌ Go binary | ✅ SDK, RPC over stdin/stdout JSONL |
+| Mid-run steering | ✅ type while the agent works, in the CLI and over HTTP; slash commands queue for after | ✅ Enter steers, Alt+Enter queues a follow-up |
+| Run modes | interactive CLI, headless `-p`, server + web console, Go SDK | interactive, print/JSON, RPC, SDK |
+| RPC over stdio | ❌ **still open** — the SDK covers Go callers; another language needs the server or a subprocess protocol | ✅ |
+| Embeddable as a library | ✅ `sdk` package (`titan.New`) | ✅ SDK, RPC over stdin/stdout JSONL |
 | Language | Go, single static binary | TypeScript/Node |
 
 Pi's mid-run steering is a genuinely better interaction model and Titan has
@@ -124,8 +125,8 @@ published measurement was found — absence of a number, not absence of quality.
 |---|---|---|
 | Named providers | 20 | 25+, "hundreds of models" |
 | Wire formats | 3 (OpenAI, Anthropic Messages, Gemini) | OpenAI- and Anthropic-compatible, plus per-provider |
-| Switch model mid-session | ❌ `/model` records the choice and asks for a restart, deliberately: switching mid-session would invalidate the prefix cache | ✅ `/model`, or a shortcut, mid-run |
-| Subscription auth (Claude Pro, ChatGPT Plus, Copilot) | ❌ | ✅ |
+| Switch model mid-session | ✅ `/model` swaps the adapter and keeps the conversation; the next turn re-prefills | ✅ `/model`, or a shortcut, mid-run |
+| Subscription auth (Claude Pro, ChatGPT Plus, Copilot) | ❌ **still open** — needs each vendor's OAuth device flow and token refresh | ✅ |
 | Custom provider without recompiling | ✅ `custom_providers` in config | ✅ `models.json`, or `registerProvider` |
 | Sampling parameters | ✅ 13, refused at startup when unsupported | ⚠️ thinking level is first-class; full sampling surface not documented |
 
