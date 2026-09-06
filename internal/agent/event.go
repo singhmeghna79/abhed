@@ -74,6 +74,10 @@ const (
 	TermError          TerminalReason = "error"
 	TermShutdown       TerminalReason = "shutdown"
 	TermRetryExhausted TerminalReason = "retry_exhausted"
+	// TermStalled: the model produced neither text nor a tool call, repeatedly.
+	// Distinct from completed because nothing was answered, and distinct from
+	// error because nothing failed.
+	TermStalled TerminalReason = "stalled"
 )
 
 // ExitCode maps a terminal reason to a process exit code for headless runs.

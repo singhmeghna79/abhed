@@ -60,6 +60,11 @@ type Loop struct {
 	// error. A model that ignores an error message and retries verbatim will
 	// otherwise burn the entire turn budget on one mistake.
 	repeatedFailures map[string]int
+
+	// emptyTurns counts consecutive turns that produced neither text nor a
+	// tool call, so a model that stalls is nudged rather than mistaken for one
+	// that finished.
+	emptyTurns int
 }
 
 type Usage struct {
@@ -297,8 +302,9 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	// let it retry rather than aborting the session.
 	if streamErr != nil && len(calls) == 0 {
 		if text.Len() == 0 {
+			// No empty assistant turn: an endpoint that rejects null content
+			// would turn this recovery into the failure it exists to avoid.
 			l.messages = append(l.messages,
-				model.Message{Role: model.RoleAssistant, Content: ""},
 				model.Message{Role: model.RoleUser, Content: "Your previous response could not be parsed: " +
 					streamErr.Error() + "\nPlease retry with valid tool arguments."})
 			return "", false, nil
@@ -313,11 +319,34 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 
 	// Normal termination: a response with no tool calls.
 	if len(calls) == 0 {
+		// An empty turn is not an answer. A reasoning model can spend its
+		// whole turn thinking — ending on "Let's execute." — and emit neither
+		// text nor a call; treating that as completion ends the session with
+		// nothing said, which reads as the agent silently ignoring the
+		// question. Prompt it once to continue, and only give up if it stalls
+		// again, so a genuine end-of-turn still terminates immediately.
+		if strings.TrimSpace(text.String()) == "" {
+			l.emptyTurns++
+			if l.emptyTurns <= emptyTurnRetries {
+				// Only the user turn is appended. An assistant message with
+				// empty content is rejected outright by some endpoints
+				// ("invalid message content type: <nil>"), which would turn a
+				// recoverable stall into a failed session.
+				l.messages = append(l.messages,
+					model.Message{Role: model.RoleUser, Content: "You produced no answer and " +
+						"called no tool. Continue: either call the tool you intended, or write " +
+						"the answer itself."})
+				return "", false, nil
+			}
+			return TermStalled, true, nil
+		}
+		l.emptyTurns = 0
 		l.messages = append(l.messages, model.Message{
 			Role: model.RoleAssistant, Content: text.String(),
 		})
 		return TermCompleted, true, nil
 	}
+	l.emptyTurns = 0
 
 	l.messages = append(l.messages, model.Message{
 		Role: model.RoleAssistant, Content: text.String(), ToolCalls: calls,
@@ -357,6 +386,8 @@ const (
 	repeatedFailureLimit = 3
 	// After this many, the loop gives up rather than burning the budget.
 	repeatedFailureAbort = 6
+	// How many empty turns to nudge through before calling the run stalled.
+	emptyTurnRetries = 2
 )
 
 func truncateKey(k string) string {
