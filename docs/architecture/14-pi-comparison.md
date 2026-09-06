@@ -14,6 +14,14 @@ because a property that can be switched off is not a property.
 
 Neither is wrong. They are built for different buyers.
 
+**Verified against the installed binary, 2026-09-06.** Every ✅ on Titan's side
+was exercised through the binary on PATH — a real terminal for the CLI rows, a
+separate Go module for the SDK, a Python subprocess for RPC — not read off the
+source. That distinction earned itself: an earlier revision marked capabilities
+closed that existed only on a branch, compiled to a scratch path and never
+installed, so the table was true of the repository and false for anyone actually
+running `titan`.
+
 ## Sources
 
 Pi's own documentation and source: [pi.dev](https://pi.dev/), the
@@ -29,9 +37,9 @@ it is marked **?**, and a **?** is not evidence of absence.
 | Loop | turn-based, ~10 typed terminal reasons | turn-based, steerable mid-run |
 | Mid-run steering | ✅ type while the agent works, in the CLI and over HTTP; slash commands queue for after | ✅ Enter steers, Alt+Enter queues a follow-up |
 | Line editing (arrows, history) | ✅ arrows, history, Home/End, Ctrl-A/E/U/K/W; falls back to plain reads off a terminal | ✅ full TUI editor |
-| Run modes | interactive CLI, headless `-p`, server + web console, Go SDK | interactive, print/JSON, RPC, SDK |
-| RPC over stdio | ❌ **still open** — the SDK covers Go callers; another language needs the server or a subprocess protocol | ✅ |
-| Embeddable as a library | ✅ `sdk` package (`titan.New`) | ✅ SDK, RPC over stdin/stdout JSONL |
+| Run modes | interactive CLI, headless `-p`, JSON stream, RPC over stdio, server + web console, Go SDK | interactive, print/JSON, RPC, SDK |
+| RPC over stdio | ✅ `titan rpc` — JSONL on stdin/stdout, events streamed live; verified from Python | ✅ |
+| Embeddable as a library | ✅ `sdk` package — verified from a separate module | ✅ SDK, RPC over stdin/stdout JSONL |
 | Language | Go, single static binary | TypeScript/Node |
 
 Pi's mid-run steering is a genuinely better interaction model and Titan has
@@ -50,8 +58,8 @@ output, having traded that convenience for prefix-cache stability.
 | Remote execution | ✅ ssh, ssh_connect | ❌ extension (an example exists) |
 | Kubernetes | ✅ k8s_get, k8s_apply, k8s_login | ❌ extension |
 | MCP | ✅ client and gateway | ❌ deliberately excluded |
-| Register a tool without recompiling | ✅ MCP server, or an extension process | ✅ `pi.registerTool` in TypeScript |
-| Override a built-in tool | ❌ | ✅ register the same name |
+| Register a tool without recompiling | ✅ MCP server, or an extension answering `list_tools` | ✅ `pi.registerTool` in TypeScript |
+| Override a built-in tool | ❌ a duplicate name is refused, so which tool ran cannot depend on load order | ✅ register the same name |
 
 The asymmetry is the design. Titan ships the enterprise integrations (k8s, ssh,
 five search providers, MCP) because an air-gapped customer cannot npm-install an
@@ -157,6 +165,14 @@ auditor what the agent was allowed to do, because an extension-supplied
 permission gate is one an extension can also remove.
 
 That is the sentence that separates the two products.
+
+## Where Titan still trails, as of this revision
+
+| Capability | Why it is still open |
+|---|---|
+| Subscription auth (Claude Pro, ChatGPT Plus, Copilot) | Each vendor needs its own OAuth device flow, token store and refresh. Real work, one provider at a time, and none of it changes the harness. Titan takes an API key today. |
+| The breadth of Pi's extension surface | Titan hooks six events; Pi hooks more than thirty, including provider request and response, session fork, and the whole TUI. The six chosen cover blocking, rewriting, context filtering and tool provision — most of what an operator cannot otherwise do without a fork — but "an extension can do anything" remains Pi's, not Titan's. |
+| Themes, prompt templates, packaged distribution | Pi ships themes, `{{variable}}` prompt templates, and npm/git distribution for extension bundles. Titan has none of it. Cosmetic next to the rest, and genuinely missing. |
 
 ## What Titan should take from Pi
 

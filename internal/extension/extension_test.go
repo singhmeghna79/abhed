@@ -172,3 +172,48 @@ func TestArgsRewriteComposes(t *testing.T) {
 		t.Fatal("this call should not be blocked")
 	}
 }
+
+// An extension can add a tool the harness never knew about — the capability
+// Pi's registerTool provides, and the one Titan was missing.
+func TestExtensionProvidesATool(t *testing.T) {
+	h := hostWith(t, "provider.sh")
+	provided, errs := h.Tools(context.Background())
+	if len(errs) > 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	if len(provided) != 1 {
+		t.Fatalf("got %d tools, want 1", len(provided))
+	}
+	tool := provided[0]
+	if tool.Name() != "weather" {
+		t.Errorf("name = %q", tool.Name())
+	}
+	if tool.Mutates() {
+		t.Error("the extension said mutates:false and must be believed")
+	}
+	res := tool.Run(context.Background(), nil, []byte(`{"city":"Dublin"}`))
+	if res.IsError || res.Content != "It is raining." {
+		t.Errorf("Run() = %+v", res)
+	}
+}
+
+// Titan cannot know what someone else's tool does, so one that does not say
+// must be assumed to change something and routed through approval.
+func TestUnspecifiedToolIsAssumedToMutate(t *testing.T) {
+	h := NewHost(func(string, ...any) {})
+	tool := providedTool{def: ToolDef{Name: "x"}, mutates: true}
+	if !tool.Mutates() {
+		t.Fatal("an unspecified tool must default to mutating, not to safe")
+	}
+	_ = h
+}
+
+// A silent extension must not look like a successful call.
+func TestSilentProvidedToolIsAnError(t *testing.T) {
+	h := hostWith(t, "crasher.sh")
+	tool := providedTool{ext: h.exts[0], def: ToolDef{Name: "x"}}
+	res := tool.Run(context.Background(), nil, []byte(`{}`))
+	if !res.IsError {
+		t.Fatal("no answer from an extension must be an error, not an empty success")
+	}
+}

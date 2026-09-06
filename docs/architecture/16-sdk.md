@@ -57,13 +57,12 @@ ask should be stricter than a terminal with somebody watching, not looser —
 defaulting to permissive would make the SDK quietly weaker than the same policy
 on the command line.
 
-## What is not here yet
+## Driving it from another language
 
-**RPC over stdio.** Pi speaks JSONL on stdin and stdout so any language can
-drive it. Titan offers this Go package and the HTTP server; a caller in Python
-or TypeScript uses the server today. The subprocess protocol the extension host
-already speaks is most of what an RPC mode needs, so this is a small gap rather
-than a deep one.
+`titan rpc` speaks line-delimited JSON on stdin and stdout, for callers that are
+not Go. See [15-extensions.md](15-extensions.md).
+
+## What is not here yet
 
 **Subscription auth.** Pi can sign in with a Claude Pro, ChatGPT Plus or GitHub
 Copilot subscription. Titan takes an API key. Closing this needs each vendor's

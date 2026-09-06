@@ -136,6 +136,70 @@ while IFS= read -r line; do
 done
 ```
 
+## Providing a tool
+
+An extension can add a tool the harness never had. It answers `list_tools` once
+at startup, and `invoke_tool` when the model calls it:
+
+```bash
+#!/bin/bash
+while IFS= read -r line; do
+  case "$line" in
+    *'"event":"list_tools"'*)
+      echo '{"tools":[{"name":"ticket","description":"Look up a ticket by id",
+             "schema":{"type":"object","properties":{"id":{"type":"string"}}},
+             "mutates":false}]}' ;;
+    *'"event":"invoke_tool"'*)
+      id=$(jq -r '.args.id' <<<"$line")
+      echo "{\"result\": \"$(fetch-ticket "$id")\"}" ;;
+    *) echo '{}' ;;
+  esac
+done
+```
+
+A provided tool is a tool like any other: it appears in the model's list, its
+call goes through the policy engine, and its call and result are recorded as
+events. Providing one adds a capability, never a way around the rules — a deny
+rule naming it still wins, and one that mutates is subject to approval exactly
+as a built-in is.
+
+Two defaults are deliberately strict. A tool that does not say whether it
+mutates is **assumed to**, because Titan cannot know what someone else's tool
+does and the safe answer is the one that asks. And a duplicate tool name is
+**refused** rather than resolved by load order, since which tool ran would
+otherwise depend on the order extensions happened to start, and a policy rule
+naming it would be ambiguous.
+
+The list is read once at startup. A tool set that changed mid-session would mean
+the model's prompt no longer matched what it could call, and would invalidate
+the prefix cache on every change.
+
+## Driving Titan from another language
+
+`titan rpc` speaks line-delimited JSON on stdin and stdout, so a caller in any
+language can run it as a subprocess without a server, a port or auth:
+
+```python
+p = subprocess.Popen(["titan", "rpc"], stdin=PIPE, stdout=PIPE, text=True)
+send(method="start", mode="auto")
+send(method="prompt", prompt="fix the failing tests")
+# every event the agent records arrives as {"type":"event", ...} while it works
+```
+
+| Method | Effect |
+|---|---|
+| `start` | open a session; takes `workspace`, `mode`, `allow`, `deny` |
+| `prompt` | send a prompt, get the final answer |
+| `steer` | redirect a run already in progress |
+| `usage` | tokens, turns, compactions |
+| `export` | the HTML transcript |
+| `providers` | provider types this build supports |
+| `quit` | close |
+
+Events stream as they happen rather than only at the end, so a caller can render
+progress. `steer` is why this is a persistent process rather than one request
+per run.
+
 ## Custom model providers
 
 A provider no longer needs a rebuild either:

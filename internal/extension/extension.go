@@ -59,6 +59,11 @@ const (
 	// EvSessionStart and EvSessionEnd bracket the run, for setup and teardown.
 	EvSessionStart Event = "session_start"
 	EvSessionEnd   Event = "session_end"
+	// EvListTools is sent once at startup. An extension answers with the tools
+	// it provides, and EvInvokeTool then routes calls to it.
+	EvListTools Event = "list_tools"
+	// EvInvokeTool runs one of an extension's own tools.
+	EvInvokeTool Event = "invoke_tool"
 )
 
 // Request is what Titan sends an extension.
@@ -108,6 +113,27 @@ type Reply struct {
 	System string `json:"system,omitempty"`
 	// Log is written to Titan's log, for an extension to explain itself.
 	Log string `json:"log,omitempty"`
+	// Tools answers list_tools: the tools this extension provides.
+	Tools []ToolDef `json:"tools,omitempty"`
+	// Result answers invoke_tool.
+	Result string `json:"result,omitempty"`
+}
+
+// ToolDef is a tool an extension provides.
+//
+// An extension-provided tool is a tool like any other: it appears in the
+// model's tool list, it goes through the policy engine, and its call and result
+// are recorded as events. Providing one is not a way around the rules — a
+// tool that says it mutates is subject to approval exactly as a built-in is,
+// and a deny rule naming it still wins.
+type ToolDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Schema      json.RawMessage `json:"schema"`
+	// Mutates decides whether calls route through approval. An extension that
+	// omits it gets the safe answer: Titan cannot know what someone else's
+	// tool does, so it assumes the call can change something.
+	Mutates *bool `json:"mutates,omitempty"`
 }
 
 // Config describes one extension.
@@ -184,7 +210,8 @@ func Start(ctx context.Context, cfg Config, logf func(string, ...any)) (*Extensi
 	// subscription list.
 	if len(e.subs) == 0 {
 		for _, ev := range []Event{EvToolCall, EvToolResult, EvContext,
-			EvBeforeAgentStart, EvSessionStart, EvSessionEnd} {
+			EvBeforeAgentStart, EvSessionStart, EvSessionEnd,
+			EvListTools, EvInvokeTool} {
 			e.subs[ev] = true
 		}
 	}

@@ -282,6 +282,8 @@ use `-mode auto` with explicit `-allow` rules.
 
 ```bash
 titan doctor                    # verify endpoint, tools, sandbox, storage, index
+titan providers                 # model providers this build supports
+titan rpc                       # drive Titan from another language over stdio
 titan init                      # write a starter .titan/config.json
 titan index                     # build the retrieval index
 titan eval                      # run the 144-task corpus

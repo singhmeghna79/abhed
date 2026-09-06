@@ -84,6 +84,10 @@ func main() {
 		os.Exit(doctor(workspace))
 	case "providers":
 		os.Exit(providersCmd())
+	case "rpc":
+		// Line-delimited JSON on stdin and stdout, so a caller in any language
+		// can drive Titan as a subprocess without running a server.
+		os.Exit(rpcCmd(workspace))
 	case "user":
 		os.Exit(userCmd(workspace, flag.Args()[1:]))
 	case "index":
@@ -202,6 +206,17 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 	for _, t := range gateway.Tools() {
 		registry.Add(t)
+	}
+	// A tool an extension provides is a tool like any other: it appears in the
+	// model's list, goes through the policy engine, and its call and result are
+	// recorded. Providing one adds a capability, never a way around the rules.
+	if extTools, toolErrs := extHost.Tools(context.Background()); true {
+		for _, err := range toolErrs {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		}
+		for _, t := range extTools {
+			registry.Add(t)
+		}
 	}
 
 	for _, t := range buildRAG(cfg) {
