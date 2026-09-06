@@ -56,6 +56,14 @@ type Anthropic struct {
 	// per request by anything the request itself sets.
 	Defaults Params
 
+	// Retry bounds how long a transient failure is waited out. A rate limit
+	// ending a session discards everything it had established, which is a far
+	// worse outcome than a few seconds of silence.
+	Retry RetryPolicy
+	// Notify reports a retry to the user, since a silent pause in an
+	// interactive session is indistinguishable from a hang.
+	Notify func(string)
+
 	profile Profile
 }
 
@@ -74,6 +82,7 @@ func NewAnthropic(baseURL, apiKey, model string, p Profile) *Anthropic {
 		Model:   model,
 		Version: defaultAnthropicVersion,
 		HTTP:    &http.Client{Timeout: 10 * time.Minute},
+		Retry:   DefaultRetry(),
 		profile: p,
 	}
 }
@@ -283,11 +292,12 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.BaseURL+"/v1/messages", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
+	newRequest := func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			c.BaseURL+"/v1/messages", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("anthropic-version", orElse(c.Version, defaultAnthropicVersion))
@@ -307,8 +317,14 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 		}
 	}
 
-	resp, err := c.HTTP.Do(httpReq)
+		return httpReq, nil
+	}
+
+	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify)
 	if err != nil {
+		if se, ok := err.(*StatusError); ok {
+			return nil, fmt.Errorf("anthropic returned %s", se.Error())
+		}
 		return nil, fmt.Errorf("%s is unreachable: %w", c.BaseURL, err)
 	}
 	if resp.StatusCode != http.StatusOK {

@@ -36,6 +36,11 @@ type OpenAICompatible struct {
 	// may override any of them; anything it leaves unset comes from here.
 	Defaults Params
 
+	// Retry bounds how long a transient failure is waited out, and Notify
+	// reports one to the user.
+	Retry  RetryPolicy
+	Notify func(string)
+
 	profile Profile
 }
 
@@ -48,6 +53,7 @@ func NewOpenAICompatible(baseURL, apiKey, model string, p Profile) *OpenAICompat
 		APIKey:        apiKey,
 		Model:         model,
 		HTTP:          &http.Client{Timeout: 10 * time.Minute},
+		Retry:         DefaultRetry(),
 		ReasoningTags: [2]string{"<think>", "</think>"},
 		profile:       p,
 	}
@@ -216,19 +222,25 @@ func (c *OpenAICompatible) Complete(ctx context.Context, req Request) (<-chan Ch
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.BaseURL+"/chat/completions", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "text/event-stream")
-	if c.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	newRequest := func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			c.BaseURL+"/chat/completions", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Accept", "text/event-stream")
+		if c.APIKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+		}
+		return httpReq, nil
 	}
 
-	resp, err := c.HTTP.Do(httpReq)
+	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify)
 	if err != nil {
+		if se, ok := err.(*StatusError); ok {
+			return nil, fmt.Errorf("endpoint returned %s", se.Error())
+		}
 		return nil, fmt.Errorf("call %s: %w", c.BaseURL, err)
 	}
 	if resp.StatusCode != http.StatusOK {

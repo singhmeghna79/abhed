@@ -1,2 +1,5 @@
 # Local Titan test workspace (own go.mod, not part of this module)
 .titan-workspace/
+
+# Personal workspace config: machine-specific, and not part of the product
+.titan/

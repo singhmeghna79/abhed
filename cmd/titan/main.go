@@ -1831,6 +1831,14 @@ func buildAdapter(p config.ProviderConfig) model.Adapter {
 		fmt.Fprintf(os.Stderr, "model: %v\n", err)
 		os.Exit(1)
 	}
+	// A retry is silence from the user's point of view, and silence in an
+	// interactive session is indistinguishable from a hang. Say what happened.
+	type notifier interface{ SetNotify(func(string)) }
+	if n, ok := a.(notifier); ok {
+		n.SetNotify(func(msg string) {
+			fmt.Fprintf(os.Stderr, "  %s\n", msg)
+		})
+	}
 	return a
 }
 

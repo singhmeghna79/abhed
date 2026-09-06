@@ -33,6 +33,11 @@ type Gemini struct {
 	// per request by anything the request itself sets.
 	Defaults Params
 
+	// Retry bounds how long a transient failure is waited out, and Notify
+	// reports one to the user.
+	Retry  RetryPolicy
+	Notify func(string)
+
 	profile Profile
 }
 
@@ -48,6 +53,7 @@ func NewGemini(baseURL, apiKey, model string, p Profile) *Gemini {
 		APIKey:  apiKey,
 		Model:   model,
 		HTTP:    &http.Client{Timeout: 10 * time.Minute},
+		Retry:   DefaultRetry(),
 		profile: p,
 	}
 }
@@ -212,17 +218,23 @@ func (g *Gemini) Complete(ctx context.Context, req Request) (<-chan Chunk, error
 	// alt=sse asks for server-sent events; without it the endpoint returns a
 	// single JSON array at the end, which is not streaming.
 	url := fmt.Sprintf("%s/models/%s:streamGenerateContent?alt=sse", g.BaseURL, g.Model)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if g.APIKey != "" {
-		httpReq.Header.Set("x-goog-api-key", g.APIKey)
+	newRequest := func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if g.APIKey != "" {
+			httpReq.Header.Set("x-goog-api-key", g.APIKey)
+		}
+		return httpReq, nil
 	}
 
-	resp, err := g.HTTP.Do(httpReq)
+	resp, err := send(ctx, g.HTTP, g.Retry, newRequest, g.Notify)
 	if err != nil {
+		if se, ok := err.(*StatusError); ok {
+			return nil, fmt.Errorf("gemini returned %s", se.Error())
+		}
 		return nil, fmt.Errorf("%s is unreachable: %w", g.BaseURL, err)
 	}
 	if resp.StatusCode != http.StatusOK {
