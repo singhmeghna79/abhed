@@ -227,7 +227,16 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 	skillReg, skillListing := buildSkills(cfg)
 	if skillReg.Len() > 0 {
-		registry.Add(skills.Tool{R: skillReg})
+		// The server builds an adapter and a session per request, so a
+		// pipeline runner cannot be bound once here as it is in the CLI. It is
+		// attached where the session is built, in the server package.
+		// A skill that declares a pipeline is executed rather than described:
+		// the harness runs the stages, so the gathering cannot be skipped.
+		registry.Add(skills.Tool{
+			R:           skillReg,
+			RunPipeline: pipelineRunner(adapter, registry, sess, todos),
+			Input:       func() string { return lastPrompt() },
+		})
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
@@ -335,6 +344,7 @@ func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonO
 
 	loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
 	holder.Set(loop)
+	setPrompt(prompt)
 	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	reason, err := loop.Run(ctx, prompt)
 
@@ -456,6 +466,7 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		sessionState.loop = loop
 		sessionState.sessionID = sessionID
 		undo.BeginTurn()
+		setPrompt(line)
 
 		// Run on a goroutine so the reader stays live: anything typed now is a
 		// steering message, applied at the next turn boundary rather than
@@ -957,6 +968,10 @@ func serveCmd(workspace, addr string) int {
 	}
 	skillReg, skillListing := buildSkills(cfg)
 	if skillReg.Len() > 0 {
+		// The server builds an adapter and a session per request, so a
+		// pipeline runner cannot be bound once here as it is in the CLI.
+		// Skills that declare one fall back to their instructions on this
+		// path until the server attaches a runner where it builds a session.
 		registry.Add(skills.Tool{R: skillReg})
 	}
 	if t, err := buildWebSearch(cfg); err != nil {

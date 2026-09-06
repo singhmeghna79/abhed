@@ -22,6 +22,7 @@
 package skills
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,6 +46,10 @@ type Skill struct {
 	Dir string
 	// Source is the configured root it came from, for diagnostics.
 	Source string
+	// Pipeline, when present, is the sequence the harness executes rather than
+	// asking the model to follow it. Loaded from pipeline.json beside the
+	// SKILL.md.
+	Pipeline json.RawMessage
 }
 
 // Registry holds the discovered skills.
@@ -139,7 +144,10 @@ func (r *Registry) Listing() string {
 
 // ---------------------------------------------------------------- discovery
 
-const skillFile = "SKILL.md"
+const (
+	skillFile    = "SKILL.md"
+	pipelineFile = "pipeline.json"
+)
 
 // discover walks a root looking for SKILL.md files. A missing root is not an
 // error: configuring a directory that does not exist yet is a reasonable thing
@@ -196,6 +204,19 @@ func discover(root string) ([]*Skill, []error) {
 			s.Name = e.Name()
 		}
 		s.Dir = dir
+		// A pipeline lives in its own file rather than the frontmatter. The
+		// frontmatter parser is deliberately a narrow reader — a few flat
+		// keys, no YAML dependency, which is the right trade for an air-gapped
+		// bundle — and a pipeline is nested structure that would force a real
+		// parser in for one feature. JSON beside the skill keeps both.
+		if raw, err := os.ReadFile(filepath.Join(dir, pipelineFile)); err == nil {
+			if !json.Valid(raw) {
+				problems = append(problems, fmt.Errorf(
+					"skills: %s/%s is not valid JSON", e.Name(), pipelineFile))
+			} else {
+				s.Pipeline = raw
+			}
+		}
 		out = append(out, s)
 	}
 	return out, problems

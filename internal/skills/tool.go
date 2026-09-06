@@ -15,7 +15,20 @@ import (
 // in the system prompt is a name and one line each, and the body — which may
 // run to thousands of tokens — is paid only in the sessions that actually use
 // it.
-type Tool struct{ R *Registry }
+type Tool struct {
+	R *Registry
+	// RunPipeline executes a skill's declared pipeline. When nil, or when a
+	// skill declares none, the tool returns the instructions as before.
+	//
+	// The seam is here rather than inside this package so that skills stays
+	// free of the model adapter, the tool registry and the policy engine: a
+	// pipeline step is still an ordinary tool call, made by the caller, through
+	// everything an ordinary tool call goes through.
+	RunPipeline func(ctx context.Context, skill *Skill, input string) (string, error)
+	// Input is the user's request, which a pipeline needs and instructions do
+	// not. Set per turn by the caller.
+	Input func() string
+}
 
 func (Tool) Name() string { return "skill" }
 
@@ -49,7 +62,7 @@ type args struct {
 	Name string `json:"name"`
 }
 
-func (t Tool) Run(_ context.Context, _ *tools.Session, raw json.RawMessage) tools.Result {
+func (t Tool) Run(ctx context.Context, _ *tools.Session, raw json.RawMessage) tools.Result {
 	var a args
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errf("Invalid arguments for skill: %v", err)
@@ -68,6 +81,28 @@ func (t Tool) Run(_ context.Context, _ *tools.Session, raw json.RawMessage) tool
 		// otherwise causes.
 		return errf("No skill named %q. Available: %s.",
 			name, strings.Join(t.R.Names(), ", "))
+	}
+
+	// A skill that declares a pipeline is executed rather than described. The
+	// model gets what the pipeline gathered and the job of writing the answer;
+	// it no longer has to remember a seven-step procedure, which is the thing
+	// it demonstrably does not do reliably.
+	if len(s.Pipeline) > 0 && t.RunPipeline != nil {
+		input := ""
+		if t.Input != nil {
+			input = t.Input()
+		}
+		out, err := t.RunPipeline(ctx, s, input)
+		if err != nil {
+			// Fall back to the instructions. A pipeline that cannot run is a
+			// worse outcome than one that never existed, and the skill still
+			// describes what to do.
+			return tools.Result{Content: fmt.Sprintf(
+				"The %s pipeline could not complete (%v), so here are its "+
+					"instructions to follow directly.\n\n%s",
+				s.Name, err, s.Body)}
+		}
+		return tools.Result{Content: out}
 	}
 
 	var b strings.Builder

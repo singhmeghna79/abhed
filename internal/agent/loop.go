@@ -746,6 +746,13 @@ func (h *LoopHolder) RecordTodos(items []Todo, note string) {
 	}
 }
 
+// RecordPipelineStage forwards to the current loop.
+func (h *LoopHolder) RecordPipelineStage(skill, stage, detail string, data map[string]any) {
+	if h != nil && h.loop != nil {
+		h.loop.RecordPipelineStage(skill, stage, detail, data)
+	}
+}
+
 
 // runCalls executes a turn's tool calls and appends their results.
 //
@@ -856,4 +863,18 @@ func (l *Loop) appendResults(calls []model.ToolCall, results []callOutcome, n in
 			IsError:    results[i].result.IsError,
 		})
 	}
+}
+
+// RecordPipelineStage records what a skill's pipeline did at one stage.
+//
+// A pipeline runs inside a single tool call, so without this a reader sees one
+// opaque "skill" call and no sign of the decomposition, the sufficiency verdict
+// or why a second retrieval happened. Recording each stage keeps the property
+// the event log exists for: what the agent did is visible, not inferred.
+func (l *Loop) RecordPipelineStage(skill, stage, detail string, data map[string]any) {
+	payload := map[string]any{"skill": skill, "stage": stage, "detail": detail}
+	for k, v := range data {
+		payload[k] = v
+	}
+	l.Recorder.Record(EvPlanUpdated, ActorSystem, Trusted, payload)
 }

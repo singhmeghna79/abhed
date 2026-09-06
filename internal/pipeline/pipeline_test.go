@@ -229,3 +229,51 @@ func TestJSONIsFoundInsideProse(t *testing.T) {
 		}
 	}
 }
+
+// A stage guarded on a value no earlier stage has produced yet must not run.
+// The reformulation stage sits before the search it feeds and is guarded on a
+// verdict that only exists after the first pass; running it on the first pass
+// would overwrite the decomposition with a rewrite of nothing.
+func TestConditionOnAnUnsetValueSkipsTheStage(t *testing.T) {
+	var reformulated int32
+	model := func(_ context.Context, prompt string, _ json.RawMessage) (string, error) {
+		if strings.Contains(prompt, "gap") {
+			atomic.AddInt32(&reformulated, 1)
+			return `["rewritten"]`, nil
+		}
+		return `["a","b"]`, nil
+	}
+	tool := func(context.Context, string, json.RawMessage) (string, error) { return `"d"`, nil }
+
+	p := Pipeline{Stages: []Stage{
+		{Name: "decompose", Steps: []Step{{Kind: "model", Prompt: "split", Output: "subs"}}},
+		{Name: "reformulate", When: "verdict.satisfied != true",
+			Steps: []Step{{Kind: "model", Prompt: "target the gap", Output: "subs"}}},
+		{Name: "gather", Steps: []Step{{Kind: "tool", Tool: "retrieve", ForEach: "subs", Output: "docs"}}},
+	}}
+	if _, err := runner(tool, model).Run(context.Background(), p, "q"); err != nil {
+		t.Fatal(err)
+	}
+	if got := atomic.LoadInt32(&reformulated); got != 0 {
+		t.Fatalf("reformulate ran %d times on the first pass, before any verdict "+
+			"existed; it would have replaced the decomposition with a rewrite "+
+			"of nothing", got)
+	}
+}
+
+// After a gate has run, a stage guarded on its verdict must run. The gate
+// stores a boolean; comparing it to the string "true" has to work, or the
+// reformulation a hop depends on never happens and every hop repeats the same
+// search.
+func TestConditionMatchesABooleanVerdict(t *testing.T) {
+	st := newState("q")
+	st.set("sufficiency", map[string]any{"satisfied": false, "reason": "gap"})
+	r := &Runner{}
+	if !r.condition("sufficiency.satisfied != true", st) {
+		t.Error(`satisfied=false must satisfy "!= true"`)
+	}
+	st.set("sufficiency", map[string]any{"satisfied": true, "reason": "ok"})
+	if r.condition("sufficiency.satisfied != true", st) {
+		t.Error(`satisfied=true must not satisfy "!= true"`)
+	}
+}

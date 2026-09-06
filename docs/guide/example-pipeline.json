@@ -1,0 +1,127 @@
+{
+  "max_iterations": 2,
+  "stages": [
+    {
+      "name": "classify",
+      "steps": [
+        {
+          "kind": "model",
+          "output": "class",
+          "prompt": "Classify this question.\n\nQuestion: {{input}}\n\ncomplexity: \"complex\" if it asks two or more distinct things, compares, or wants a specific command, parameter or value; otherwise \"simple\". When in doubt, complex.\nscope: \"ibm_z\" for IBM Z, z/OS, CICS, IMS, Db2 for z/OS, RACF, JCL, COBOL, LinuxONE and related; \"adjacent_tech\" for other technical topics; \"general\" for non-technical.\nlanguage: the English name of the language the question is written in.",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "complexity": {
+                "type": "string",
+                "enum": [
+                  "simple",
+                  "complex"
+                ]
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "ibm_z",
+                  "adjacent_tech",
+                  "general"
+                ]
+              },
+              "language": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "complexity",
+              "scope",
+              "language"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "decompose",
+      "when": "class.complexity == complex",
+      "steps": [
+        {
+          "kind": "model",
+          "output": "subqueries",
+          "prompt": "Split this into 2 to 4 self-contained search queries, one per distinct thing it asks, foundational first. Each must stand alone without the others. Keep product names, commands and error codes exactly as written. Reply with a JSON array of strings in English.\n\nQuestion: {{input}}",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "simple_query",
+      "when": "class.complexity == simple",
+      "steps": [
+        {
+          "kind": "model",
+          "output": "subqueries",
+          "prompt": "Rewrite this as a single standalone search query in English, preserving product names, commands and error codes. Reply with a JSON array containing exactly one string.\n\nQuestion: {{input}}",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "reformulate",
+      "when": "sufficiency.satisfied != true",
+      "steps": [
+        {
+          "kind": "model",
+          "output": "subqueries",
+          "prompt": "A previous search did not cover this gap:\n\n{{sufficiency.reason}}\n\nOriginal question: {{input}}\n\nWrite 1 to 2 search queries in English targeting ONLY that gap. Do not repeat the earlier queries; a rephrasing returns the same documents and wastes the attempt. Reply with a JSON array of strings.",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "gather",
+      "steps": [
+        {
+          "kind": "tool",
+          "tool": "bash",
+          "for_each": "subqueries",
+          "output": "documents",
+          "required": true,
+          "timeout_ms": 60000,
+          "args": {
+            "command": "bash ~/.titan/skills-active/zrag/scripts/run.sh retrieve --query {{item}} --profile-json '{}'",
+            "description": "Retrieving from the knowledge base."
+          }
+        },
+        {
+          "kind": "tool",
+          "tool": "web_search",
+          "output": "web",
+          "args": {
+            "query": "{{input}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sufficiency",
+      "gate": {
+        "output": "sufficiency",
+        "repeat": "reformulate",
+        "ask": "The question was: {{input}}\n\nList what it asks for, then check each part against the material below.\n\nRetrieved documents:\n{{documents}}\n\nWeb results:\n{{web}}\n\nIs every part covered with enough detail to cite? If not, name the specific gap in one sentence."
+      }
+    }
+  ]
+}

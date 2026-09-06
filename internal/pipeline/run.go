@@ -113,6 +113,13 @@ func (r *Runner) Run(ctx context.Context, p Pipeline, input string) (*Result, er
 			continue
 		}
 
+		// Record that a stage ran, not only that one was skipped. Without this
+		// a reader cannot tell a stage that executed from one that produced no
+		// output, which is exactly the question asked of a hop: did the
+		// reformulation happen, or did the same search run again?
+		if len(stage.Steps) > 0 {
+			r.emit(stage.Name, "running", nil)
+		}
 		if err := r.runSteps(ctx, stage, state, res); err != nil {
 			return res, err
 		}
@@ -282,7 +289,15 @@ func (r *Runner) condition(expr string, state *State) bool {
 	if m == nil {
 		return true // an unreadable condition does not silently skip a stage
 	}
-	got, _ := state.Get(m[1])
+	got, present := state.Get(m[1])
+	// A condition on a value nothing has produced yet is not met, whichever
+	// operator it uses. Reading "a != b" as true when a does not exist runs a
+	// stage before its input exists — which is how a reformulation guarded on a
+	// verdict ran on the first pass and replaced the decomposition with a
+	// rewrite of nothing.
+	if !present {
+		return false
+	}
 	want := strings.Trim(strings.TrimSpace(m[3]), `"'`)
 	equal := fmt.Sprint(got) == want
 	if m[2] == "!=" {
