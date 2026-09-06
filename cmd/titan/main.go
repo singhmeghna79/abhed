@@ -150,9 +150,16 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		fmt.Fprintf(os.Stderr, "titan: warning: %s\n", sb.Describe())
 	}
 
+	// The todo tool reports through whichever loop is currently running. The
+	// holder exists because the registry is built before the loop, and a
+	// package-level variable would quietly share state between sessions.
+	todos := &agent.LoopHolder{}
 	registry := tools.NewRegistry(
 		tools.Read{}, tools.Write{}, tools.Edit{},
 		tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
+		tools.Todo{OnUpdate: func(items []tools.TodoItem, note string) {
+			todos.RecordTodos(toAgentTodos(items), note)
+		}},
 	)
 
 	// Subagents share the parent's budget, so a fan-out cannot multiply spend
@@ -258,15 +265,15 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	defer stop()
 
 	if headless {
-		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, cfg, prompt)
+		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, cfg, prompt, todos)
 	}
-	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace)
+	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace, todos)
 }
 
 func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonOut bool,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
 	approver agent.Approver, sess *tools.Session, cfg agent.Config,
-	appCfg config.Config, prompt string) int {
+	appCfg config.Config, prompt string, holder *agent.LoopHolder) int {
 
 	sessionID := fmt.Sprintf("s-%d", time.Now().UnixNano())
 	recordSession(ctx, store, sessionID, appCfg, prompt)
@@ -287,6 +294,7 @@ func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonO
 	}()
 
 	loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
+	holder.Set(loop)
 	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	reason, err := loop.Run(ctx, prompt)
 
@@ -306,7 +314,8 @@ func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonO
 func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
 	approver agent.Approver, sess *tools.Session, cfg agent.Config,
-	appCfg config.Config, provider config.ProviderConfig, workspace string) int {
+	appCfg config.Config, provider config.ProviderConfig, workspace string,
+	todos *agent.LoopHolder) int {
 
 	s := r.Style()
 	sandboxLabel := "none"
@@ -367,6 +376,7 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		taskCtx, cancelTask := context.WithCancel(ctx)
 		loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
 		loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
+		todos.Set(loop)
 		sessionState.loop = loop
 		sessionState.sessionID = sessionID
 		undo.BeginTurn()
@@ -1887,4 +1897,17 @@ func providersCmd() int {
 	fmt.Println("a parameter the provider cannot honour is reported at startup")
 	fmt.Println("rather than silently ignored.")
 	return 0
+}
+
+
+// toAgentTodos converts the tool's items to the event payload's.
+//
+// The two types are deliberately separate: internal/tools must not import the
+// agent package, or every tool would drag the event schema behind it.
+func toAgentTodos(items []tools.TodoItem) []agent.Todo {
+	out := make([]agent.Todo, 0, len(items))
+	for _, i := range items {
+		out = append(out, agent.Todo{ID: i.ID, Text: i.Text, Status: i.Status})
+	}
+	return out
 }

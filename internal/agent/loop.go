@@ -65,6 +65,20 @@ type Loop struct {
 	// tool call, so a model that stalls is nudged rather than mistaken for one
 	// that finished.
 	emptyTurns int
+
+	// todos is the agent's task list, recorded whenever it changes so a replay
+	// shows what the plan was believed to be at each point.
+	todos []Todo
+}
+
+// Todos returns the current task list.
+func (l *Loop) Todos() []Todo { return l.todos }
+
+// RecordTodos stores a new list and emits the event. It is exported so the
+// todo tool can report through the loop rather than carrying a recorder.
+func (l *Loop) RecordTodos(items []Todo, note string) {
+	l.todos = items
+	l.Recorder.Record(EvTodoUpdated, ActorAgent, Trusted, TodoList{Items: items, Note: note})
 }
 
 type Usage struct {
@@ -620,4 +634,21 @@ func (l *Loop) resultLimitChars() int {
 	// ~3.6 chars/token the estimator uses. One result may occupy a quarter of
 	// the budget; four such results in one turn still leave room to compact.
 	return window / 4 * 36 / 10
+}
+
+// LoopHolder lets a tool built before the loop report into it once it exists.
+//
+// The registry is constructed first — tools have to be known before a loop can
+// be given them — so a tool that needs to record an event has nothing to record
+// into yet. A holder makes that ordering explicit and scoped, where a package
+// variable would silently share one loop across every session in the process.
+type LoopHolder struct{ loop *Loop }
+
+func (h *LoopHolder) Set(l *Loop) { h.loop = l }
+
+// RecordTodos forwards to the current loop, and does nothing before one is set.
+func (h *LoopHolder) RecordTodos(items []Todo, note string) {
+	if h != nil && h.loop != nil {
+		h.loop.RecordTodos(items, note)
+	}
 }

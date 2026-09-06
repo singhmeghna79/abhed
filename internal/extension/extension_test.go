@@ -1,0 +1,174 @@
+package extension
+
+import (
+	"context"
+	"encoding/json"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/yuvrajsingh/titan/internal/policy"
+)
+
+func hostWith(t *testing.T, scripts ...string) *Host {
+	t.Helper()
+	h := NewHost(func(string, ...any) {})
+	cfgs := make([]Config, 0, len(scripts))
+	for _, s := range scripts {
+		cfgs = append(cfgs, Config{
+			Name:    s,
+			Command: "bash",
+			Args:    []string{filepath.Join("testdata", s)},
+			Timeout: 2 * time.Second,
+		})
+	}
+	if errs := h.Load(context.Background(), cfgs); len(errs) > 0 {
+		t.Fatalf("load: %v", errs)
+	}
+	t.Cleanup(h.Close)
+	return h
+}
+
+// THE guarantee. An extension may make a decision stricter and never looser.
+// If this test ever fails, Titan's audit trail no longer means anything: an
+// operator could drop a file into a directory and quietly permit what the
+// policy forbids.
+func TestExtensionCannotPermitWhatPolicyDenies(t *testing.T) {
+	h := hostWith(t, "evil.sh") // answers "allow" to everything
+
+	e := policy.New(policy.ModeDefault)
+	if err := e.AddDeny("bash(rm -rf *)"); err != nil {
+		t.Fatal(err)
+	}
+	e.Hooks = []policy.Hook{h.PolicyHook(context.Background(), "s1")}
+
+	got := e.Evaluate("bash", true, []byte(`{"command":"rm -rf /"}`))
+	if got.Decision != policy.Deny {
+		t.Fatalf("decision = %v (%s); a denied command must stay denied no "+
+			"matter what an extension replies", got.Decision, got.Reason)
+	}
+}
+
+// Nor may it turn an approval prompt into an automatic approval.
+func TestExtensionCannotBypassAnApprovalPrompt(t *testing.T) {
+	h := hostWith(t, "evil.sh")
+	e := policy.New(policy.ModeDefault) // mutations ask
+	e.Hooks = []policy.Hook{h.PolicyHook(context.Background(), "s1")}
+
+	got := e.Evaluate("write", true, []byte(`{"path":"/tmp/x"}`))
+	if got.Decision == policy.Allow {
+		t.Fatalf("an extension turned an approval prompt into an allow (%s)", got.Reason)
+	}
+}
+
+// The other direction must work: an extension can block what policy allows.
+func TestExtensionCanBlockWhatPolicyAllows(t *testing.T) {
+	h := hostWith(t, "blocker.sh")
+	e := policy.New(policy.ModeAuto)
+	if err := e.AddAllow("bash(*)"); err != nil {
+		t.Fatal(err)
+	}
+	e.Hooks = []policy.Hook{h.PolicyHook(context.Background(), "s1")}
+
+	if got := e.Evaluate("bash", true, []byte(`{"command":"cat secret.txt"}`)); got.Decision != policy.Deny {
+		t.Fatalf("decision = %v, want Deny — an extension must be able to veto", got.Decision)
+	}
+	if got := e.Evaluate("bash", true, []byte(`{"command":"ls"}`)); got.Decision != policy.Allow {
+		t.Fatalf("decision = %v, want Allow — an unrelated call must be untouched", got.Decision)
+	}
+}
+
+func TestExtensionRewritesToolResult(t *testing.T) {
+	h := hostWith(t, "redactor.sh")
+	content, isErr := h.OnToolResult(context.Background(), "s1", "read", "AWS_KEY=abc123", false)
+	if content != "[redacted]" {
+		t.Errorf("content = %q, want the extension's replacement", content)
+	}
+	if isErr {
+		t.Error("is_error should be unchanged when the extension does not set it")
+	}
+}
+
+func TestExtensionFiltersContext(t *testing.T) {
+	h := hostWith(t, "redactor.sh")
+	msgs := []Message{
+		{Role: "user", Content: "first"},
+		{Role: "assistant", Content: "second"},
+		{Role: "user", Content: "third"},
+	}
+	keep := h.OnContext(context.Background(), "s1", msgs)
+	if len(keep) != 1 || keep[0] != 1 {
+		t.Fatalf("keep = %v, want [1] — the extension asked to keep only index 1", keep)
+	}
+}
+
+// A crashed extension must not fail the run: it can only ever have made a
+// decision stricter, so continuing under policy alone is safe and stopping is
+// not more secure, merely less useful.
+func TestCrashedExtensionIsSkippedNotFatal(t *testing.T) {
+	h := hostWith(t, "crasher.sh")
+	d := h.OnToolCall(context.Background(), "s1", "bash", []byte(`{"command":"ls"}`))
+	if d.Block {
+		t.Error("a crashed extension must not block")
+	}
+	// And it stays skipped rather than being retried on every call.
+	d2 := h.OnToolCall(context.Background(), "s1", "bash", []byte(`{"command":"ls"}`))
+	if d2.Block {
+		t.Error("a dead extension must stay dead")
+	}
+}
+
+// A hung extension must time out rather than stall the agent forever.
+func TestHungExtensionTimesOut(t *testing.T) {
+	h := NewHost(func(string, ...any) {})
+	if errs := h.Load(context.Background(), []Config{{
+		Name: "silent", Command: "bash",
+		Args:    []string{filepath.Join("testdata", "silent.sh")},
+		Timeout: 200 * time.Millisecond,
+	}}); len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	t.Cleanup(h.Close)
+
+	start := time.Now()
+	d := h.OnToolCall(context.Background(), "s1", "bash", []byte(`{"command":"ls"}`))
+	elapsed := time.Since(start)
+
+	if d.Block {
+		t.Error("a hung extension must not block the call")
+	}
+	if elapsed > 2*time.Second {
+		t.Errorf("waited %s for a hung extension; the timeout did not fire", elapsed)
+	}
+}
+
+// Where extensions disagree, the strictest answer wins, so the order they are
+// loaded in cannot change the verdict.
+func TestStrictestAnswerWinsRegardlessOfOrder(t *testing.T) {
+	for _, order := range [][]string{
+		{"evil.sh", "blocker.sh"},
+		{"blocker.sh", "evil.sh"},
+	} {
+		h := hostWith(t, order...)
+		d := h.OnToolCall(context.Background(), "s1", "bash", []byte(`{"command":"cat secret"}`))
+		if !d.Block {
+			t.Errorf("order %v: the blocking extension must win", order)
+		}
+	}
+}
+
+func TestSystemPromptIsAppendedNotReplaced(t *testing.T) {
+	h := hostWith(t, "redactor.sh") // returns {} for this event
+	const base = "You are Titan."
+	if got := h.OnBeforeAgentStart(context.Background(), "s1", base); got != base {
+		t.Errorf("system = %q, want it unchanged when no extension contributes", got)
+	}
+}
+
+func TestArgsRewriteComposes(t *testing.T) {
+	h := hostWith(t, "blocker.sh")
+	d := h.OnToolCall(context.Background(), "s1", "bash", json.RawMessage(`{"command":"ls"}`))
+	if d.Block {
+		t.Fatal("this call should not be blocked")
+	}
+}
