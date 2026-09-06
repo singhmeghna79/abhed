@@ -279,7 +279,11 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 	defer closeStore()
 	factory.Store = store
-	renderer := ui.NewRenderer(os.Stdout, jsonOut)
+	// stdout is resolved on each write rather than captured here: the
+	// interactive path replaces os.Stdout once the line editor takes the
+	// terminal, and a writer bound to the original file misses the newline
+	// translation raw mode needs.
+	renderer := ui.NewRenderer(ui.LazyStdout{}, jsonOut)
 
 	var approver agent.Approver
 	if headless {
@@ -376,6 +380,10 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	// stdin is not a terminal, since raw mode on a pipe corrupts the input.
 	editor := ui.NewLineReader(ui.Prompt(s))
 	defer editor.Close()
+	// Raw mode turns off the terminal's own newline translation, so every
+	// print in the program would otherwise staircase down the screen.
+	restoreStreams := editor.Capture()
+	defer restoreStreams()
 
 	lines := make(chan string)
 	readErr := make(chan struct{})
