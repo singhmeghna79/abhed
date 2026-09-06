@@ -32,6 +32,10 @@ type OpenAICompatible struct {
 	// Reasoning must never reach tool-argument parsing.
 	ReasoningTags [2]string
 
+	// Defaults are the operator's configured sampling parameters. A request
+	// may override any of them; anything it leaves unset comes from here.
+	Defaults Params
+
 	profile Profile
 }
 
@@ -86,10 +90,21 @@ type wireRequest struct {
 	Tools           []wireTool    `json:"tools,omitempty"`
 	MaxTokens       int           `json:"max_tokens,omitempty"`
 	Temperature     *float64      `json:"temperature,omitempty"`
+	TopP            *float64      `json:"top_p,omitempty"`
+	FrequencyPenalty *float64     `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64     `json:"presence_penalty,omitempty"`
+	Seed            *int64        `json:"seed,omitempty"`
 	Stop            []string      `json:"stop,omitempty"`
 	Stream          bool          `json:"stream"`
 	StreamOptions   *streamOpts   `json:"stream_options,omitempty"`
 	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
+
+	// Sampler knobs an OpenAI-shaped API does not define, which local servers
+	// (vLLM, Ollama, llama.cpp, TGI) accept and hosted ones ignore. They are
+	// sent only when configured, so a hosted endpoint never sees them.
+	TopK              *int     `json:"top_k,omitempty"`
+	MinP              *float64 `json:"min_p,omitempty"`
+	RepetitionPenalty *float64 `json:"repetition_penalty,omitempty"`
 
 	// Think controls a hybrid-reasoning model's thinking phase.
 	//
@@ -169,17 +184,29 @@ func (c *OpenAICompatible) buildRequest(req Request) wireRequest {
 		tools = append(tools, w)
 	}
 
+	sp := c.Defaults.Merge(req.Sampling())
+	think := sp.Think
+	if think == nil {
+		think = c.Think // provider-level default, when the request names none
+	}
 	return wireRequest{
-		Model:           c.Model,
-		Messages:        msgs,
-		Tools:           tools,
-		MaxTokens:       req.MaxTokens,
-		Temperature:     req.Temperature,
-		Stop:            req.Stop,
-		Stream:          true,
-		StreamOptions:   &streamOpts{IncludeUsage: true},
-		ReasoningEffort: string(req.Effort),
-		Think:           c.Think,
+		Model:             c.Model,
+		Messages:          msgs,
+		Tools:             tools,
+		MaxTokens:         sp.MaxTokens,
+		Temperature:       sp.Temperature,
+		TopP:              sp.TopP,
+		FrequencyPenalty:  sp.FrequencyPenalty,
+		PresencePenalty:   sp.PresencePenalty,
+		Seed:              sp.Seed,
+		Stop:              sp.Stop,
+		Stream:            true,
+		StreamOptions:     &streamOpts{IncludeUsage: true},
+		ReasoningEffort:   string(sp.Effort),
+		Think:             think,
+		TopK:              sp.TopK,
+		MinP:              sp.MinP,
+		RepetitionPenalty: sp.RepetitionPenalty,
 	}
 }
 
@@ -417,16 +444,5 @@ func truncate(s string, n int) string {
 // the model's tokenizer, which varies by family. Compaction thresholds are set
 // with margin so an estimate is sufficient (docs §07).
 func (c *OpenAICompatible) CountTokens(req Request) (int, error) {
-	n := len(req.System)
-	for _, m := range req.Messages {
-		n += len(m.Content) + 16 // per-message framing overhead
-		for _, tc := range m.ToolCalls {
-			n += len(tc.Name) + len(tc.Args) + 16
-		}
-	}
-	for _, t := range req.Tools {
-		n += len(t.Name) + len(t.Description) + len(t.InputSchema)
-	}
-	// ~3.6 chars/token is a reasonable average for code-heavy English text.
-	return n * 10 / 36, nil
+	return estimateTokens(req), nil
 }

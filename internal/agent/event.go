@@ -74,6 +74,10 @@ const (
 	TermError          TerminalReason = "error"
 	TermShutdown       TerminalReason = "shutdown"
 	TermRetryExhausted TerminalReason = "retry_exhausted"
+	// TermStalled: the model produced neither text nor a tool call, repeatedly.
+	// Distinct from completed because nothing was answered, and distinct from
+	// error because nothing failed.
+	TermStalled TerminalReason = "stalled"
 )
 
 // ExitCode maps a terminal reason to a process exit code for headless runs.
@@ -156,6 +160,25 @@ type SessionEnded struct {
 	TokensOut    int            `json:"tokens_out"`
 	TokensCached int            `json:"tokens_cached"`
 	Compactions  int            `json:"compactions"`
+}
+
+// Todo is one item in the agent's task list.
+type Todo struct {
+	ID     string `json:"id"`
+	Text   string `json:"text"`
+	Status string `json:"status"` // pending | in_progress | done | cancelled
+}
+
+// TodoList is the whole list, recorded whole on every change.
+//
+// Recording the list rather than a diff is deliberate: a reader replaying the
+// session sees what the agent believed the plan was at each point, without
+// having to reconstruct it from increments. The list is small and the clarity
+// is worth the repetition.
+type TodoList struct {
+	Items []Todo `json:"items"`
+	// Note explains the change, when the agent gives a reason for it.
+	Note string `json:"note,omitempty"`
 }
 
 type Compaction struct {

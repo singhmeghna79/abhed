@@ -596,8 +596,17 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 	live.mu.Unlock()
 
 	if busy {
-		writeError(w, http.StatusConflict,
-			"this session is still working — interrupt it before sending another message")
+		// A message to a working agent steers it rather than being refused.
+		// Interrupting and re-asking throws away everything the run has
+		// already established — the files read, the tool results, the context
+		// built — and makes the user pay for it twice. The message is applied
+		// at the next turn boundary, so a call in flight still completes and
+		// the transcript never shows one with no result.
+		live.Loop.Steer(req.Prompt)
+		writeJSON(w, http.StatusAccepted, map[string]string{
+			"session_id": id,
+			"delivery":   "steered",
+		})
 		return
 	}
 

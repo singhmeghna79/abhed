@@ -35,6 +35,10 @@ type WatsonX struct {
 	// IAMURL is overridable for CPD, which mints tokens itself.
 	IAMURL string
 
+	// Defaults are the operator's configured sampling parameters, overridden
+	// per request by anything the request itself sets.
+	Defaults Params
+
 	profile Profile
 	client  *http.Client
 
@@ -67,6 +71,7 @@ func NewWatsonX(cfg WatsonXConfig) *WatsonX {
 		Version:   cfg.Version,
 		IAMURL:    cfg.IAMURL,
 		profile:   cfg.Profile,
+		Defaults:  cfg.Defaults,
 		client:    &http.Client{Timeout: 10 * time.Minute},
 	}
 }
@@ -81,6 +86,9 @@ type WatsonXConfig struct {
 	Version   string
 	IAMURL    string
 	Profile   Profile
+	// Defaults are the operator's configured sampling parameters, overridden
+	// per request by anything the request itself sets.
+	Defaults Params
 }
 
 func (w *WatsonX) Name() string     { return "watsonx:" + w.ModelID }
@@ -145,6 +153,7 @@ type wxRequest struct {
 	Tools       []wxTool    `json:"tools,omitempty"`
 	MaxTokens   int         `json:"max_tokens,omitempty"`
 	Temperature *float64    `json:"temperature,omitempty"`
+	TopP        *float64    `json:"top_p,omitempty"`
 	Stop        []string    `json:"stop,omitempty"`
 }
 
@@ -202,13 +211,15 @@ type wxChunk struct {
 }
 
 func (w *WatsonX) buildRequest(req Request) wxRequest {
+	sp := w.Defaults.Merge(req.Sampling())
 	out := wxRequest{
 		ModelID:     w.ModelID,
 		ProjectID:   w.ProjectID,
 		SpaceID:     w.SpaceID,
-		MaxTokens:   req.MaxTokens,
-		Temperature: req.Temperature,
-		Stop:        req.Stop,
+		MaxTokens:   sp.MaxTokens,
+		Temperature: sp.Temperature,
+		TopP:        sp.TopP,
+		Stop:        sp.Stop,
 	}
 	// The system prompt is a separate field on Request, not a message. Missing
 	// it entirely is silent: the model still answers, just without any of the

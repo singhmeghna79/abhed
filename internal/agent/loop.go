@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yuvrajsingh/titan/internal/model"
@@ -59,7 +60,69 @@ type Loop struct {
 	// repeatedFailures counts consecutive identical tool calls that returned an
 	// error. A model that ignores an error message and retries verbatim will
 	// otherwise burn the entire turn budget on one mistake.
+	//
+	// Guarded because independent tool calls in one turn run concurrently, and
+	// concurrent writes to a Go map are not a race that corrupts a counter —
+	// they abort the process.
 	repeatedFailures map[string]int
+	failuresMu       sync.Mutex
+
+	// emptyTurns counts consecutive turns that produced neither text nor a
+	// tool call, so a model that stalls is nudged rather than mistaken for one
+	// that finished.
+	emptyTurns int
+
+	// todos is the agent's task list, recorded whenever it changes so a replay
+	// shows what the plan was believed to be at each point.
+	todos []Todo
+
+	// steer carries messages sent while the agent is working. Reading them at
+	// a turn boundary is what lets a user redirect a run instead of killing it.
+	steer   []string
+	steerMu sync.Mutex
+}
+
+// Steer delivers a message to a running agent, applied at the next turn
+// boundary.
+//
+// Without it the only way to correct an agent that has misunderstood is to
+// interrupt and start again, which discards everything it has already learned —
+// the reading, the tool results, the half-built context. The user pays for that
+// work twice and usually re-types the request. A steering message costs one
+// turn and keeps all of it.
+//
+// It lands between turns rather than mid-turn on purpose: a tool call already
+// in flight finishes and its result is recorded, so the transcript never shows
+// a call with no outcome.
+func (l *Loop) Steer(text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	l.steerMu.Lock()
+	defer l.steerMu.Unlock()
+	l.steer = append(l.steer, text)
+}
+
+// takeSteering removes and returns any pending steering messages.
+func (l *Loop) takeSteering() []string {
+	l.steerMu.Lock()
+	defer l.steerMu.Unlock()
+	if len(l.steer) == 0 {
+		return nil
+	}
+	out := l.steer
+	l.steer = nil
+	return out
+}
+
+// Todos returns the current task list.
+func (l *Loop) Todos() []Todo { return l.todos }
+
+// RecordTodos stores a new list and emits the event. It is exported so the
+// todo tool can report through the loop rather than carrying a recorder.
+func (l *Loop) RecordTodos(items []Todo, note string) {
+	l.todos = items
+	l.Recorder.Record(EvTodoUpdated, ActorAgent, Trusted, TodoList{Items: items, Note: note})
 }
 
 type Usage struct {
@@ -134,6 +197,14 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 		if l.turns >= l.Config.MaxTurns {
 			return l.finish(TermMaxTurns), nil
 		}
+		// Steering is applied before the turn is counted, so a redirection
+		// never costs the user a turn from the budget.
+		for _, msg := range l.takeSteering() {
+			l.Recorder.Record(EvUserMessage, ActorUser, Trusted, Message{Text: msg})
+			l.messages = append(l.messages, model.Message{
+				Role: model.RoleUser, Content: msg,
+			})
+		}
 		l.turns++
 
 		if err := l.maybeCompact(ctx); err != nil {
@@ -160,11 +231,21 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 // The system prompt and memory file are re-injected whole rather than
 // summarized: compaction discarding the operating rules is exactly the failure
 // docs P4 warns about.
-func (l *Loop) maybeCompact(ctx context.Context) error {
+func (l *Loop) maybeCompact(ctx context.Context) error { return l.compactIfNeeded(ctx, true) }
+
+// compactNow checks without a forward allowance, for the point after tool
+// results have already been added to history.
+func (l *Loop) compactNow(ctx context.Context) error { return l.compactIfNeeded(ctx, false) }
+
+func (l *Loop) compactIfNeeded(ctx context.Context, reserve bool) error {
 	if l.Compactor == nil {
 		return nil
 	}
-	should, used, err := l.Compactor.ShouldCompact(l.Config.SystemPrompt, l.messages, toolDefs(l.Tools))
+	check := l.Compactor.ShouldCompact
+	if !reserve {
+		check = l.Compactor.ShouldCompactNow
+	}
+	should, used, err := check(l.Config.SystemPrompt, l.messages, toolDefs(l.Tools))
 	if err != nil || !should {
 		return err
 	}
@@ -203,6 +284,24 @@ func (l *Loop) Compact(ctx context.Context) (Compaction, error) {
 	l.usage.Compactions++
 	l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, info)
 	return info, nil
+}
+
+// SetAdapter swaps the model mid-session.
+//
+// The conversation is kept: the messages are provider-neutral, so a session can
+// start on a fast local model and move to a larger one when the work turns out
+// to be harder than it looked, without losing what has been established.
+//
+// This does invalidate the prefix cache — the new provider has never seen this
+// prefix — so the next turn pays cold prefill. That is a real cost and the
+// reason this was once a restart-only operation; it is a worse trade than
+// making the user rebuild the session by hand, which pays the same cost and
+// loses the history too.
+func (l *Loop) SetAdapter(a model.Adapter) {
+	l.Adapter = a
+	if l.Compactor != nil {
+		l.Compactor.Adapter = a
+	}
 }
 
 // Messages exposes the current history for inspection and testing.
@@ -297,8 +396,9 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	// let it retry rather than aborting the session.
 	if streamErr != nil && len(calls) == 0 {
 		if text.Len() == 0 {
+			// No empty assistant turn: an endpoint that rejects null content
+			// would turn this recovery into the failure it exists to avoid.
 			l.messages = append(l.messages,
-				model.Message{Role: model.RoleAssistant, Content: ""},
 				model.Message{Role: model.RoleUser, Content: "Your previous response could not be parsed: " +
 					streamErr.Error() + "\nPlease retry with valid tool arguments."})
 			return "", false, nil
@@ -313,41 +413,71 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 
 	// Normal termination: a response with no tool calls.
 	if len(calls) == 0 {
+		// An empty turn is not an answer. A reasoning model can spend its
+		// whole turn thinking — ending on "Let's execute." — and emit neither
+		// text nor a call; treating that as completion ends the session with
+		// nothing said, which reads as the agent silently ignoring the
+		// question. Prompt it once to continue, and only give up if it stalls
+		// again, so a genuine end-of-turn still terminates immediately.
+		if strings.TrimSpace(text.String()) == "" {
+			l.emptyTurns++
+			if l.emptyTurns <= emptyTurnRetries {
+				// Only the user turn is appended. An assistant message with
+				// empty content is rejected outright by some endpoints
+				// ("invalid message content type: <nil>"), which would turn a
+				// recoverable stall into a failed session.
+				l.messages = append(l.messages,
+					model.Message{Role: model.RoleUser, Content: "You produced no answer and " +
+						"called no tool. Continue: either call the tool you intended, or write " +
+						"the answer itself."})
+				return "", false, nil
+			}
+			return TermStalled, true, nil
+		}
+		l.emptyTurns = 0
 		l.messages = append(l.messages, model.Message{
 			Role: model.RoleAssistant, Content: text.String(),
 		})
 		return TermCompleted, true, nil
 	}
+	l.emptyTurns = 0
 
 	l.messages = append(l.messages, model.Message{
 		Role: model.RoleAssistant, Content: text.String(), ToolCalls: calls,
 	})
 
-	for _, call := range calls {
-		result, terminal := l.execute(ctx, call)
-		l.messages = append(l.messages, model.Message{
-			Role:       model.RoleTool,
-			ToolCallID: call.ID,
-			Content:    result.Content,
-			IsError:    result.IsError,
+	if terminal := l.runCalls(ctx, calls); terminal != "" {
+		return terminal, true, nil
+	}
+
+	// Compact here as well as before the turn. A single tool result can add
+	// more than the whole compaction headroom — a 40,000-character file is
+	// ~13,000 tokens — so a check that only runs before the turn watches
+	// history step from comfortably under the threshold to over the hard limit
+	// in one move, and the next model call fails with the window exceeded
+	// rather than being compacted. Checking after the results land is what
+	// makes a long session survive its own tool output.
+	if err := l.compactNow(ctx); err != nil {
+		l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, map[string]string{
+			"error": err.Error(),
 		})
-		if terminal != "" {
-			return terminal, true, nil
-		}
 	}
 
 	// If one call has failed identically far past the point of escalation, the
 	// model is stuck. Ending is better than spending the remaining budget.
-	for key, n := range l.repeatedFailures {
-		if n >= repeatedFailureAbort {
-			l.messages = append(l.messages, model.Message{
-				Role: model.RoleUser,
-				Content: fmt.Sprintf(
-					"Stopping: the same call failed %d times without adaptation (%s).",
-					n, truncateKey(key)),
-			})
-			return TermRetryExhausted, true, nil
-		}
+	//
+	// The parallel calls have all finished by here, but the lock is taken
+	// anyway: relying on that ordering means a future edit that moves this
+	// read, or starts a call that outlives the turn, crashes the process
+	// rather than failing a test.
+	if key, n, stuck := l.worstRepeatedFailure(); stuck {
+		l.messages = append(l.messages, model.Message{
+			Role: model.RoleUser,
+			Content: fmt.Sprintf(
+				"Stopping: the same call failed %d times without adaptation (%s).",
+				n, truncateKey(key)),
+		})
+		return TermRetryExhausted, true, nil
 	}
 	return "", false, nil
 }
@@ -357,6 +487,8 @@ const (
 	repeatedFailureLimit = 3
 	// After this many, the loop gives up rather than burning the budget.
 	repeatedFailureAbort = 6
+	// How many empty turns to nudge through before calling the run stalled.
+	emptyTurnRetries = 2
 )
 
 func truncateKey(k string) string {
@@ -368,9 +500,23 @@ func truncateKey(k string) string {
 
 // execute runs one tool call through policy, approval, and the tool itself.
 func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, TerminalReason) {
+	ok, res, terminal := l.authorize(ctx, call)
+	if !ok || terminal != "" {
+		return res, terminal
+	}
+	return l.invoke(ctx, call)
+}
+
+// authorize puts one call through policy and, where needed, the approver.
+//
+// It is separate from running the tool so that a turn's approvals happen one at
+// a time while the approved calls can then run together: two permission prompts
+// racing for the same terminal is unusable, and the user cannot tell which one
+// they are answering.
+func (l *Loop) authorize(ctx context.Context, call model.ToolCall) (bool, tools.Result, TerminalReason) {
 	tool, found := l.Tools.Get(call.Name)
 	if !found {
-		return tools.Result{
+		return false, tools.Result{
 			Content: fmt.Sprintf("Unknown tool %q. Available tools: %s.",
 				call.Name, strings.Join(l.Tools.Names(), ", ")),
 			IsError: true,
@@ -386,7 +532,7 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 		RequiresApproval: decision.Decision == policy.Ask,
 		Reason:           decision.Reason,
 	}); err != nil {
-		return tools.Result{Content: err.Error(), IsError: true}, TermError
+		return false, tools.Result{Content: err.Error(), IsError: true}, TermError
 	}
 
 	switch decision.Decision {
@@ -395,7 +541,7 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 			"call_id": call.ID, "reason": decision.Reason,
 		})
 		// Feed the denial back so the model can choose another approach.
-		return tools.Result{
+		return false, tools.Result{
 			Content: fmt.Sprintf("Denied: %s. Choose a different approach.", decision.Reason),
 			IsError: true,
 		}, ""
@@ -404,9 +550,9 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 		approved, err := l.Approver.Approve(ctx, call.Name, call.Args, decision)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				return tools.Result{Content: "Interrupted.", IsError: true}, TermUserInterrupt
+				return false, tools.Result{Content: "Interrupted.", IsError: true}, TermUserInterrupt
 			}
-			return tools.Result{Content: err.Error(), IsError: true}, TermError
+			return false, tools.Result{Content: err.Error(), IsError: true}, TermError
 		}
 		if !approved {
 			l.Recorder.Record(EvActionDenied, ActorUser, Trusted, map[string]string{
@@ -426,13 +572,23 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 			}
 			msg += "Do not retry this call or a re-worded version of it. " +
 				"Use a different tool, or explain what you need and stop."
-			return tools.Result{Content: msg, IsError: true}, ""
+			return false, tools.Result{Content: msg, IsError: true}, ""
 		}
 	}
 
 	l.Recorder.Record(EvActionApproved, ActorSystem, Trusted, map[string]string{
 		"call_id": call.ID, "reason": decision.Reason,
 	})
+	return true, tools.Result{}, ""
+}
+
+// invoke runs an already-authorized tool and records its observation.
+func (l *Loop) invoke(ctx context.Context, call model.ToolCall) (tools.Result, TerminalReason) {
+	tool, found := l.Tools.Get(call.Name)
+	if !found {
+		return tools.Result{Content: "tool disappeared between authorization and execution",
+			IsError: true}, TermError
+	}
 
 	start := time.Now()
 	result := tool.Run(ctx, l.Session, call.Args)
@@ -442,19 +598,24 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 	// error. Escalate the message rather than letting it consume every turn:
 	// the error text alone has demonstrably not worked.
 	if result.IsError {
+		l.failuresMu.Lock()
 		if l.repeatedFailures == nil {
 			l.repeatedFailures = map[string]int{}
 		}
 		key := call.Name + string(call.Args)
 		l.repeatedFailures[key]++
-		if n := l.repeatedFailures[key]; n >= repeatedFailureLimit {
+		n := l.repeatedFailures[key]
+		l.failuresMu.Unlock()
+		if n >= repeatedFailureLimit {
 			result.Content = fmt.Sprintf(
 				"%s\n\n[This exact call has now failed %d times. Repeating it will not "+
 					"work. Read the error above and do something different — or explain "+
 					"what is blocking you and stop.]", result.Content, n)
 		}
 	} else {
+		l.failuresMu.Lock()
 		delete(l.repeatedFailures, call.Name+string(call.Args))
+		l.failuresMu.Unlock()
 	}
 
 	// Tool output is untrusted: it may contain text that looks like
@@ -526,4 +687,173 @@ func toolDefs(r *tools.Registry) []model.ToolDef {
 		out[i] = model.ToolDef{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema}
 	}
 	return out
+}
+
+
+// fitResult bounds what one tool result can occupy in history.
+//
+// Compaction summarizes what is already there; it cannot help with a single
+// message too large to send. A tool that returns a whole file, or a retrieval
+// that returns twenty documents, can exceed the model's window on its own, and
+// no amount of summarizing earlier turns rescues a request whose last message
+// does not fit.
+//
+// The middle is dropped rather than the tail: the head of a result says what it
+// is and the tail usually carries the conclusion, while the middle of a long
+// listing is the least load-bearing part. The elision is explicit so the model
+// knows it is reading an excerpt and can ask for the rest by offset.
+func (l *Loop) fitResult(content string) string {
+	limit := l.resultLimitChars()
+	if limit <= 0 || len(content) <= limit {
+		return content
+	}
+	half := limit / 2
+	dropped := len(content) - limit
+	return content[:half] +
+		fmt.Sprintf("\n\n[... %d characters elided to fit the context window. "+
+			"Re-read with an offset to see this part. ...]\n\n", dropped) +
+		content[len(content)-half:]
+}
+
+// resultLimitChars is the per-result cap, derived from the context window so a
+// small-window model is protected and a large-window one is not needlessly
+// truncated. Zero means the window is unknown, and nothing is capped.
+func (l *Loop) resultLimitChars() int {
+	window := l.Adapter.Profile().ContextWindow
+	if window <= 0 {
+		return 0
+	}
+	// A quarter of the window, converted back to characters at the same
+	// ~3.6 chars/token the estimator uses. One result may occupy a quarter of
+	// the budget; four such results in one turn still leave room to compact.
+	return window / 4 * 36 / 10
+}
+
+// LoopHolder lets a tool built before the loop report into it once it exists.
+//
+// The registry is constructed first — tools have to be known before a loop can
+// be given them — so a tool that needs to record an event has nothing to record
+// into yet. A holder makes that ordering explicit and scoped, where a package
+// variable would silently share one loop across every session in the process.
+type LoopHolder struct{ loop *Loop }
+
+func (h *LoopHolder) Set(l *Loop) { h.loop = l }
+
+// RecordTodos forwards to the current loop, and does nothing before one is set.
+func (h *LoopHolder) RecordTodos(items []Todo, note string) {
+	if h != nil && h.loop != nil {
+		h.loop.RecordTodos(items, note)
+	}
+}
+
+
+// runCalls executes a turn's tool calls and appends their results.
+//
+// Independent calls run concurrently. A model that asks to read four files
+// should not wait for four round trips in series, and the prompt asking it to
+// batch calls was only ever a request — the harness either runs them together
+// or it does not.
+//
+// Three things are deliberately NOT parallel:
+//
+// Approval is sequential, because two permission prompts racing for one
+// terminal is unusable and the user cannot tell which they are answering.
+// Every call is put through policy first, in order, and only the approved ones
+// are then run together.
+//
+// Mutating calls are sequential with respect to everything. Two edits to the
+// same file, or an edit racing a read of it, produce a result that depends on
+// scheduling — and a session that cannot be replayed to the same outcome is not
+// auditable, which is the property the whole event log exists to provide.
+//
+// Results are appended in the order the model asked for them, never in the
+// order they finished, for the same reason.
+func (l *Loop) runCalls(ctx context.Context, calls []model.ToolCall) TerminalReason {
+	results := make([]callOutcome, len(calls))
+
+	// Phase 1: policy and approval, in order, one at a time.
+	approved := make([]bool, len(calls))
+	for i, call := range calls {
+		decision, res, terminal := l.authorize(ctx, call)
+		if terminal != "" {
+			results[i] = callOutcome{result: res, terminal: terminal}
+			l.appendResults(calls, results, i+1)
+			return terminal
+		}
+		if !decision {
+			results[i] = callOutcome{result: res}
+			continue
+		}
+		approved[i] = true
+	}
+
+	// Phase 2: run what was approved. Read-only calls go together; anything
+	// that mutates runs alone, after the concurrent batch, so the outcome does
+	// not depend on which goroutine won.
+	var wg sync.WaitGroup
+	var mutating []int
+	for i, call := range calls {
+		if !approved[i] {
+			continue
+		}
+		tool, found := l.Tools.Get(call.Name)
+		if found && tool.Mutates() {
+			mutating = append(mutating, i)
+			continue
+		}
+		wg.Add(1)
+		go func(i int, call model.ToolCall) {
+			defer wg.Done()
+			res, terminal := l.invoke(ctx, call)
+			results[i] = callOutcome{result: res, terminal: terminal}
+		}(i, call)
+	}
+	wg.Wait()
+
+	for _, i := range mutating {
+		res, terminal := l.invoke(ctx, calls[i])
+		results[i] = callOutcome{result: res, terminal: terminal}
+		if terminal != "" {
+			l.appendResults(calls, results, i+1)
+			return terminal
+		}
+	}
+
+	l.appendResults(calls, results, len(calls))
+	for _, o := range results {
+		if o.terminal != "" {
+			return o.terminal
+		}
+	}
+	return ""
+}
+
+// worstRepeatedFailure reports a call that has failed past the abort threshold.
+func (l *Loop) worstRepeatedFailure() (string, int, bool) {
+	l.failuresMu.Lock()
+	defer l.failuresMu.Unlock()
+	for key, n := range l.repeatedFailures {
+		if n >= repeatedFailureAbort {
+			return key, n, true
+		}
+	}
+	return "", 0, false
+}
+
+// callOutcome pairs a tool result with any terminal reason it produced.
+type callOutcome struct {
+	result   tools.Result
+	terminal TerminalReason
+}
+
+// appendResults adds the first n results to history, in call order.
+func (l *Loop) appendResults(calls []model.ToolCall, results []callOutcome, n int) {
+	for i := 0; i < n && i < len(calls); i++ {
+		l.messages = append(l.messages, model.Message{
+			Role:       model.RoleTool,
+			ToolCallID: calls[i].ID,
+			Content:    l.fitResult(results[i].result.Content),
+			IsError:    results[i].result.IsError,
+		})
+	}
 }

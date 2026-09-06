@@ -9,7 +9,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	crand "crypto/rand"
 	"encoding/json"
@@ -19,6 +18,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -26,6 +26,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/extension"
 	"github.com/yuvrajsingh/titan/internal/eval"
 	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/k8s"
@@ -81,6 +82,12 @@ func main() {
 		return
 	case "doctor":
 		os.Exit(doctor(workspace))
+	case "providers":
+		os.Exit(providersCmd())
+	case "rpc":
+		// Line-delimited JSON on stdin and stdout, so a caller in any language
+		// can drive Titan as a subprocess without running a server.
+		os.Exit(rpcCmd(workspace))
 	case "user":
 		os.Exit(userCmd(workspace, flag.Args()[1:]))
 	case "index":
@@ -148,9 +155,36 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		fmt.Fprintf(os.Stderr, "titan: warning: %s\n", sb.Describe())
 	}
 
+	// Custom providers are registered before any provider is resolved, so a
+	// name from configuration is usable as model.default.
+	for _, err := range cfg.RegisterCustomProviders() {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+	}
+
+	// Extensions can veto a tool call, never permit one. The hook they install
+	// runs first in the policy chain so it can refuse, and is structurally
+	// incapable of returning Allow.
+	extHost := extension.NewHost(func(format string, args ...any) {
+		fmt.Fprintf(os.Stderr, "titan: "+format+"\n", args...)
+	})
+	defer extHost.Close()
+	for _, err := range extHost.Load(context.Background(), cfg.ExtensionSpecs()) {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+	}
+	if extHost.Len() > 0 {
+		pol.Hooks = append(pol.Hooks, extHost.PolicyHook(context.Background(), "session"))
+	}
+
+	// The todo tool reports through whichever loop is currently running. The
+	// holder exists because the registry is built before the loop, and a
+	// package-level variable would quietly share state between sessions.
+	todos := &agent.LoopHolder{}
 	registry := tools.NewRegistry(
 		tools.Read{}, tools.Write{}, tools.Edit{},
 		tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
+		tools.Todo{OnUpdate: func(items []tools.TodoItem, note string) {
+			todos.RecordTodos(toAgentTodos(items), note)
+		}},
 	)
 
 	// Subagents share the parent's budget, so a fan-out cannot multiply spend
@@ -172,6 +206,17 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 	for _, t := range gateway.Tools() {
 		registry.Add(t)
+	}
+	// A tool an extension provides is a tool like any other: it appears in the
+	// model's list, goes through the policy engine, and its call and result are
+	// recorded. Providing one adds a capability, never a way around the rules.
+	if extTools, toolErrs := extHost.Tools(context.Background()); true {
+		for _, err := range toolErrs {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		}
+		for _, t := range extTools {
+			registry.Add(t)
+		}
 	}
 
 	for _, t := range buildRAG(cfg) {
@@ -256,15 +301,15 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	defer stop()
 
 	if headless {
-		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, cfg, prompt)
+		return runOnce(ctx, store, renderer, jsonOut, adapter, registry, pol, approver, sess, loopCfg, cfg, prompt, todos)
 	}
-	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace)
+	return interactive(ctx, store, renderer, adapter, registry, pol, approver, sess, loopCfg, cfg, provider, workspace, todos, extHost)
 }
 
 func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonOut bool,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
 	approver agent.Approver, sess *tools.Session, cfg agent.Config,
-	appCfg config.Config, prompt string) int {
+	appCfg config.Config, prompt string, holder *agent.LoopHolder) int {
 
 	sessionID := fmt.Sprintf("s-%d", time.Now().UnixNano())
 	recordSession(ctx, store, sessionID, appCfg, prompt)
@@ -285,6 +330,7 @@ func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonO
 	}()
 
 	loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
+	holder.Set(loop)
 	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	reason, err := loop.Run(ctx, prompt)
 
@@ -304,7 +350,8 @@ func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonO
 func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	adapter model.Adapter, registry *tools.Registry, pol *policy.Engine,
 	approver agent.Approver, sess *tools.Session, cfg agent.Config,
-	appCfg config.Config, provider config.ProviderConfig, workspace string) int {
+	appCfg config.Config, provider config.ProviderConfig, workspace string,
+	todos *agent.LoopHolder, extHost *extension.Host) int {
 
 	s := r.Style()
 	sandboxLabel := "none"
@@ -318,7 +365,30 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		sandboxLabel, storageLabel(appCfg)))
 	fmt.Printf("\n%s\n\n", s.Dim("Type a task, or /help. Ctrl-C interrupts, Ctrl-D exits."))
 
-	in := bufio.NewReader(os.Stdin)
+	// Input is read on its own goroutine so a line typed while the agent is
+	// working can steer it. Reading inline meant the prompt was simply not
+	// there during a turn: the only way to correct a run that had misunderstood
+	// was Ctrl-C, which discards every file it had read and every result it had
+	// gathered, and then the user retypes the request.
+	// Line editing: arrow keys, history, Home/End, Ctrl-A/E/U/K/W. A prompt
+	// where Left prints "^[[D" instead of moving the cursor reads as broken,
+	// however good the agent behind it is. Falls back to plain line reads when
+	// stdin is not a terminal, since raw mode on a pipe corrupts the input.
+	editor := ui.NewLineReader(ui.Prompt(s))
+	defer editor.Close()
+
+	lines := make(chan string)
+	readErr := make(chan struct{})
+	go func() {
+		for {
+			line, err := editor.ReadLine()
+			if err != nil {
+				close(readErr)
+				return
+			}
+			lines <- strings.TrimSpace(line)
+		}
+	}()
 	turn := 0
 	// Session-level state the slash commands operate on.
 	undo := agent.NewUndoLog()
@@ -329,13 +399,18 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	}
 
 	for {
-		fmt.Print(ui.Prompt(s))
-		line, err := in.ReadString('\n')
-		if err != nil {
+		if !editor.Raw() {
+			fmt.Print(ui.Prompt(s))
+		}
+		var line string
+		select {
+		case <-readErr:
 			fmt.Println()
 			return 0
+		case <-ctx.Done():
+			return 0
+		case line = <-lines:
 		}
-		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
@@ -363,12 +438,59 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		// Each task gets its own cancellable context so Ctrl-C interrupts the
 		// task without killing the session.
 		taskCtx, cancelTask := context.WithCancel(ctx)
-		loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
-		loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
+		// Read the adapter from session state rather than the value captured
+		// at startup, or a /model switch is silently reverted on the next turn.
+		active := sessionState.adapter
+		loop := agent.NewLoop(active, registry, pol, approver, sess, rec, cfg)
+		loop.Compactor = agent.NewCompactor(active, cfg.CompactAt)
+		attachExtensionSummarizer(loop.Compactor, extHost, sessionID)
+		todos.Set(loop)
 		sessionState.loop = loop
 		sessionState.sessionID = sessionID
 		undo.BeginTurn()
-		_, runErr := loop.Run(taskCtx, line)
+
+		// Run on a goroutine so the reader stays live: anything typed now is a
+		// steering message, applied at the next turn boundary rather than
+		// killing the run.
+		type outcome struct{ err error }
+		finished := make(chan outcome, 1)
+		go func() {
+			_, err := loop.Run(taskCtx, line)
+			finished <- outcome{err}
+		}()
+
+		var runErr error
+		var queued []string
+		eof := false
+	steering:
+		for {
+			select {
+			case o := <-finished:
+				runErr = o.err
+				break steering
+			case <-readErr:
+				// End of input is not a reason to abandon the work. A piped
+				// script sends every line at once and closes stdin long before
+				// the agent has finished; cancelling there killed the run and
+				// discarded the commands that were meant to follow it.
+				readErr = nil // stop selecting on a closed channel
+				eof = true
+			case msg := <-lines:
+				if msg == "" {
+					continue
+				}
+				if strings.HasPrefix(msg, "/") {
+					// A command typed mid-run is held, not dropped. Discarding
+					// it loses what the user asked for, and running it now
+					// would act on a session that is still changing under it.
+					queued = append(queued, msg)
+					fmt.Printf("  %s\n", s.Dim("queued "+msg+" — runs when this finishes"))
+					continue
+				}
+				loop.Steer(msg)
+				fmt.Printf("  %s\n", s.Dim("steering — applied at the next step"))
+			}
+		}
 		cancelTask()
 		sessionState.accumulate(loop.Usage())
 
@@ -380,6 +502,19 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 		}
 		printUsage(r, loop.Usage())
 		fmt.Println()
+
+		// Anything typed as a command while the agent worked runs now, in the
+		// order it was typed.
+		for _, cmd := range queued {
+			fmt.Printf("%s%s\n", ui.Prompt(s), cmd)
+			if quit := handleCommand(ctx, cmd, r, pol, sess, sessionState); quit {
+				return 0
+			}
+		}
+		if eof {
+			fmt.Println()
+			return 0
+		}
 
 		if ctx.Err() != nil {
 			return 130
@@ -428,10 +563,12 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
   /compact [hint]   compact the context now
   /clear            clear the context, keep the workspace
   /memory           show the TITAN.md files in effect
-  /model [name]     show or switch the configured provider
+  /model [name]     show or switch the model, keeping the conversation
   /sessions         list recent sessions (durable store)
   /resume <id>      replay a past session's transcript
-  /export [path]    write the transcript to a JSON file
+  /tree             show the session's steps, with the numbers /fork takes
+  /fork [step]      rebuild the conversation up to a step and continue from it
+  /export [path]    write the transcript (.html by default, .json for events)
   /cwd              show the workspace root
   /quit             exit`))
 
@@ -598,13 +735,70 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 			fmt.Printf("  %s no provider %q in config\n", s.Red("✕"), fields[1])
 			return false
 		}
+		next, buildErr := p.Adapter()
+		if buildErr != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), buildErr)
+			return false
+		}
 		st.appCfg.Model.Default = fields[1]
 		st.provider = p
-		fmt.Printf("  %s\n", s.Dim("switched to "+p.Model+"; restart titan for it to take effect"))
-		fmt.Printf("  %s\n", s.Dim("(mid-session switching would invalidate the prefix cache)"))
+		st.adapter = next
+		if st.loop != nil {
+			st.loop.SetAdapter(next)
+		}
+		fmt.Printf("  %s\n", s.Dim("switched to "+p.Model+" — the conversation is kept"))
+		fmt.Printf("  %s\n", s.Dim("(the next turn re-prefills: the new provider has not seen this prefix)"))
+
+	case "/tree":
+		// Show the session as steps, so a user can see where it went wrong
+		// before deciding where to fork. Without it, /fork asks for a number
+		// nobody has any way to know.
+		events, err := st.store.Events(st.sessionID)
+		if err != nil || len(events) == 0 {
+			fmt.Println(s.Dim("  nothing recorded yet"))
+			return false
+		}
+		forkPoints(r, events)
+		fmt.Printf("  %s\n", s.Dim("/fork <step> rebuilds the conversation up to a step"))
+
+	case "/fork":
+		// Rebuild the conversation from the event log up to a point and carry
+		// on from there. A wrong turn three steps back should cost three
+		// steps, not the session: everything before it was still right, and
+		// re-establishing it means paying for the same reading twice.
+		events, err := st.store.Events(st.sessionID)
+		if err != nil || len(events) == 0 {
+			fmt.Println(s.Dim("  nothing to fork from yet"))
+			return false
+		}
+		if len(fields) < 2 {
+			fmt.Println(s.Dim("  /fork <step> — rebuild the conversation up to a step and continue from it"))
+			forkPoints(r, events)
+			return false
+		}
+		seq, convErr := strconv.ParseInt(fields[1], 10, 64)
+		if convErr != nil {
+			fmt.Printf("  %s %q is not a step number\n", s.Red("✕"), fields[1])
+			return false
+		}
+		msgs, forkErr := agent.Fork(events, seq)
+		if forkErr != nil {
+			fmt.Printf("  %s %v\n", s.Red("✕"), forkErr)
+			return false
+		}
+		if st.loop == nil {
+			fmt.Println(s.Dim("  no active session to fork into"))
+			return false
+		}
+		st.loop.Restore(msgs)
+		fmt.Printf("  %s\n", s.Dim(fmt.Sprintf(
+			"forked at step %d — %d messages kept; the next thing you type continues from there", seq, len(msgs))))
 
 	case "/export":
-		path := filepath.Join(sess.Root, fmt.Sprintf("titan-session-%s.json", st.sessionID))
+		// HTML by default, because a transcript that needs a parser before a
+		// colleague can read it usually does not get read. `/export x.json`
+		// still writes the raw events for a program.
+		path := filepath.Join(sess.Root, fmt.Sprintf("titan-session-%s.html", st.sessionID))
 		if len(fields) > 1 {
 			path = fields[1]
 		}
@@ -613,7 +807,12 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 			fmt.Println(s.Dim("  no transcript to export yet"))
 			return false
 		}
-		data, err := json.MarshalIndent(events, "", "  ")
+		var data []byte
+		if strings.HasSuffix(path, ".json") {
+			data, err = json.MarshalIndent(events, "", "  ")
+		} else {
+			data = []byte(agent.ExportHTML(st.sessionID, events))
+		}
 		if err != nil {
 			fmt.Printf("  %s %v\n", s.Red("✕"), err)
 			return false
@@ -830,6 +1029,7 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 	fmt.Printf("running %d tasks against %s\n\n", len(tasks), provider.Model)
 
 	adapter := buildAdapter(provider)
+	evalSkills, evalSkillListing := buildSkills(cfg)
 	workRoot, err := os.MkdirTemp("", "titan-eval-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
@@ -850,9 +1050,23 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 			tools.Read{}, tools.Write{}, tools.Edit{},
 			tools.Glob{}, tools.Grep{}, tools.Bash{Sandbox: sb.Command},
 		)
+		// Skills and web search are part of the agent under test, not extras.
+		// Without them a corpus that exercises a retrieval skill measures an
+		// agent that never had one — it would score zero and say nothing about
+		// the harness.
+		if evalSkills.Len() > 0 {
+			registry.Add(skills.Tool{R: evalSkills})
+		}
+		if t, err := buildWebSearch(cfg); err == nil && t != nil {
+			registry.Add(t)
+		}
 
 		pol := policy.New(policy.ModeAuto)
 		must(pol.AddDeny(cfg.Permissions.Deny...))
+		// The operator's own allow rules apply, so an eval run is governed the
+		// same way a real session is. The build-tool defaults stay for corpora
+		// that compile and test code.
+		must(pol.AddAllow(cfg.Permissions.Allow...))
 		must(pol.AddAllow("bash(go *)", "bash(npm *)", "bash(python *)", "bash(cat *)", "bash(ls*)"))
 
 		store := agent.NewMemStore()
@@ -863,6 +1077,7 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 		loopCfg.SystemPrompt = agent.BuildSystemPrompt(agent.BuildOptions{
 			Profile: "main", Workspace: ws,
 			Model: provider.Model, ContextWindow: provider.ContextWindow,
+			Skills: evalSkillListing,
 		})
 		if task.MaxTurns > 0 {
 			loopCfg.MaxTurns = task.MaxTurns
@@ -1603,31 +1818,18 @@ func buildRAG(cfg config.Config) []tools.Tool {
 	return out
 }
 
+// buildAdapter constructs the configured provider.
+//
+// Every provider is reached through the registry in internal/model, so adding
+// one is a new file with an init rather than another branch here. A build
+// failure is fatal by design: a mistyped provider type or an unsupported
+// sampling parameter is a configuration error, and discovering it now beats
+// discovering it on the first model call of a long session.
 func buildAdapter(p config.ProviderConfig) model.Adapter {
-	if p.Type == "watsonx" {
-		return model.NewWatsonX(model.WatsonXConfig{
-			BaseURL: p.BaseURL, APIKey: p.APIKey,
-			ProjectID: p.ProjectID, SpaceID: p.SpaceID,
-			ModelID: p.Model, Version: p.APIVersion, IAMURL: p.IAMURL,
-			Profile: model.Profile{
-				Name:            p.Model,
-				ContextWindow:   p.ContextWindow,
-				MaxOutputTokens: p.MaxOutputTokens,
-			},
-		})
-	}
-	profile := model.Profile{
-		Name:            p.Model,
-		ContextWindow:   p.ContextWindow,
-		MaxOutputTokens: p.MaxOutputTokens,
-		SupportsTools:   true,
-		SupportsStream:  true,
-		ToolCallFormat:  orDefault(p.ToolCallFormat, "json"),
-	}
-	a := model.NewOpenAICompatible(p.BaseURL, p.APIKey, p.Model, profile)
-	a.Think = p.Think
-	if len(p.ReasoningTags) == 2 {
-		a.ReasoningTags = [2]string{p.ReasoningTags[0], p.ReasoningTags[1]}
+	a, err := p.Adapter()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "model: %v\n", err)
+		os.Exit(1)
 	}
 	return a
 }
@@ -1862,4 +2064,98 @@ func must(err error) {
 func fail(err error) {
 	fmt.Fprintf(os.Stderr, "titan: %v\n", err)
 	os.Exit(1)
+}
+
+
+// providersCmd lists the model providers this build supports.
+//
+// The set is whatever registered itself at init, so it is accurate for the
+// binary in hand rather than for the documentation — which matters for a build
+// that deliberately drops the cloud providers for an air-gapped install.
+func providersCmd() int {
+	fmt.Println("Model providers in this build:")
+	fmt.Println()
+	for _, d := range model.Describe() {
+		fmt.Println("  " + d)
+	}
+	fmt.Println()
+	fmt.Println("Set one as \"type\" in .titan/config.json under model.providers.")
+	fmt.Println("Sampling parameters go in that provider's \"params\" object;")
+	fmt.Println("a parameter the provider cannot honour is reported at startup")
+	fmt.Println("rather than silently ignored.")
+	return 0
+}
+
+
+// toAgentTodos converts the tool's items to the event payload's.
+//
+// The two types are deliberately separate: internal/tools must not import the
+// agent package, or every tool would drag the event schema behind it.
+func toAgentTodos(items []tools.TodoItem) []agent.Todo {
+	out := make([]agent.Todo, 0, len(items))
+	for _, i := range items {
+		out = append(out, agent.Todo{ID: i.ID, Text: i.Text, Status: i.Status})
+	}
+	return out
+}
+
+
+// forkPoints lists the steps a session can be forked at, so the user has
+// something to name rather than guessing a sequence number.
+func forkPoints(r *ui.Renderer, events []agent.Event) {
+	s := r.Style()
+	shown := 0
+	for _, ev := range events {
+		var label string
+		switch ev.Type {
+		case agent.EvUserMessage:
+			var m agent.Message
+			if json.Unmarshal(ev.Payload, &m) == nil {
+				label = "you: " + firstLine(m.Text, 60)
+			}
+		case agent.EvActionRequested:
+			var a agent.ActionRequested
+			if json.Unmarshal(ev.Payload, &a) == nil {
+				label = a.Tool + " " + firstLine(string(a.Args), 50)
+			}
+		default:
+			continue
+		}
+		fmt.Printf("    %s  %s\n", s.Dim(fmt.Sprintf("%4d", ev.Seq)), label)
+		shown++
+		if shown >= 30 {
+			fmt.Println(s.Dim("    …"))
+			break
+		}
+	}
+}
+
+func firstLine(s string, n int) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > n {
+		return s[:n] + "…"
+	}
+	return s
+}
+
+
+// attachExtensionSummarizer lets an extension supply or refuse a compaction
+// summary. Compaction is the one place the harness discards information on
+// purpose, and the default summarizer cannot know what this deployment must
+// keep.
+func attachExtensionSummarizer(c *agent.Compactor, h *extension.Host, sessionID string) {
+	if c == nil || h == nil || h.Len() == 0 {
+		return
+	}
+	c.Summarizer = func(msgs []model.Message) (string, bool) {
+		out := make([]extension.Message, 0, len(msgs))
+		for _, m := range msgs {
+			out = append(out, extension.Message{
+				Role: string(m.Role), Content: m.Content,
+			})
+		}
+		return h.OnBeforeCompact(context.Background(), sessionID, out)
+	}
 }

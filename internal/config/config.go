@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/yuvrajsingh/titan/internal/model"
 )
 
 type Config struct {
@@ -32,6 +34,9 @@ type Config struct {
 	MCP         MCPConfig         `json:"mcp"`
 	Retrieval   RetrievalConfig   `json:"retrieval"`
 	WebSearch   WebSearchConfig   `json:"web_search"`
+	Extensions  []ExtensionConfig `json:"extensions,omitempty"`
+	// CustomProviders adds model providers without a rebuild.
+	CustomProviders []CustomProviderConfig `json:"custom_providers,omitempty"`
 	Storage     StorageConfig     `json:"storage"`
 	Auth        AuthConfig        `json:"auth"`
 
@@ -45,7 +50,9 @@ type ModelConfig struct {
 }
 
 type ProviderConfig struct {
-	// Type is "openai-compatible" (vLLM, Ollama, OpenAI) or "watsonx".
+	// Type names a registered provider — run `titan providers` for the list.
+	// "openai-compatible" remains the generic escape hatch for any endpoint
+	// speaking that API.
 	Type            string   `json:"type"`
 	BaseURL         string   `json:"base_url"`
 	Model           string   `json:"model"`
@@ -68,6 +75,61 @@ type ProviderConfig struct {
 	APIVersion string `json:"api_version,omitempty"`
 	// IAMURL overrides the token endpoint, for CPD which mints its own.
 	IAMURL string `json:"iam_url,omitempty"`
+
+	// Region and Project scope a cloud-hosted deployment (Bedrock, Vertex).
+	Region  string `json:"region,omitempty"`
+
+	// Params holds the sampling and decoding controls for this provider.
+	// Every field is optional; an omitted one leaves the model's own default
+	// alone rather than substituting a number Titan invented.
+	Params ParamsConfig `json:"params,omitempty"`
+
+	// Extra passes provider-specific settings through without this struct
+	// growing a field per vendor.
+	Extra map[string]string `json:"extra,omitempty"`
+}
+
+// ParamsConfig mirrors model.Params in config form. Pointers throughout, so
+// "unset" stays distinguishable from "set to zero" — the difference between
+// leaving temperature alone and pinning it to greedy decoding.
+type ParamsConfig struct {
+	Temperature       *float64 `json:"temperature,omitempty"`
+	TopP              *float64 `json:"top_p,omitempty"`
+	TopK              *int     `json:"top_k,omitempty"`
+	MinP              *float64 `json:"min_p,omitempty"`
+	RepetitionPenalty *float64 `json:"repetition_penalty,omitempty"`
+	FrequencyPenalty  *float64 `json:"frequency_penalty,omitempty"`
+	PresencePenalty   *float64 `json:"presence_penalty,omitempty"`
+	Seed              *int64   `json:"seed,omitempty"`
+	MaxTokens         int      `json:"max_tokens,omitempty"`
+	Stop              []string `json:"stop,omitempty"`
+	Effort            string   `json:"effort,omitempty"`
+	Think             *bool    `json:"think,omitempty"`
+	ThinkingBudget    *int     `json:"thinking_budget,omitempty"`
+}
+
+// ExtensionConfig describes one extension process.
+//
+// An extension may veto and never permit: it can block a call, force an
+// approval prompt, or rewrite arguments and results, but cannot turn a denied
+// action into an allowed one. That is what keeps deny rules absolute no matter
+// what an operator drops into this list.
+type ExtensionConfig struct {
+	Name      string            `json:"name"`
+	Command   string            `json:"command"`
+	Args      []string          `json:"args,omitempty"`
+	Events    []string          `json:"events,omitempty"`
+	TimeoutMS int               `json:"timeout_ms,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+}
+
+// CustomProviderConfig adds a model provider from configuration.
+type CustomProviderConfig struct {
+	Name        string   `json:"name"`
+	API         string   `json:"api"` // openai | anthropic | gemini
+	BaseURL     string   `json:"base_url"`
+	Description string   `json:"description,omitempty"`
+	Sampling    []string `json:"sampling,omitempty"`
 }
 
 type PermissionsConfig struct {
@@ -478,11 +540,17 @@ func (c Config) Validate() error {
 	if err != nil {
 		return err
 	}
-	if p.BaseURL == "" {
-		return fmt.Errorf("provider %q has no base_url", c.Model.Default)
+	// Whether a base_url is required is the provider's business: anthropic,
+	// openai and gemini know their own endpoints, while vllm and watsonx must
+	// be told. Asking the registry to build the adapter answers that question
+	// and validates the sampling parameters at the same time, so a bad setting
+	// is reported here rather than on the first model call.
+	if !model.Known(p.Type) {
+		return fmt.Errorf("provider %q has unknown type %q; run `titan providers` "+
+			"for the list", c.Model.Default, p.Type)
 	}
-	if p.Model == "" {
-		return fmt.Errorf("provider %q has no model", c.Model.Default)
+	if _, err := p.Adapter(); err != nil {
+		return fmt.Errorf("provider %q: %w", c.Model.Default, err)
 	}
 	switch c.Permissions.Mode {
 	case "default", "accept-edits", "plan", "auto", "bypass", "":

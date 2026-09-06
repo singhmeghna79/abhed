@@ -43,6 +43,11 @@ func (s *scriptedAdapter) Complete(ctx context.Context, req model.Request) (<-ch
 	}
 	t := s.turns[s.seen]
 	s.seen++
+	// The adapter sends every chunk before returning, so the buffer has to hold
+	// the whole turn: a smaller one deadlocks instead of failing a test.
+	if n := len(t.calls) + 4; n > cap(ch) {
+		ch = make(chan model.Chunk, n)
+	}
 	if t.reasoning != "" {
 		ch <- model.Chunk{Type: model.ChunkReasoning, Text: t.reasoning}
 	}
@@ -590,5 +595,79 @@ func TestNoReasoningEventWhenModelEmitsNone(t *testing.T) {
 		if ev.Type == EvAgentReasoning {
 			t.Fatal("emitted a reasoning event for a turn that had none")
 		}
+	}
+}
+
+// A reasoning model can spend a whole turn thinking and emit neither text nor a
+// tool call. Treating that as completion ended the session with nothing said,
+// which read as the agent ignoring the question — and, because the terminal
+// reason was "completed", nothing downstream could tell it apart from a real
+// answer. It must be nudged instead.
+func TestEmptyTurnIsNudgedNotTreatedAsAnAnswer(t *testing.T) {
+	dir := tempDir(t)
+	loop, store := harnessIn(t, dir, []scriptedTurn{
+		{reasoning: "Let's execute."}, // no text, no calls
+		{text: "JES2 differs from JES3 in spooling."},
+	}, policy.ModeAuto, true)
+
+	reason, err := loop.Run(context.Background(), "difference between JES2 and JES3?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != TermCompleted {
+		t.Fatalf("terminal reason = %q, want completed after the nudge worked", reason)
+	}
+
+	evs, _ := store.Events("sess1")
+	var last string
+	for _, ev := range evs {
+		if ev.Type != EvAgentMessage {
+			continue
+		}
+		var m Message
+		if json.Unmarshal(ev.Payload, &m) == nil {
+			last = m.Text
+		}
+	}
+	if !strings.Contains(last, "JES2 differs") {
+		t.Fatalf("final answer = %q, want the reply from the turn after the nudge", last)
+	}
+}
+
+// A model that never recovers must end as stalled, not completed: nothing was
+// answered, so reporting success would be a lie to every caller downstream.
+func TestPersistentlyEmptyTurnsEndStalled(t *testing.T) {
+	dir := tempDir(t)
+	loop, _ := harnessIn(t, dir, []scriptedTurn{
+		{reasoning: "thinking"}, {reasoning: "still thinking"},
+		{reasoning: "and again"}, {reasoning: "and again"},
+	}, policy.ModeAuto, true)
+
+	reason, err := loop.Run(context.Background(), "answer me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != TermStalled {
+		t.Fatalf("terminal reason = %q, want stalled", reason)
+	}
+	if reason.ExitCode() == 0 {
+		t.Error("a stalled run must not report success")
+	}
+}
+
+// The ordinary case must be untouched: a turn with text and no calls still
+// terminates immediately rather than paying an extra round trip.
+func TestNormalAnswerStillTerminatesAtOnce(t *testing.T) {
+	dir := tempDir(t)
+	loop, _ := harnessIn(t, dir, []scriptedTurn{{text: "42"}}, policy.ModeAuto, true)
+	reason, err := loop.Run(context.Background(), "what is 6*7?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reason != TermCompleted {
+		t.Fatalf("terminal reason = %q, want completed", reason)
+	}
+	if got := loop.Usage().Turns; got != 1 {
+		t.Errorf("turns = %d, want 1 — a normal answer must not be nudged", got)
 	}
 }

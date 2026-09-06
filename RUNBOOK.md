@@ -241,9 +241,19 @@ The tests in pkg/auth are failing. Read the code, find the bug, fix it, then run
 | `/model` | Show or switch provider |
 | `/sessions` | Recent sessions (needs Postgres) |
 | `/resume <id>` | Replay a past session |
-| `/export [path]` | Write the transcript to JSON |
+| `/export [path]` | Write the transcript — HTML by default, `.json` for raw events |
 | `/cwd` | Workspace root |
+| `/fork [step]` | Rebuild the conversation up to a step and continue from it |
 | `/quit` | Exit |
+
+The prompt supports the editing a terminal user expects: Left and Right to move,
+Up and Down for history, Home, End, Ctrl-A, Ctrl-E, Ctrl-U, Ctrl-K, Ctrl-W.
+Piped input skips raw mode, so scripts and here-docs behave unchanged.
+
+**Type while the agent is working.** A line sent mid-run steers it at the next
+step rather than interrupting: the files it has read and the results it has
+gathered are kept. A slash command typed mid-run is queued and runs when the
+turn finishes.
 
 ### Headless
 
@@ -272,6 +282,8 @@ use `-mode auto` with explicit `-allow` rules.
 
 ```bash
 titan doctor                    # verify endpoint, tools, sandbox, storage, index
+titan providers                 # model providers this build supports
+titan rpc                       # drive Titan from another language over stdio
 titan init                      # write a starter .titan/config.json
 titan index                     # build the retrieval index
 titan eval                      # run the 144-task corpus
@@ -404,6 +416,8 @@ benchmark against vLLM on your cluster is worth running.
 | Sessions vanish | Memory store | Set `storage.driver: postgres` |
 | Every request anonymous | `auth.mode: none` | Set `proxy` or `oidc` |
 | Model very slow | Cold load | First call loads 18 GB; `ollama ps` to confirm |
+| Ollama and Titan both die mid-run, macOS reports low memory | `context_window` exceeds what the GPU can hold | Ollama logs its own sizing at startup: `grep "vram-based default context" .titan-workspace/logs/ollama.log`. Set `context_window` to that number or below — asking for more does not fail loudly, it just stops fitting once a long session fills it. |
+| A retrieval session uses far more context than expected | zRAG returns k=20 documents, ~7,700 tokens per call | Two hops plus the 5,000-token skill body is ~22,000 tokens before the answer. Size `context_window` for the worst case, or lower `k` in the retrieval profile. |
 | `go build` version mismatch | Toolchain confusion | Use `/usr/local/go/bin/go` |
 
 Diagnostics:
