@@ -25,6 +25,10 @@ type Compactor struct {
 	// KeepRecentTurns are preserved verbatim after the summary. The most recent
 	// exchanges carry the working state the model needs to continue.
 	KeepRecentTurns int
+	// Headroom is the token allowance kept free for the turn that is about to
+	// happen. Zero uses a quarter of the context window, matching the cap the
+	// loop puts on any single tool result.
+	Headroom int
 	// PreCompact runs before summarization, receiving the trigger ("auto" or
 	// "manual"). Operators use it to archive the full transcript before it is
 	// discarded (docs §07).
@@ -38,8 +42,49 @@ func NewCompactor(a model.Adapter, threshold float64) *Compactor {
 	return &Compactor{Adapter: a, Threshold: threshold, KeepRecentTurns: 4}
 }
 
+// TokensPerTurn is the cost of one exchange, measured from the session so far.
+// It is what makes the compaction interval adapt: a session reading whole files
+// pays far more per turn than one running short commands, and a fixed count of
+// kept exchanges is right for neither.
+func (c *Compactor) tokensPerTurn(system string, messages []model.Message) int {
+	exchanges := 0
+	for _, m := range messages {
+		if m.Role == model.RoleAssistant {
+			exchanges++
+		}
+	}
+	if exchanges == 0 {
+		return 0
+	}
+	used, err := c.Adapter.CountTokens(model.Request{System: system, Messages: messages})
+	if err != nil {
+		return 0
+	}
+	return used / exchanges
+}
+
 // ShouldCompact reports whether the conversation has grown past the threshold.
+//
+// The threshold is applied to the used tokens PLUS headroom for what the next
+// turn will add, not to used tokens alone. Without that margin the check passes
+// at 24,809 of a 32,768 window, the next tool result adds 8,000, and the model
+// call fails with the window exceeded — having been told, correctly, that there
+// was no need to compact. The decision has to be made about the turn that is
+// coming, not the one that has already happened.
 func (c *Compactor) ShouldCompact(system string, messages []model.Message, tools []model.ToolDef) (bool, int, error) {
+	return c.shouldCompact(system, messages, tools, true)
+}
+
+// ShouldCompactNow answers the same question with no forward allowance, for the
+// check that runs after a turn's tool results have already been appended.
+// Adding headroom there would count the result twice — once as history and
+// again as the space it might need — and compact on almost every turn.
+func (c *Compactor) ShouldCompactNow(system string, messages []model.Message, tools []model.ToolDef) (bool, int, error) {
+	return c.shouldCompact(system, messages, tools, false)
+}
+
+func (c *Compactor) shouldCompact(system string, messages []model.Message,
+	tools []model.ToolDef, reserve bool) (bool, int, error) {
 	window := c.Adapter.Profile().ContextWindow
 	if window <= 0 {
 		return false, 0, nil // unknown window: never auto-compact
@@ -50,7 +95,22 @@ func (c *Compactor) ShouldCompact(system string, messages []model.Message, tools
 	if err != nil {
 		return false, 0, err
 	}
-	return float64(used) >= float64(window)*c.Threshold, used, nil
+	budget := float64(used)
+	if reserve {
+		budget += float64(c.headroom(window))
+	}
+	return budget >= float64(window)*c.Threshold, used, nil
+}
+
+// headroom estimates what one more turn can add before the next check runs:
+// the model's reply plus the tool results it asks for. A quarter of the window
+// matches the per-result cap the loop enforces, so a turn that produces one
+// maximal result still fits.
+func (c *Compactor) headroom(window int) int {
+	if c.Headroom > 0 {
+		return c.Headroom
+	}
+	return window / 4
 }
 
 const summaryPrompt = `Summarize the conversation so far so that another engineer could pick up exactly where it left off.
@@ -91,6 +151,36 @@ func (c *Compactor) Compact(ctx context.Context, trigger string, system string,
 	// an assistant turn whose tool results were summarized away leaves the
 	// model referencing a call it cannot see.
 	split := boundaryBefore(messages, keep)
+
+	// Keeping a fixed number of exchanges fails exactly when compaction is
+	// needed most. Four exchanges carrying one large tool result each can
+	// exceed the window on their own, and then the split lands at zero, there
+	// is nothing "older" to summarize, and the no-op leaves the session to die
+	// at the next model call. So the count is a preference, not a promise: drop
+	// exchanges from the front until what remains actually fits.
+	if window := c.Adapter.Profile().ContextWindow; window > 0 {
+		// Keep as much recent history as fits in half the window, so the
+		// session has room to run several more turns before the next
+		// compaction. Compacting back to the threshold instead would leave it
+		// one turn from compacting again — which is what produced 97
+		// compactions across a 100-turn session, each one a summarizer call and
+		// a discarded prefix cache.
+		budget := window / 2
+		for k := keep; k >= 1; k-- {
+			at := boundaryBefore(messages, k)
+			if at == 0 && k > 1 {
+				continue // this many exchanges is the whole history; try fewer
+			}
+			split = at
+			used, err := c.Adapter.CountTokens(model.Request{
+				System: system, Messages: messages[split:],
+			})
+			if err != nil || used <= budget {
+				break
+			}
+		}
+	}
+
 	older, recent := messages[:split], messages[split:]
 
 	if len(older) == 0 {
@@ -172,21 +262,46 @@ func (c *Compactor) summarize(ctx context.Context, system string, older []model.
 	return strings.TrimSpace(out.String()), nil
 }
 
-// boundaryBefore finds a split index that keeps the last `keep` user turns and
+// boundaryBefore finds a split index that keeps the last `keep` exchanges and
 // never separates an assistant's tool calls from their results.
+//
+// An exchange is an assistant turn plus whatever it produced. Counting user
+// turns instead was the original approach and it made compaction a no-op on
+// exactly the histories that need it: a chat has many user messages, but an
+// agent session has one instruction followed by dozens of assistant/tool
+// exchanges, so the scan ran to the start, returned 0, and Compact found
+// nothing older to summarize. A hundred-turn session grew until the model
+// refused the request.
+//
+// The split lands on an assistant turn, so the tool results that answer its
+// calls travel with it. Splitting between a call and its result leaves the
+// model reading a reply to a question it can no longer see.
 func boundaryBefore(messages []model.Message, keep int) int {
 	if len(messages) == 0 {
 		return 0
 	}
+	if keep < 1 {
+		keep = 1
+	}
 	seen := 0
 	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == model.RoleUser {
-			seen++
-			if seen >= keep {
-				return i
+		if messages[i].Role != model.RoleAssistant {
+			continue
+		}
+		seen++
+		if seen >= keep {
+			// Keep the user message that opened this exchange, when the turn
+			// before it is one: an assistant reply whose prompt was summarized
+			// away reads as an answer to nothing.
+			if i > 0 && messages[i-1].Role == model.RoleUser {
+				return i - 1
 			}
+			return i
 		}
 	}
+	// Fewer exchanges than we wanted to keep. Summarize nothing rather than
+	// everything: there is not enough history for a summary to be worth the
+	// round trip, and Compact treats an empty older half as a no-op.
 	return 0
 }
 

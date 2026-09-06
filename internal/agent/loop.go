@@ -165,11 +165,21 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 // The system prompt and memory file are re-injected whole rather than
 // summarized: compaction discarding the operating rules is exactly the failure
 // docs P4 warns about.
-func (l *Loop) maybeCompact(ctx context.Context) error {
+func (l *Loop) maybeCompact(ctx context.Context) error { return l.compactIfNeeded(ctx, true) }
+
+// compactNow checks without a forward allowance, for the point after tool
+// results have already been added to history.
+func (l *Loop) compactNow(ctx context.Context) error { return l.compactIfNeeded(ctx, false) }
+
+func (l *Loop) compactIfNeeded(ctx context.Context, reserve bool) error {
 	if l.Compactor == nil {
 		return nil
 	}
-	should, used, err := l.Compactor.ShouldCompact(l.Config.SystemPrompt, l.messages, toolDefs(l.Tools))
+	check := l.Compactor.ShouldCompact
+	if !reserve {
+		check = l.Compactor.ShouldCompactNow
+	}
+	should, used, err := check(l.Config.SystemPrompt, l.messages, toolDefs(l.Tools))
 	if err != nil || !should {
 		return err
 	}
@@ -357,12 +367,25 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 		l.messages = append(l.messages, model.Message{
 			Role:       model.RoleTool,
 			ToolCallID: call.ID,
-			Content:    result.Content,
+			Content:    l.fitResult(result.Content),
 			IsError:    result.IsError,
 		})
 		if terminal != "" {
 			return terminal, true, nil
 		}
+	}
+
+	// Compact here as well as before the turn. A single tool result can add
+	// more than the whole compaction headroom — a 40,000-character file is
+	// ~13,000 tokens — so a check that only runs before the turn watches
+	// history step from comfortably under the threshold to over the hard limit
+	// in one move, and the next model call fails with the window exceeded
+	// rather than being compacted. Checking after the results land is what
+	// makes a long session survive its own tool output.
+	if err := l.compactNow(ctx); err != nil {
+		l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
 	// If one call has failed identically far past the point of escalation, the
@@ -557,4 +580,44 @@ func toolDefs(r *tools.Registry) []model.ToolDef {
 		out[i] = model.ToolDef{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema}
 	}
 	return out
+}
+
+
+// fitResult bounds what one tool result can occupy in history.
+//
+// Compaction summarizes what is already there; it cannot help with a single
+// message too large to send. A tool that returns a whole file, or a retrieval
+// that returns twenty documents, can exceed the model's window on its own, and
+// no amount of summarizing earlier turns rescues a request whose last message
+// does not fit.
+//
+// The middle is dropped rather than the tail: the head of a result says what it
+// is and the tail usually carries the conclusion, while the middle of a long
+// listing is the least load-bearing part. The elision is explicit so the model
+// knows it is reading an excerpt and can ask for the rest by offset.
+func (l *Loop) fitResult(content string) string {
+	limit := l.resultLimitChars()
+	if limit <= 0 || len(content) <= limit {
+		return content
+	}
+	half := limit / 2
+	dropped := len(content) - limit
+	return content[:half] +
+		fmt.Sprintf("\n\n[... %d characters elided to fit the context window. "+
+			"Re-read with an offset to see this part. ...]\n\n", dropped) +
+		content[len(content)-half:]
+}
+
+// resultLimitChars is the per-result cap, derived from the context window so a
+// small-window model is protected and a large-window one is not needlessly
+// truncated. Zero means the window is unknown, and nothing is capped.
+func (l *Loop) resultLimitChars() int {
+	window := l.Adapter.Profile().ContextWindow
+	if window <= 0 {
+		return 0
+	}
+	// A quarter of the window, converted back to characters at the same
+	// ~3.6 chars/token the estimator uses. One result may occupy a quarter of
+	// the budget; four such results in one turn still leave room to compact.
+	return window / 4 * 36 / 10
 }
