@@ -78,7 +78,7 @@ environment six months ago, which is the question Titan is built for.
 
 | Capability | Titan | Claude Code | Deep Agents | Paver Pulse |
 |---|---|---|---|---|
-| Task corpus | ✅ 144, plus 25 ported from Paver | ⚠️ `claude plugin eval`, early access | ? | ✅ 18 benchmark suites |
+| Task corpus | ✅ 144, plus 25 ported from Paver (scored: [13-zrag-benchmark.md](13-zrag-benchmark.md)) | ⚠️ `claude plugin eval`, early access | ? | ✅ 18 benchmark suites |
 | Objective assertions | ✅ file and response checks, never model-judged | ✅ regex, tool_used, file_exists | ? | ✅ JS graders |
 | LLM-as-judge | ❌ deliberately | ✅ `llm` grader | ? | ✅ LLMaJ grader |
 | Behavioural inspection as a gate | ✅ injection compliance and destructive side effects fail a task that passed every assertion | ? | ? | ⚠️ adherence grader |
@@ -99,6 +99,11 @@ showing injection compliance. Those are different bets about what evaluation is
 for, and both are defensible.
 
 ## What this means for the two objections
+
+**Measured, on Paver's own benchmark.** Titan scores 20/25 on the zRAG suite —
+every failure a missing citation or a leaked command, none a crash. The Paver
+side is unmeasured because the CLI could not be obtained, so this is one column,
+not a table. Details and caveats: [13-zrag-benchmark.md](13-zrag-benchmark.md).
 
 **"We already have Paver."** Paver Pulse and Titan overlap least where each is
 strongest. Paver's live ground-truth collectors are an evaluation capability
