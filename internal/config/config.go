@@ -34,6 +34,9 @@ type Config struct {
 	MCP         MCPConfig         `json:"mcp"`
 	Retrieval   RetrievalConfig   `json:"retrieval"`
 	WebSearch   WebSearchConfig   `json:"web_search"`
+	Extensions  []ExtensionConfig `json:"extensions,omitempty"`
+	// CustomProviders adds model providers without a rebuild.
+	CustomProviders []CustomProviderConfig `json:"custom_providers,omitempty"`
 	Storage     StorageConfig     `json:"storage"`
 	Auth        AuthConfig        `json:"auth"`
 
@@ -103,6 +106,30 @@ type ParamsConfig struct {
 	Effort            string   `json:"effort,omitempty"`
 	Think             *bool    `json:"think,omitempty"`
 	ThinkingBudget    *int     `json:"thinking_budget,omitempty"`
+}
+
+// ExtensionConfig describes one extension process.
+//
+// An extension may veto and never permit: it can block a call, force an
+// approval prompt, or rewrite arguments and results, but cannot turn a denied
+// action into an allowed one. That is what keeps deny rules absolute no matter
+// what an operator drops into this list.
+type ExtensionConfig struct {
+	Name      string            `json:"name"`
+	Command   string            `json:"command"`
+	Args      []string          `json:"args,omitempty"`
+	Events    []string          `json:"events,omitempty"`
+	TimeoutMS int               `json:"timeout_ms,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+}
+
+// CustomProviderConfig adds a model provider from configuration.
+type CustomProviderConfig struct {
+	Name        string   `json:"name"`
+	API         string   `json:"api"` // openai | anthropic | gemini
+	BaseURL     string   `json:"base_url"`
+	Description string   `json:"description,omitempty"`
+	Sampling    []string `json:"sampling,omitempty"`
 }
 
 type PermissionsConfig struct {

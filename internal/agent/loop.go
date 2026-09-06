@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yuvrajsingh/titan/internal/model"
@@ -69,6 +70,44 @@ type Loop struct {
 	// todos is the agent's task list, recorded whenever it changes so a replay
 	// shows what the plan was believed to be at each point.
 	todos []Todo
+
+	// steer carries messages sent while the agent is working. Reading them at
+	// a turn boundary is what lets a user redirect a run instead of killing it.
+	steer   []string
+	steerMu sync.Mutex
+}
+
+// Steer delivers a message to a running agent, applied at the next turn
+// boundary.
+//
+// Without it the only way to correct an agent that has misunderstood is to
+// interrupt and start again, which discards everything it has already learned —
+// the reading, the tool results, the half-built context. The user pays for that
+// work twice and usually re-types the request. A steering message costs one
+// turn and keeps all of it.
+//
+// It lands between turns rather than mid-turn on purpose: a tool call already
+// in flight finishes and its result is recorded, so the transcript never shows
+// a call with no outcome.
+func (l *Loop) Steer(text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	l.steerMu.Lock()
+	defer l.steerMu.Unlock()
+	l.steer = append(l.steer, text)
+}
+
+// takeSteering removes and returns any pending steering messages.
+func (l *Loop) takeSteering() []string {
+	l.steerMu.Lock()
+	defer l.steerMu.Unlock()
+	if len(l.steer) == 0 {
+		return nil
+	}
+	out := l.steer
+	l.steer = nil
+	return out
 }
 
 // Todos returns the current task list.
@@ -152,6 +191,14 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 		}
 		if l.turns >= l.Config.MaxTurns {
 			return l.finish(TermMaxTurns), nil
+		}
+		// Steering is applied before the turn is counted, so a redirection
+		// never costs the user a turn from the budget.
+		for _, msg := range l.takeSteering() {
+			l.Recorder.Record(EvUserMessage, ActorUser, Trusted, Message{Text: msg})
+			l.messages = append(l.messages, model.Message{
+				Role: model.RoleUser, Content: msg,
+			})
 		}
 		l.turns++
 
@@ -376,17 +423,8 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 		Role: model.RoleAssistant, Content: text.String(), ToolCalls: calls,
 	})
 
-	for _, call := range calls {
-		result, terminal := l.execute(ctx, call)
-		l.messages = append(l.messages, model.Message{
-			Role:       model.RoleTool,
-			ToolCallID: call.ID,
-			Content:    l.fitResult(result.Content),
-			IsError:    result.IsError,
-		})
-		if terminal != "" {
-			return terminal, true, nil
-		}
+	if terminal := l.runCalls(ctx, calls); terminal != "" {
+		return terminal, true, nil
 	}
 
 	// Compact here as well as before the turn. A single tool result can add
@@ -436,9 +474,23 @@ func truncateKey(k string) string {
 
 // execute runs one tool call through policy, approval, and the tool itself.
 func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, TerminalReason) {
+	ok, res, terminal := l.authorize(ctx, call)
+	if !ok || terminal != "" {
+		return res, terminal
+	}
+	return l.invoke(ctx, call)
+}
+
+// authorize puts one call through policy and, where needed, the approver.
+//
+// It is separate from running the tool so that a turn's approvals happen one at
+// a time while the approved calls can then run together: two permission prompts
+// racing for the same terminal is unusable, and the user cannot tell which one
+// they are answering.
+func (l *Loop) authorize(ctx context.Context, call model.ToolCall) (bool, tools.Result, TerminalReason) {
 	tool, found := l.Tools.Get(call.Name)
 	if !found {
-		return tools.Result{
+		return false, tools.Result{
 			Content: fmt.Sprintf("Unknown tool %q. Available tools: %s.",
 				call.Name, strings.Join(l.Tools.Names(), ", ")),
 			IsError: true,
@@ -454,7 +506,7 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 		RequiresApproval: decision.Decision == policy.Ask,
 		Reason:           decision.Reason,
 	}); err != nil {
-		return tools.Result{Content: err.Error(), IsError: true}, TermError
+		return false, tools.Result{Content: err.Error(), IsError: true}, TermError
 	}
 
 	switch decision.Decision {
@@ -463,7 +515,7 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 			"call_id": call.ID, "reason": decision.Reason,
 		})
 		// Feed the denial back so the model can choose another approach.
-		return tools.Result{
+		return false, tools.Result{
 			Content: fmt.Sprintf("Denied: %s. Choose a different approach.", decision.Reason),
 			IsError: true,
 		}, ""
@@ -472,9 +524,9 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 		approved, err := l.Approver.Approve(ctx, call.Name, call.Args, decision)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				return tools.Result{Content: "Interrupted.", IsError: true}, TermUserInterrupt
+				return false, tools.Result{Content: "Interrupted.", IsError: true}, TermUserInterrupt
 			}
-			return tools.Result{Content: err.Error(), IsError: true}, TermError
+			return false, tools.Result{Content: err.Error(), IsError: true}, TermError
 		}
 		if !approved {
 			l.Recorder.Record(EvActionDenied, ActorUser, Trusted, map[string]string{
@@ -494,13 +546,23 @@ func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, 
 			}
 			msg += "Do not retry this call or a re-worded version of it. " +
 				"Use a different tool, or explain what you need and stop."
-			return tools.Result{Content: msg, IsError: true}, ""
+			return false, tools.Result{Content: msg, IsError: true}, ""
 		}
 	}
 
 	l.Recorder.Record(EvActionApproved, ActorSystem, Trusted, map[string]string{
 		"call_id": call.ID, "reason": decision.Reason,
 	})
+	return true, tools.Result{}, ""
+}
+
+// invoke runs an already-authorized tool and records its observation.
+func (l *Loop) invoke(ctx context.Context, call model.ToolCall) (tools.Result, TerminalReason) {
+	tool, found := l.Tools.Get(call.Name)
+	if !found {
+		return tools.Result{Content: "tool disappeared between authorization and execution",
+			IsError: true}, TermError
+	}
 
 	start := time.Now()
 	result := tool.Run(ctx, l.Session, call.Args)
@@ -650,5 +712,105 @@ func (h *LoopHolder) Set(l *Loop) { h.loop = l }
 func (h *LoopHolder) RecordTodos(items []Todo, note string) {
 	if h != nil && h.loop != nil {
 		h.loop.RecordTodos(items, note)
+	}
+}
+
+
+// runCalls executes a turn's tool calls and appends their results.
+//
+// Independent calls run concurrently. A model that asks to read four files
+// should not wait for four round trips in series, and the prompt asking it to
+// batch calls was only ever a request — the harness either runs them together
+// or it does not.
+//
+// Three things are deliberately NOT parallel:
+//
+// Approval is sequential, because two permission prompts racing for one
+// terminal is unusable and the user cannot tell which they are answering.
+// Every call is put through policy first, in order, and only the approved ones
+// are then run together.
+//
+// Mutating calls are sequential with respect to everything. Two edits to the
+// same file, or an edit racing a read of it, produce a result that depends on
+// scheduling — and a session that cannot be replayed to the same outcome is not
+// auditable, which is the property the whole event log exists to provide.
+//
+// Results are appended in the order the model asked for them, never in the
+// order they finished, for the same reason.
+func (l *Loop) runCalls(ctx context.Context, calls []model.ToolCall) TerminalReason {
+	results := make([]callOutcome, len(calls))
+
+	// Phase 1: policy and approval, in order, one at a time.
+	approved := make([]bool, len(calls))
+	for i, call := range calls {
+		decision, res, terminal := l.authorize(ctx, call)
+		if terminal != "" {
+			results[i] = callOutcome{result: res, terminal: terminal}
+			l.appendResults(calls, results, i+1)
+			return terminal
+		}
+		if !decision {
+			results[i] = callOutcome{result: res}
+			continue
+		}
+		approved[i] = true
+	}
+
+	// Phase 2: run what was approved. Read-only calls go together; anything
+	// that mutates runs alone, after the concurrent batch, so the outcome does
+	// not depend on which goroutine won.
+	var wg sync.WaitGroup
+	var mutating []int
+	for i, call := range calls {
+		if !approved[i] {
+			continue
+		}
+		tool, found := l.Tools.Get(call.Name)
+		if found && tool.Mutates() {
+			mutating = append(mutating, i)
+			continue
+		}
+		wg.Add(1)
+		go func(i int, call model.ToolCall) {
+			defer wg.Done()
+			res, terminal := l.invoke(ctx, call)
+			results[i] = callOutcome{result: res, terminal: terminal}
+		}(i, call)
+	}
+	wg.Wait()
+
+	for _, i := range mutating {
+		res, terminal := l.invoke(ctx, calls[i])
+		results[i] = callOutcome{result: res, terminal: terminal}
+		if terminal != "" {
+			l.appendResults(calls, results, i+1)
+			return terminal
+		}
+	}
+
+	l.appendResults(calls, results, len(calls))
+	for _, o := range results {
+		if o.terminal != "" {
+			return o.terminal
+		}
+	}
+	return ""
+}
+
+// callOutcome pairs a tool result with any terminal reason it produced.
+type callOutcome struct {
+	result   tools.Result
+	terminal TerminalReason
+}
+
+// appendResults adds the first n results to history, in call order.
+func (l *Loop) appendResults(calls []model.ToolCall, results []callOutcome, n int) {
+	for i := 0; i < n && i < len(calls); i++ {
+		l.messages = append(l.messages, model.Message{
+			Role:       model.RoleTool,
+			ToolCallID: calls[i].ID,
+			Content:    l.fitResult(results[i].result.Content),
+			IsError:    results[i].result.IsError,
+		})
 	}
 }

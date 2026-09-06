@@ -26,6 +26,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/extension"
 	"github.com/yuvrajsingh/titan/internal/eval"
 	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/k8s"
@@ -148,6 +149,26 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	}
 	if sb.Tier() == sandbox.TierNone {
 		fmt.Fprintf(os.Stderr, "titan: warning: %s\n", sb.Describe())
+	}
+
+	// Custom providers are registered before any provider is resolved, so a
+	// name from configuration is usable as model.default.
+	for _, err := range cfg.RegisterCustomProviders() {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+	}
+
+	// Extensions can veto a tool call, never permit one. The hook they install
+	// runs first in the policy chain so it can refuse, and is structurally
+	// incapable of returning Allow.
+	extHost := extension.NewHost(func(format string, args ...any) {
+		fmt.Fprintf(os.Stderr, "titan: "+format+"\n", args...)
+	})
+	defer extHost.Close()
+	for _, err := range extHost.Load(context.Background(), cfg.ExtensionSpecs()) {
+		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+	}
+	if extHost.Len() > 0 {
+		pol.Hooks = append(pol.Hooks, extHost.PolicyHook(context.Background(), "session"))
 	}
 
 	// The todo tool reports through whichever loop is currently running. The
@@ -616,7 +637,10 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 		fmt.Printf("  %s\n", s.Dim("(mid-session switching would invalidate the prefix cache)"))
 
 	case "/export":
-		path := filepath.Join(sess.Root, fmt.Sprintf("titan-session-%s.json", st.sessionID))
+		// HTML by default, because a transcript that needs a parser before a
+		// colleague can read it usually does not get read. `/export x.json`
+		// still writes the raw events for a program.
+		path := filepath.Join(sess.Root, fmt.Sprintf("titan-session-%s.html", st.sessionID))
 		if len(fields) > 1 {
 			path = fields[1]
 		}
@@ -625,7 +649,12 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 			fmt.Println(s.Dim("  no transcript to export yet"))
 			return false
 		}
-		data, err := json.MarshalIndent(events, "", "  ")
+		var data []byte
+		if strings.HasSuffix(path, ".json") {
+			data, err = json.MarshalIndent(events, "", "  ")
+		} else {
+			data = []byte(agent.ExportHTML(st.sessionID, events))
+		}
 		if err != nil {
 			fmt.Printf("  %s %v\n", s.Red("✕"), err)
 			return false

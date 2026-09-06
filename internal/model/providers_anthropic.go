@@ -3,8 +3,22 @@ package model
 import "fmt"
 
 func init() {
-	Register("anthropic", "Anthropic Messages API (api.anthropic.com)",
-		func(s Spec) (Adapter, error) {
+	Register("anthropic", "Anthropic Messages API (api.anthropic.com)", anthropicStyle(""))
+}
+
+// anthropicStyle builds the factory for an Anthropic-compatible endpoint, so a
+// custom provider from configuration reuses exactly the built-in path.
+func anthropicStyle(defaultURL string) Factory {
+	return func(s Spec) (Adapter, error) {
+		if s.BaseURL == "" {
+			s.BaseURL = defaultURL
+		}
+		return newAnthropicAdapter(s)
+	}
+}
+
+func newAnthropicAdapter(s Spec) (Adapter, error) {
+	{
 			if s.Model == "" {
 				return nil, fmt.Errorf("provider %q needs a model", s.Type)
 			}
@@ -31,6 +45,6 @@ func init() {
 			if b := s.Get("beta"); b != "" {
 				a.Beta = splitList(b)
 			}
-			return a, nil
-		})
+		return a, nil
+	}
 }

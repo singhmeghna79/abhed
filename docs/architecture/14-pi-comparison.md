@@ -27,7 +27,7 @@ it is marked **?**, and a **?** is not evidence of absence.
 | | Titan | Pi |
 |---|---|---|
 | Loop | turn-based, ~10 typed terminal reasons | turn-based, steerable mid-run |
-| Mid-run steering | ❌ interrupt only | ✅ Enter steers, Alt+Enter queues a follow-up |
+| Mid-run steering | ✅ a message to a working session steers it at the next turn boundary | ✅ Enter steers, Alt+Enter queues a follow-up |
 | Run modes | interactive CLI, headless `-p`, server + web console | interactive, print/JSON, RPC, SDK |
 | Embeddable as a library | ❌ Go binary | ✅ SDK, RPC over stdin/stdout JSONL |
 | Language | Go, single static binary | TypeScript/Node |
@@ -48,7 +48,7 @@ output, having traded that convenience for prefix-cache stability.
 | Remote execution | ✅ ssh, ssh_connect | ❌ extension (an example exists) |
 | Kubernetes | ✅ k8s_get, k8s_apply, k8s_login | ❌ extension |
 | MCP | ✅ client and gateway | ❌ deliberately excluded |
-| Register a tool without recompiling | ⚠️ MCP server only | ✅ `pi.registerTool` in TypeScript |
+| Register a tool without recompiling | ✅ MCP server, or an extension process | ✅ `pi.registerTool` in TypeScript |
 | Override a built-in tool | ❌ | ✅ register the same name |
 
 The asymmetry is the design. Titan ships the enterprise integrations (k8s, ssh,
@@ -86,12 +86,12 @@ production-grade RAG and privacy mechanism that Titan cannot express at all.
 |---|---|---|
 | Storage | Postgres, append-only, trigger-enforced | JSONL under `~/.pi/agent/sessions/`, by working directory |
 | Model | flat event stream per session | tree: every entry has `id` and `parentId` |
-| Branching | ❌ | ✅ in-place, no new file |
+| Branching | ✅ `Fork` rebuilds a conversation from any sequence number | ✅ in-place, no new file |
 | Navigate history | ❌ | ✅ `/tree` |
 | Fork from a past point | ❌ | ✅ `/fork`, `/clone` |
 | Resume | ✅ `/resume` replays a transcript | ✅ `/resume` |
 | Deterministic replay | ✅ the point of the design | ⚠️ full history is retained, replay is not a stated feature |
-| Share | ⚠️ `/export` writes the raw event JSON | ✅ `/export` to HTML, `/share` to a gist |
+| Share | ✅ `/export` writes a self-contained HTML transcript; `.json` still writes events | ✅ `/export` to HTML, `/share` to a gist |
 | Multi-tenant isolation | ✅ Postgres RLS, enforced at two layers | ❌ single user, local files |
 
 Both store everything and neither discards history on compaction. The difference
@@ -111,7 +111,7 @@ experience; Titan's replay and tenant isolation are the things a bank asks for.
 | Full history preserved | ✅ event store | ✅ JSONL |
 | Memory files | ✅ TITAN.md | ✅ AGENTS.md, SYSTEM.md |
 | Per-result size cap | ✅ a quarter of the window | ? |
-| Filter messages per request | ❌ | ✅ the `context` event |
+| Filter messages per request | ✅ the `context` event, removal only | ✅ the `context` event |
 
 Titan's compaction is measured: a hundred-turn session in a 32k window peaks at
 17,981 tokens with about one compaction per twenty turns
@@ -126,7 +126,7 @@ published measurement was found — absence of a number, not absence of quality.
 | Wire formats | 3 (OpenAI, Anthropic Messages, Gemini) | OpenAI- and Anthropic-compatible, plus per-provider |
 | Switch model mid-session | ❌ `/model` records the choice and asks for a restart, deliberately: switching mid-session would invalidate the prefix cache | ✅ `/model`, or a shortcut, mid-run |
 | Subscription auth (Claude Pro, ChatGPT Plus, Copilot) | ❌ | ✅ |
-| Custom provider without recompiling | ❌ | ✅ `models.json`, or `registerProvider` |
+| Custom provider without recompiling | ✅ `custom_providers` in config | ✅ `models.json`, or `registerProvider` |
 | Sampling parameters | ✅ 13, refused at startup when unsupported | ⚠️ thinking level is first-class; full sampling surface not documented |
 
 Comparable breadth, opposite mechanism. Pi adds a provider with a JSON file;
@@ -159,7 +159,9 @@ That is the sentence that separates the two products.
 ## What Titan should take from Pi
 
 Ranked by value against effort, and none of these requires giving up the
-governance model.
+governance model. **All five are now built** — see
+[15-extensions.md](15-extensions.md). The list is kept as written so the
+reasoning behind each is still legible.
 
 1. **Mid-run steering.** The clearest UX gap. Interrupting and restarting is
    strictly worse than nudging a running agent.

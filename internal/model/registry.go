@@ -109,3 +109,91 @@ func splitList(s string) []string {
 	}
 	return out
 }
+
+
+// LoadCustom registers providers described by a file rather than compiled in.
+//
+// Adding a provider should not need a rebuild. Every endpoint worth reaching
+// speaks one of three wire formats, and which one is a fact about the endpoint
+// that an operator already knows — so it belongs in configuration, not in a Go
+// file that has to be edited, reviewed and released.
+//
+// The wire format is named explicitly rather than guessed from the URL. A
+// wrong guess produces requests that are rejected for reasons that point
+// nowhere near the cause.
+func LoadCustom(defs []CustomProvider) []error {
+	var errs []error
+	for _, d := range defs {
+		if d.Name == "" {
+			errs = append(errs, fmt.Errorf("custom provider: name is required"))
+			continue
+		}
+		if Known(d.Name) {
+			errs = append(errs, fmt.Errorf("custom provider %q: that name is already "+
+				"a built-in provider; choose another", d.Name))
+			continue
+		}
+		var factory Factory
+		switch strings.ToLower(d.API) {
+		case "openai", "openai-compatible", "":
+			factory = openAIStyle(d.BaseURL, samplingFor(d.Sampling, SamplingLocal()))
+		case "anthropic":
+			factory = anthropicStyle(d.BaseURL)
+		case "gemini":
+			factory = geminiStyle(d.BaseURL)
+		default:
+			errs = append(errs, fmt.Errorf("custom provider %q: unknown api %q "+
+				"(want openai, anthropic or gemini)", d.Name, d.API))
+			continue
+		}
+		Register(d.Name, orElse(d.Description, "custom provider ("+d.API+")"), factory)
+	}
+	return errs
+}
+
+// CustomProvider is one entry in the providers file.
+type CustomProvider struct {
+	Name        string `json:"name"`
+	API         string `json:"api"` // openai | anthropic | gemini
+	BaseURL     string `json:"base_url"`
+	Description string `json:"description,omitempty"`
+	// Sampling names the knobs this endpoint honours. Empty means the
+	// permissive local set, since a self-hosted server usually accepts them.
+	Sampling []string `json:"sampling,omitempty"`
+}
+
+func samplingFor(names []string, fallback Sampling) Sampling {
+	if len(names) == 0 {
+		return fallback
+	}
+	var s Sampling
+	for _, n := range names {
+		switch strings.ToLower(strings.TrimSpace(n)) {
+		case "temperature":
+			s.Temperature = true
+		case "top_p":
+			s.TopP = true
+		case "top_k":
+			s.TopK = true
+		case "min_p":
+			s.MinP = true
+		case "repetition_penalty":
+			s.RepetitionPenalty = true
+		case "frequency_penalty":
+			s.FrequencyPenalty = true
+		case "presence_penalty":
+			s.PresencePenalty = true
+		case "seed":
+			s.Seed = true
+		case "stop":
+			s.Stop = true
+		case "effort":
+			s.Effort = true
+		case "think":
+			s.Think = true
+		case "thinking_budget":
+			s.ThinkingBudget = true
+		}
+	}
+	return s
+}

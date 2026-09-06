@@ -134,21 +134,30 @@ with Titan most usefully — is in [14-pi-comparison.md](14-pi-comparison.md).
 Marked here rather than buried, because a comparison that only flatters its
 subject is not worth writing.
 
-1. **No planning or todo state.** `EvPlanUpdated` and `EvTodoUpdated` are
+**Most of these are now closed.** See [15-extensions.md](15-extensions.md) for
+the extension API and the rule that keeps it from weakening policy. What remains
+open is marked below.
+
+1. ~~**No planning or todo state.**~~ **Closed:** a `todo` tool now writes the events the schema had declared.
+   Originally: `EvPlanUpdated` and `EvTodoUpdated` are
    declared in the event schema and never emitted, and no tool writes them — the
    design anticipated the feature and it was not built. Every other harness has
    it. This is the clearest missing feature.
-2. **Hooks exist but are not reachable.** `policy.Hook` is evaluated first and
+2. ~~**Hooks exist but are not reachable.**~~ **Closed:** extensions register from configuration, and may veto but never permit.
+   Originally: `policy.Hook` is evaluated first and
    can veto any call, which is the hard part; there is no way to register one
    without editing Go, so an operator cannot use it. Claude Code exposes 11 hook
    events externally.
-3. **Subagents exist but are unmeasured.** No eval task exercises them.
+3. **Subagents exist but are unmeasured.** No eval task exercises them. **Still open.**
 4. **No live ground truth in evaluation.** Paver Pulse's collector model is
-   better here and worth adopting.
-5. **Parallel tool execution is not enforced**, only hoped for in the prompt.
-6. **No extension API.** The largest gap, found by comparing against Pi: an
+   better here and worth adopting. **Still open.**
+5. ~~**Parallel tool execution is not enforced.**~~ **Closed:** independent read-only calls now run concurrently; mutations and approvals stay sequential.
+   Originally:, only hoped for in the prompt.
+6. ~~**No extension API.**~~ **Closed.**
+   Originally: The largest gap, found by comparing against Pi: an
    operator cannot register a tool, filter the messages sent to the model, or
    rewrite a tool result without editing Go and rebuilding. See
    [14-pi-comparison.md](14-pi-comparison.md).
-7. **No mid-run steering and no session branching.** Both are interaction
+7. ~~**No mid-run steering and no session branching.**~~ **Closed:** a message to a working session steers it, and `Fork` reconstructs a conversation from any point in the event log.
+   Originally: Both are interaction
    features Pi has and Titan does not.

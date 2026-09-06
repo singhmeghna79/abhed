@@ -1,6 +1,9 @@
 package config
 
-import "github.com/yuvrajsingh/titan/internal/model"
+import (
+	"github.com/yuvrajsingh/titan/internal/extension"
+	"github.com/yuvrajsingh/titan/internal/model"
+)
 
 // Spec converts a provider config into the model package's neutral form.
 //
@@ -73,4 +76,35 @@ func (c ParamsConfig) Model(think *bool) model.Params {
 // parameters against what the provider actually honours.
 func (p ProviderConfig) Adapter() (model.Adapter, error) {
 	return model.New(p.Spec())
+}
+
+// ExtensionSpecs converts the configured extensions to the extension package's
+// form, so neither package needs to import the other's types.
+func (c Config) ExtensionSpecs() []extension.Config {
+	out := make([]extension.Config, 0, len(c.Extensions))
+	for _, e := range c.Extensions {
+		events := make([]extension.Event, 0, len(e.Events))
+		for _, ev := range e.Events {
+			events = append(events, extension.Event(ev))
+		}
+		out = append(out, extension.Config{
+			Name: e.Name, Command: e.Command, Args: e.Args,
+			Events: events, TimeoutMS: e.TimeoutMS, Env: e.Env,
+		})
+	}
+	return out
+}
+
+// RegisterCustomProviders adds the configured providers to the model registry.
+// Called before any provider is resolved, so a custom name is usable as
+// model.default.
+func (c Config) RegisterCustomProviders() []error {
+	defs := make([]model.CustomProvider, 0, len(c.CustomProviders))
+	for _, p := range c.CustomProviders {
+		defs = append(defs, model.CustomProvider{
+			Name: p.Name, API: p.API, BaseURL: p.BaseURL,
+			Description: p.Description, Sampling: p.Sampling,
+		})
+	}
+	return model.LoadCustom(defs)
 }
