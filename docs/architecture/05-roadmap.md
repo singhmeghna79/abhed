@@ -31,8 +31,8 @@ Foundation-hosted (AI & Data, *incubation* status), actively maintained, with a
 provider-agnostic `provider:model` backend abstraction and 13 documented providers. Apache-2.0
 means forking for air-gapped use is legally clean.
 
-Two caveats, both verified: IBM's own README states the code is provided with **no support
-commitment** and that IBM "will not be maintaining this code going forward"; and its Backend
+Two caveats, both verified: its own README states the code is provided with **no support
+commitment** and that it "will not be maintaining this code going forward"; and its Backend
 abstracts mostly *hosted* provider SDKs, so on-prem paths are the minority. **Study the
 abstraction, don't inherit the dependency.**
 

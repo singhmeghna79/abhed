@@ -8,7 +8,7 @@ import (
 )
 
 // The retrieval corpus is graded on the agent's prose, not on files it wrote.
-// These are the exact checks the Paver zrag benchmark applies, so a change that
+// These are the checks a retrieval benchmark applies, so a change that
 // breaks them would silently change what the comparison measures.
 func TestResponseMatchesAssertion(t *testing.T) {
 	cases := []struct {
@@ -25,13 +25,13 @@ func TestResponseMatchesAssertion(t *testing.T) {
 			"A sysplex is a cluster [1, 3, 14] of systems.", true},
 
 		{"leaked run.sh is a failure", Assertion{Type: "response_matches",
-			Value: `(?i)run\.sh|zrag_client|` + "```" + `bash", `, Negate: true},
+			Value: `(?i)run\.sh|retriever_client|` + "```" + `bash", `, Negate: true},
 			"Here is the answer.", true},
 		{"clean answer passes the leak check", Assertion{Type: "response_matches",
-			Value: `(?i)run\.sh|zrag_client`, Negate: true},
+			Value: `(?i)run\.sh|retriever_client`, Negate: true},
 			"A sysplex is a cluster [1].", true},
 		{"mentioning run.sh fails", Assertion{Type: "response_matches",
-			Value: `(?i)run\.sh|zrag_client`, Negate: true},
+			Value: `(?i)run\.sh|retriever_client`, Negate: true},
 			"Run bash $SKILL_DIR/scripts/run.sh retrieve ...", false},
 
 		{"error text fails", Assertion{Type: "response_matches",
@@ -59,7 +59,7 @@ func TestResponseMatchesRejectsBadRegexp(t *testing.T) {
 }
 
 // The corpus asks whether the agent leaked an error into its answer. An early
-// version matched the bare word "exception", which is ordinary IBM Z
+// version matched the bare word "exception", which is ordinary domain
 // vocabulary — exception conditions, ABEND exceptions, S0C7 — so a correct Db2
 // answer failed for using the term the domain uses. The pattern must match what
 // an error actually leaves behind, not a word that appears in correct prose.

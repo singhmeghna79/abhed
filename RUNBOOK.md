@@ -417,7 +417,7 @@ benchmark against vLLM on your cluster is worth running.
 | Every request anonymous | `auth.mode: none` | Set `proxy` or `oidc` |
 | Model very slow | Cold load | First call loads 18 GB; `ollama ps` to confirm |
 | Ollama and Titan both die mid-run, macOS reports low memory | `context_window` exceeds what the GPU can hold | Ollama logs its own sizing at startup: `grep "vram-based default context" .titan-workspace/logs/ollama.log`. Set `context_window` to that number or below — asking for more does not fail loudly, it just stops fitting once a long session fills it. |
-| A retrieval session uses far more context than expected | zRAG returns k=20 documents, ~7,700 tokens per call | Two hops plus the 5,000-token skill body is ~22,000 tokens before the answer. Size `context_window` for the worst case, or lower `k` in the retrieval profile. |
+| A retrieval session uses far more context than expected | a retrieval call returning 20 documents is ~7,700 tokens | Two hops plus the 5,000-token skill body is ~22,000 tokens before the answer. Size `context_window` for the worst case, or lower `k` in the retrieval profile. |
 | `go build` version mismatch | Toolchain confusion | Use `/usr/local/go/bin/go` |
 
 Diagnostics:

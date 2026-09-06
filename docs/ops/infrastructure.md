@@ -182,9 +182,9 @@ any other tool output and must never be followed as instructions.
 ```json
 {
   "mcp": { "servers": [
-    { "name": "zrag", "enabled": true,
-      "url": "https://zrag.internal/mcp",
-      "headers_env": { "Authorization": "ZRAG_TOKEN" } }
+    { "name": "corpus", "enabled": true,
+      "url": "https://retrieval.internal/mcp",
+      "headers_env": { "Authorization": "CORPUS_TOKEN" } }
   ]}
 }
 ```

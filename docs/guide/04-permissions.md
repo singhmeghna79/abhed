@@ -1,0 +1,87 @@
+# Permissions and safety
+
+An agent that can run shell commands in your repository needs a real answer to
+"what is it allowed to do". Titan's answer is a policy engine that decides every
+tool call, in a fixed order, with one rule that nothing can override.
+
+## Modes
+
+```json
+"permissions": { "mode": "default" }
+```
+
+| Mode | Behaviour |
+|---|---|
+| `default` | ask before every mutation |
+| `plan` | **read-only** — nothing is written, safe for exploring an unfamiliar repository |
+| `accept-edits` | auto-approve file edits, still ask for shell |
+| `auto` | approve by rule; anything unmatched still asks |
+| `bypass` | approve everything an org policy has not forbidden. Dangerous, and refusable by managed settings |
+
+In headless mode there is no one to ask, so anything needing approval is
+refused. Use `-mode auto` with explicit `-allow` rules.
+
+## Rules
+
+A rule is a tool name, optionally followed by a pattern:
+
+```json
+"permissions": {
+  "mode": "auto",
+  "allow": ["bash(go test*)", "bash(npm run *)", "read"],
+  "deny":  ["bash(curl *)", "write(*.pem)"],
+  "ask":   ["bash(git push*)"]
+}
+```
+
+`*` matches anything; the pattern is matched against the command or path. A
+malformed rule is **refused at startup** rather than silently matching nothing —
+for a deny rule, quietly accepting one that can never fire tells you that you
+are protected when you are not.
+
+## The order
+
+Every call goes through the same six steps, and the order is the design:
+
+1. **Hooks** — extensions, first, so they can veto
+2. **Deny rules** — absolute; they survive every mode, including `bypass`
+3. **Destructive commands** — force push, hard reset, disk writes, fork bombs and similar always confirm, in every mode, because there is no undo
+4. **Ask rules** — force a prompt even where a later allow would match
+5. **Mode**
+6. **Allow rules**, then a default: read-only proceeds, mutations ask
+
+Two consequences worth stating plainly. **A deny rule cannot be overridden** by
+a mode, an allow rule, an extension, or an operator's own bypass. And **an
+extension may veto but never permit**: it can block a call or force it to a
+prompt, and cannot turn a denied action into an allowed one. A permission gate
+an extension could remove would not be a guarantee.
+
+## What the agent may touch
+
+Writes are scoped to the workspace it was started in. `additional_dirs` extends
+that, and is set by the operator — never by the model.
+
+Content read from files, tool output and search results is **data, never
+instruction**. Every event carries a trust tag, and untrusted content is marked
+as such in the transcript and the console. A file that contains text shaped like
+instructions is reported, not obeyed.
+
+## When it asks
+
+The prompt names the tool, the full arguments, and the rule that would have
+allowed it:
+
+```
+Approval required — bash
+  go test ./pkg/auth/
+  It would be permitted by the rule bash(go test*), which is not configured.
+```
+
+Rejecting feeds the reason back so the model adapts rather than rephrasing the
+same command. A denial that says only "no" makes a model retry forever.
+
+## Recovering
+
+`/undo` reverts the last turn's file changes. `/diff` shows what changed this
+session. With Postgres storage, `/resume` replays a past session exactly, which
+is how you find out what an agent did rather than what it said it did.
