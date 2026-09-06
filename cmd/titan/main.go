@@ -9,7 +9,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	crand "crypto/rand"
 	"encoding/json"
@@ -356,12 +355,18 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	// there during a turn: the only way to correct a run that had misunderstood
 	// was Ctrl-C, which discards every file it had read and every result it had
 	// gathered, and then the user retypes the request.
+	// Line editing: arrow keys, history, Home/End, Ctrl-A/E/U/K/W. A prompt
+	// where Left prints "^[[D" instead of moving the cursor reads as broken,
+	// however good the agent behind it is. Falls back to plain line reads when
+	// stdin is not a terminal, since raw mode on a pipe corrupts the input.
+	editor := ui.NewLineReader(ui.Prompt(s))
+	defer editor.Close()
+
 	lines := make(chan string)
 	readErr := make(chan struct{})
 	go func() {
-		in := bufio.NewReader(os.Stdin)
 		for {
-			line, err := in.ReadString('\n')
+			line, err := editor.ReadLine()
 			if err != nil {
 				close(readErr)
 				return
@@ -379,7 +384,9 @@ func interactive(ctx context.Context, store server.EventStore, r *ui.Renderer,
 	}
 
 	for {
-		fmt.Print(ui.Prompt(s))
+		if !editor.Raw() {
+			fmt.Print(ui.Prompt(s))
+		}
 		var line string
 		select {
 		case <-readErr:

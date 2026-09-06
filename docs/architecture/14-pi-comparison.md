@@ -28,6 +28,7 @@ it is marked **?**, and a **?** is not evidence of absence.
 |---|---|---|
 | Loop | turn-based, ~10 typed terminal reasons | turn-based, steerable mid-run |
 | Mid-run steering | ✅ type while the agent works, in the CLI and over HTTP; slash commands queue for after | ✅ Enter steers, Alt+Enter queues a follow-up |
+| Line editing (arrows, history) | ✅ arrows, history, Home/End, Ctrl-A/E/U/K/W; falls back to plain reads off a terminal | ✅ full TUI editor |
 | Run modes | interactive CLI, headless `-p`, server + web console, Go SDK | interactive, print/JSON, RPC, SDK |
 | RPC over stdio | ❌ **still open** — the SDK covers Go callers; another language needs the server or a subprocess protocol | ✅ |
 | Embeddable as a library | ✅ `sdk` package (`titan.New`) | ✅ SDK, RPC over stdin/stdout JSONL |

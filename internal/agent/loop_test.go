@@ -43,6 +43,11 @@ func (s *scriptedAdapter) Complete(ctx context.Context, req model.Request) (<-ch
 	}
 	t := s.turns[s.seen]
 	s.seen++
+	// The adapter sends every chunk before returning, so the buffer has to hold
+	// the whole turn: a smaller one deadlocks instead of failing a test.
+	if n := len(t.calls) + 4; n > cap(ch) {
+		ch = make(chan model.Chunk, n)
+	}
 	if t.reasoning != "" {
 		ch <- model.Chunk{Type: model.ChunkReasoning, Text: t.reasoning}
 	}

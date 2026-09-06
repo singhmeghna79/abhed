@@ -60,7 +60,12 @@ type Loop struct {
 	// repeatedFailures counts consecutive identical tool calls that returned an
 	// error. A model that ignores an error message and retries verbatim will
 	// otherwise burn the entire turn budget on one mistake.
+	//
+	// Guarded because independent tool calls in one turn run concurrently, and
+	// concurrent writes to a Go map are not a race that corrupts a counter —
+	// they abort the process.
 	repeatedFailures map[string]int
+	failuresMu       sync.Mutex
 
 	// emptyTurns counts consecutive turns that produced neither text nor a
 	// tool call, so a model that stalls is nudged rather than mistaken for one
@@ -460,16 +465,19 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 
 	// If one call has failed identically far past the point of escalation, the
 	// model is stuck. Ending is better than spending the remaining budget.
-	for key, n := range l.repeatedFailures {
-		if n >= repeatedFailureAbort {
-			l.messages = append(l.messages, model.Message{
-				Role: model.RoleUser,
-				Content: fmt.Sprintf(
-					"Stopping: the same call failed %d times without adaptation (%s).",
-					n, truncateKey(key)),
-			})
-			return TermRetryExhausted, true, nil
-		}
+	//
+	// The parallel calls have all finished by here, but the lock is taken
+	// anyway: relying on that ordering means a future edit that moves this
+	// read, or starts a call that outlives the turn, crashes the process
+	// rather than failing a test.
+	if key, n, stuck := l.worstRepeatedFailure(); stuck {
+		l.messages = append(l.messages, model.Message{
+			Role: model.RoleUser,
+			Content: fmt.Sprintf(
+				"Stopping: the same call failed %d times without adaptation (%s).",
+				n, truncateKey(key)),
+		})
+		return TermRetryExhausted, true, nil
 	}
 	return "", false, nil
 }
@@ -590,19 +598,24 @@ func (l *Loop) invoke(ctx context.Context, call model.ToolCall) (tools.Result, T
 	// error. Escalate the message rather than letting it consume every turn:
 	// the error text alone has demonstrably not worked.
 	if result.IsError {
+		l.failuresMu.Lock()
 		if l.repeatedFailures == nil {
 			l.repeatedFailures = map[string]int{}
 		}
 		key := call.Name + string(call.Args)
 		l.repeatedFailures[key]++
-		if n := l.repeatedFailures[key]; n >= repeatedFailureLimit {
+		n := l.repeatedFailures[key]
+		l.failuresMu.Unlock()
+		if n >= repeatedFailureLimit {
 			result.Content = fmt.Sprintf(
 				"%s\n\n[This exact call has now failed %d times. Repeating it will not "+
 					"work. Read the error above and do something different — or explain "+
 					"what is blocking you and stop.]", result.Content, n)
 		}
 	} else {
+		l.failuresMu.Lock()
 		delete(l.repeatedFailures, call.Name+string(call.Args))
+		l.failuresMu.Unlock()
 	}
 
 	// Tool output is untrusted: it may contain text that looks like
@@ -813,6 +826,18 @@ func (l *Loop) runCalls(ctx context.Context, calls []model.ToolCall) TerminalRea
 		}
 	}
 	return ""
+}
+
+// worstRepeatedFailure reports a call that has failed past the abort threshold.
+func (l *Loop) worstRepeatedFailure() (string, int, bool) {
+	l.failuresMu.Lock()
+	defer l.failuresMu.Unlock()
+	for key, n := range l.repeatedFailures {
+		if n >= repeatedFailureAbort {
+			return key, n, true
+		}
+	}
+	return "", 0, false
 }
 
 // callOutcome pairs a tool result with any terminal reason it produced.

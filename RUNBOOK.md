@@ -241,9 +241,19 @@ The tests in pkg/auth are failing. Read the code, find the bug, fix it, then run
 | `/model` | Show or switch provider |
 | `/sessions` | Recent sessions (needs Postgres) |
 | `/resume <id>` | Replay a past session |
-| `/export [path]` | Write the transcript to JSON |
+| `/export [path]` | Write the transcript — HTML by default, `.json` for raw events |
 | `/cwd` | Workspace root |
+| `/fork [step]` | Rebuild the conversation up to a step and continue from it |
 | `/quit` | Exit |
+
+The prompt supports the editing a terminal user expects: Left and Right to move,
+Up and Down for history, Home, End, Ctrl-A, Ctrl-E, Ctrl-U, Ctrl-K, Ctrl-W.
+Piped input skips raw mode, so scripts and here-docs behave unchanged.
+
+**Type while the agent is working.** A line sent mid-run steers it at the next
+step rather than interrupting: the files it has read and the results it has
+gathered are kept. A slash command typed mid-run is queued and runs when the
+turn finishes.
 
 ### Headless
 
