@@ -126,6 +126,9 @@ It is differentiated by being auditable, multi-tenant, provider-agnostic and
 installable where a cloud CLI cannot go — and by measuring itself, which is the
 part that turns the argument into a number.
 
+A separate component-level comparison against Pi — the harness that disagrees
+with Titan most usefully — is in [14-pi-comparison.md](14-pi-comparison.md).
+
 ## Gaps this comparison exposes in Titan
 
 Marked here rather than buried, because a comparison that only flatters its
@@ -143,3 +146,9 @@ subject is not worth writing.
 4. **No live ground truth in evaluation.** Paver Pulse's collector model is
    better here and worth adopting.
 5. **Parallel tool execution is not enforced**, only hoped for in the prompt.
+6. **No extension API.** The largest gap, found by comparing against Pi: an
+   operator cannot register a tool, filter the messages sent to the model, or
+   rewrite a tool result without editing Go and rebuilding. See
+   [14-pi-comparison.md](14-pi-comparison.md).
+7. **No mid-run steering and no session branching.** Both are interaction
+   features Pi has and Titan does not.
