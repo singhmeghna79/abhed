@@ -3,6 +3,14 @@ class TextNode {
   constructor(d=''){ this.nodeType=3; this.data=d; this.parentNode=null; }
   appendData(s){ this.data += s; }
   get textContent(){ return this.data; }
+  // A text node can be swapped for an element, which is how the streamed
+  // draft becomes the rendered answer.
+  replaceWith(n){
+    const p = this.parentNode;
+    if(!p) return;
+    p.childNodes[p.childNodes.indexOf(this)] = n;
+    n.parentNode = p;
+  }
 }
 class El {
   constructor(tag){ this.tag=tag; this.nodeType=1; this.className=''; this.childNodes=[];
@@ -10,6 +18,8 @@ class El {
   appendChild(c){ c.parentNode=this; this.childNodes.push(c); return c; }
   append(...cs){ cs.forEach(c=>this.appendChild(c)); }
   set textContent(v){ this.childNodes=[new TextNode(String(v))]; }
+  set innerHTML(v){ this._html = String(v); this.childNodes=[new TextNode(stripTags(String(v)))]; }
+  get innerHTML(){ return this._html || ''; }
   get textContent(){ return this.childNodes.map(c=>c.textContent||'').join(''); }
   setAttribute(k,v){ this.attrs[k]=v; }
   get classList(){ const self=this; return {
@@ -40,3 +50,7 @@ globalThis.document = {
   addEventListener(){},
 };
 export { El, TextNode };
+
+// stripTags gives the visible text of rendered markup, so an assertion about
+// what a reader sees does not have to parse HTML.
+function stripTags(s){ return s.replace(/<[^>]*>/g, ''); }

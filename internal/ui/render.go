@@ -58,6 +58,62 @@ type Renderer struct {
 	w     io.Writer
 	s     Style
 	quiet bool
+
+	// streaming marks a reply in progress; pending holds the partial line the
+	// deltas have not finished, and table collects rows until their block ends.
+	streaming bool
+	pending   strings.Builder
+	table     []string
+}
+
+// flushLines renders every complete line held in the buffer.
+//
+// A table is the one construct that cannot be formatted a line at a time — its
+// columns are only measurable once the widest row has arrived — so a run of
+// table rows is held until the block ends and then rendered together.
+func (r *Renderer) flushLines(final bool) {
+	buf := r.pending.String()
+	for {
+		i := strings.IndexByte(buf, '\n')
+		if i < 0 {
+			break
+		}
+		r.emit(buf[:i])
+		buf = buf[i+1:]
+	}
+	r.pending.Reset()
+	r.pending.WriteString(buf)
+	if final && buf != "" {
+		r.emit(buf)
+		r.pending.Reset()
+	}
+	if final {
+		r.flushTable()
+	}
+}
+
+// emit renders one finished line, buffering table rows until the block ends.
+func (r *Renderer) emit(line string) {
+	if isTableRow(line) || (len(r.table) > 0 && isTableDivider(line)) {
+		r.table = append(r.table, line)
+		return
+	}
+	r.flushTable()
+	fmt.Fprintln(r.w, Markdown(r.s, line))
+}
+
+func (r *Renderer) flushTable() {
+	if len(r.table) == 0 {
+		return
+	}
+	fmt.Fprint(r.w, Markdown(r.s, strings.Join(r.table, "\n"))+"\n")
+	r.table = nil
+}
+
+func (r *Renderer) endStream() {
+	r.streaming = false
+	r.pending.Reset()
+	r.table = nil
 }
 
 func NewRenderer(w io.Writer, quiet bool) *Renderer {
@@ -69,26 +125,49 @@ func (r *Renderer) Style() Style { return r.s }
 // Event renders one event. Tool calls get a single line; failures expand.
 func (r *Renderer) Event(ev agent.Event) {
 	switch ev.Type {
-	case agent.EvAgentMessage:
-		var m agent.Message
-		if json.Unmarshal(ev.Payload, &m) == nil && strings.TrimSpace(m.Text) != "" {
-			fmt.Fprintf(r.w, "\n%s\n", m.Text)
-		}
-
-	case agent.EvAgentReasoning:
+	case agent.EvAgentDelta:
+		// Stream the reply as it arrives. A cold local model can take thirty
+		// seconds to its first token; text that appears as it is written makes
+		// the same wall time feel responsive, and silence until the end feels
+		// like a hang.
+		//
+		// Formatting is applied a line at a time, as each line completes. The
+		// alternative — printing raw and reprinting formatted at the end —
+		// needs to erase what it wrote, which stops working the moment the
+		// answer is longer than the window and the draft scrolls out of reach.
+		// A line is the largest unit that can be formatted without waiting for
+		// what comes after it.
 		if r.quiet {
 			return
 		}
-		var t agent.Reasoning
-		if json.Unmarshal(ev.Payload, &t) != nil || strings.TrimSpace(t.Text) == "" {
+		var d agent.Delta
+		if json.Unmarshal(ev.Payload, &d) != nil || d.Text == "" {
 			return
 		}
-		// The terminal has no disclosure triangle, so reasoning is announced
-		// rather than printed: it is usually longer than the answer, and
-		// dumping it inline buries the reply it was meant to explain. The full
-		// text is in the transcript and the web console.
-		fmt.Fprintf(r.w, "  %s %s\n", r.s.Dim("✻"),
-			r.s.Dim(fmt.Sprintf("thought for %d words", len(strings.Fields(t.Text)))))
+		if !r.streaming {
+			fmt.Fprint(r.w, "\n")
+			r.streaming = true
+		}
+		r.pending.WriteString(d.Text)
+		r.flushLines(false)
+
+	case agent.EvAgentMessage:
+		var m agent.Message
+		if json.Unmarshal(ev.Payload, &m) != nil {
+			r.endStream()
+			return
+		}
+		if r.streaming {
+			// The deltas already showed this. Flush whatever is left of the
+			// final line and stop, rather than printing the whole answer twice.
+			r.flushLines(true)
+			fmt.Fprint(r.w, "\n")
+			r.endStream()
+			return
+		}
+		if strings.TrimSpace(m.Text) != "" {
+			fmt.Fprintf(r.w, "\n%s\n", Markdown(r.s, m.Text))
+		}
 
 	case agent.EvActionRequested:
 		if r.quiet {

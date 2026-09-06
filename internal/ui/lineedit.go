@@ -144,14 +144,24 @@ func (l *LineReader) Capture() func() {
 	origOut, origErr := os.Stdout, os.Stderr
 	os.Stdout, os.Stderr = outW, errW
 
+	// Write through the terminal rather than past it. x/term tracks where the
+	// cursor is so it can clear the prompt line before other output and redraw
+	// it afterwards; bytes that go straight to the file bypass that bookkeeping,
+	// and the prompt stops reappearing after the first message printed
+	// mid-session. It also handles CRLF, so no separate translation is needed
+	// on this path.
 	var wg sync.WaitGroup
-	pump := func(r *os.File, w io.Writer) {
+	pump := func(r *os.File, fallback io.Writer) {
 		defer wg.Done()
 		buf := make([]byte, 4096)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
-				rawWriter{w}.Write(buf[:n])
+				if l.term != nil {
+					l.term.Write(buf[:n])
+				} else {
+					rawWriter{fallback}.Write(buf[:n])
+				}
 			}
 			if err != nil {
 				return
@@ -197,3 +207,16 @@ var startedOnTerminal = func() bool {
 	info, err := os.Stdout.Stat()
 	return err == nil && (info.Mode()&os.ModeCharDevice) != 0
 }()
+
+// terminalWidth reports the usable width, for wrapping arithmetic. Zero means
+// unknown, and callers then assume no wrapping rather than guess.
+func terminalWidth() int {
+	if !startedOnTerminal {
+		return 0
+	}
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		return 0
+	}
+	return w
+}

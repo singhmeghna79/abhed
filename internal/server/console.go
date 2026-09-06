@@ -260,6 +260,27 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .call .hdr .peek{display:none;color:var(--muted);font-size:10.5px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34ch}
 
+/* Rendered markdown in a reply. Spacing is tight on purpose: a chat bubble is
+   not an article, and the default margins leave a wall of gaps. */
+.md > :first-child{margin-top:0}
+.md > :last-child{margin-bottom:0}
+.md p{margin:.5em 0}
+.md h3,.md h4,.md h5,.md h6{margin:1em 0 .4em;font-size:14px;font-weight:600}
+.md ul,.md ol{margin:.5em 0;padding-left:1.4em}
+.md li{margin:.2em 0}
+.md code{font-family:var(--mono);font-size:12px;background:var(--sunken);
+  padding:1px 4px;border-radius:3px}
+.md pre.code{font-family:var(--mono);font-size:11.5px;line-height:1.55;
+  background:var(--sunken);border-left:2px solid var(--line-strong);
+  border-radius:0 5px 5px 0;padding:.6rem .8rem;margin:.6em 0;
+  white-space:pre-wrap;overflow-x:auto}
+.md table{border-collapse:collapse;margin:.6em 0;font-size:13px;display:block;
+  overflow-x:auto;max-width:100%}
+.md th,.md td{border:1px solid var(--line);padding:.3em .6em;text-align:left}
+.md th{background:var(--sunken);font-weight:600}
+.md a{color:var(--accent)}
+.md hr{border:0;border-top:1px solid var(--line);margin:.8em 0}
+
 /* Model reasoning, minimised by default: reference material, not the reply. */
 .think{margin:6px 0 10px}
 .think .hdr{display:flex;align-items:center;gap:7px;font-family:var(--mono);
@@ -629,6 +650,11 @@ function render(ev){
         // authoritative text in case a fragment was dropped on reconnect,
         // then close the bubble.
         if((p.text || '') !== streamBody.data) streamBody.data = p.text || '';
+        // The deltas streamed plain text; render it now that it is whole.
+        const holder = document.createElement('div');
+        holder.className = 'md';
+        holder.innerHTML = md(streamBody.data);
+        streamBody.replaceWith(holder);
         streamEl = null; streamBody = null;
         break;
       }
@@ -639,14 +665,26 @@ function render(ev){
       // would otherwise print the whole reply twice. Adopt the bubble the
       // deltas built rather than trusting a variable to still be set.
       const streamed = lastStreamedBubble();
-      if(streamed && streamed.body.data.trim() === (p.text || '').trim()) break;
+      if(streamed && streamed.body.data.trim() === (p.text || '').trim()){
+        // Same text: replace the streamed plain draft with the rendered form.
+        // Markdown cannot be applied to a fragment, so the deltas stream raw
+        // and the finished answer is formatted here.
+        const holder = document.createElement('div');
+        holder.className = 'md';
+        holder.innerHTML = md(p.text);
+        streamed.body.replaceWith(holder);
+        break;
+      }
       if(streamed && (p.text || '').startsWith(streamed.body.data.trim().slice(0, 200))
          && streamed.body.data.trim() !== ''){
         streamed.body.data = p.text || '';
         break;
       }
       const b = node('said');
-      b.append(node('who','titan'), document.createTextNode(p.text));
+      const body = document.createElement('div');
+      body.className = 'md';
+      body.innerHTML = md(p.text);
+      b.append(node('who','titan'), body);
       (turnEl || tx).appendChild(b);
       break;
     }
@@ -840,6 +878,79 @@ function lastStreamedBubble(){
   // The text node after the 'who' label is what the deltas appended to.
   const body = [...el.childNodes].find(n => n.nodeType === 3);
   return body ? {el, body} : null;
+}
+
+// md renders a model's reply.
+//
+// Models write markdown whether asked to or not, so inserting the text raw
+// shows the reader the asterisks and a table drawn in pipes. This handles what
+// they actually emit and escapes everything first: a transcript is a record of
+// untrusted content, and a reply that read a hostile file must not be able to
+// put markup into this page.
+function md(text){
+  const esc = s => s.replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const blocks = [];
+  // Fenced code first, so nothing inside one is treated as markup.
+  const F = String.fromCharCode(96).repeat(3);   // a fence, unwritable here
+  const fenceRe = new RegExp(F + '(\\w*)\\n([\\s\\S]*?)' + F, 'g');
+  text = text.replace(fenceRe, (_, lang, body) => {
+    blocks.push('<pre class="code">' + esc(body.replace(/\n$/,'')) + '</pre>');
+    return '\u0000' + (blocks.length - 1) + '\u0000';
+  });
+
+  const inline = s => esc(s)
+    .replace(new RegExp(String.fromCharCode(96) + '([^' + String.fromCharCode(96) + ']+)' + String.fromCharCode(96), 'g'), '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" rel="noopener noreferrer" target="_blank">$1</a>');
+
+  const out = [];
+  const lines = text.split('\n');
+  let list = null, table = null;
+
+  const closeList = () => { if(list){ out.push('</'+list+'>'); list = null; } };
+  const closeTable = () => {
+    if(!table) return;
+    const rows = table.filter(r => !/^[\s|:-]+$/.test(r));
+    out.push('<table>' + rows.map((r, i) => {
+      const cells = r.replace(/^\||\|$/g,'').split('|').map(c => inline(c.trim()));
+      const tag = i === 0 ? 'th' : 'td';
+      return '<tr>' + cells.map(c => '<' + tag + '>' + c + '</' + tag + '>').join('') + '</tr>';
+    }).join('') + '</table>');
+    table = null;
+  };
+
+  for(const raw of lines){
+    const line = raw.trimEnd();
+    if(/^\s*\|.*\|\s*$/.test(line)){ closeList(); (table = table || []).push(line.trim()); continue; }
+    closeTable();
+
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    if(h){
+      closeList();
+      const lvl = Math.min(h[1].length + 2, 6);
+      out.push('<h' + lvl + '>' + inline(h[2]) + '</h' + lvl + '>');
+      continue;
+    }
+
+    const ul = /^\s*[-*+]\s+(.*)$/.exec(line);
+    if(ul){ if(list !== 'ul'){ closeList(); out.push('<ul>'); list = 'ul'; } out.push('<li>'+inline(ul[1])+'</li>'); continue; }
+
+    const ol = /^\s*(\d+)\.\s+(.*)$/.exec(line);
+    if(ol){ if(list !== 'ol'){ closeList(); out.push('<ol>'); list = 'ol'; } out.push('<li>'+inline(ol[2])+'</li>'); continue; }
+
+    closeList();
+    if(line.trim() === ''){ out.push(''); continue; }
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())){ out.push('<hr>'); continue; }
+    out.push('<p>'+inline(line)+'</p>');
+  }
+  closeList(); closeTable();
+
+  let html = out.join('');
+  html = html.replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[Number(i)]);
+  return html;
 }
 
 function wordCount(s){ return String(s || '').trim().split(/\s+/).filter(Boolean).length; }

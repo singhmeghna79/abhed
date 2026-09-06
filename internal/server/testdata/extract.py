@@ -12,7 +12,7 @@ def grab(fn):
     j = src.index('\n}\n', i) + 3
     return src[i:j]
 
-wanted = ['function node(cls, text){','function lastStreamedBubble(){','function wordCount(s){',
+wanted = ['function node(cls, text){','function md(text){','function lastStreamedBubble(){','function wordCount(s){',
           'function setCollapsed(wrap, on){','function collapse(wrap, on){','function setPeek(wrap, content){',
           'function makeCollapsible(wrap, hdr){','function clip(s, n){','function summarize(tool, args){',
           'function shortPath(p){','function kv(k, v){']
