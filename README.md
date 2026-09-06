@@ -14,6 +14,22 @@ Fixed the sign error in Add (math.go:4) and the tests now pass.
 5 turns · 6000 in / 200 out tokens · 83% cached (5.9x prefill)
 ```
 
+## Documentation
+
+**[Start here](docs/guide/README.md)** — install, configure, extend, embed.
+
+| | |
+|---|---|
+| [Getting started](docs/guide/01-getting-started.md) | first run, and the shape of a session |
+| [Configuration](docs/guide/02-configuration.md) | every setting |
+| [Models and providers](docs/guide/03-providers.md) | twenty providers, sampling, subscriptions |
+| [Permissions](docs/guide/04-permissions.md) | what the agent may do, and who decides |
+| [Tools](docs/guide/05-tools.md) · [Skills](docs/guide/06-skills.md) · [Extensions](docs/guide/07-extensions.md) · [MCP](docs/guide/08-mcp.md) | adding your own |
+| [SDK](docs/guide/09-sdk.md) · [Automation](docs/guide/10-automation.md) | embedding and driving it |
+| [Sessions and audit](docs/guide/11-sessions.md) | replay, forking, export |
+
+`docs/architecture/` holds the design notes behind those decisions.
+
 ## The thesis
 
 A controlled study found **harness-induced variance exceeds model-induced variance
