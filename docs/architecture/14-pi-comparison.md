@@ -42,11 +42,16 @@ it is marked **?**, and a **?** is not evidence of absence.
 | Embeddable as a library | ✅ `sdk` package — verified from a separate module | ✅ SDK, RPC over stdin/stdout JSONL |
 | Language | Go, single static binary | TypeScript/Node |
 
-Pi's mid-run steering is a genuinely better interaction model and Titan has
-nothing like it: a user who sees the agent going wrong must interrupt and start
-again, rather than nudging it while it works. The same is true of switching
-model mid-run — Titan requires a restart, and says so in the command's own
-output, having traded that convenience for prefix-cache stability.
+Steering is where Pi set the bar and Titan followed. A user who sees the agent
+going the wrong way should redirect it, not kill the run and pay again for every
+file it had already read. Titan applies a typed line at the next turn boundary,
+so a call in flight still completes and the transcript never shows one with no
+result, and a slash command typed mid-run is queued rather than dropped.
+
+The remaining difference is shape. Pi is a TUI with a full editor and a
+distinction between steering now and queueing a follow-up; Titan reads a line
+and treats anything sent during a turn as steering. Pi's is the nicer instrument;
+they do the same job.
 
 ## Tools
 
@@ -117,12 +122,21 @@ tests hold that line, and they are the first thing to read if it ever changes.
 | Share | ✅ `/export` writes a self-contained HTML transcript; `.json` still writes events | ✅ `/export` to HTML, `/share` to a gist |
 | Multi-tenant isolation | ✅ Postgres RLS, enforced at two layers | ❌ single user, local files |
 
-Both store everything and neither discards history on compaction. The difference
-is what the store is *for*. Pi's tree exists so a developer can go back three
-turns and try a different approach — an interaction feature. Titan's event log
-exists so an auditor can reconstruct exactly what an agent did in a regulated
-environment — a compliance feature. Pi's branching is the better daily
-experience; Titan's replay and tenant isolation are the things a bank asks for.
+Both store everything, neither discards history on compaction, and both can now
+go back to an earlier point and take a different path. What differs is what the
+store is *for*, and it shows in the shape rather than the feature list.
+
+Pi's sessions are a tree: entries carry a `parentId`, branching happens in place,
+and `/tree` is a navigation surface. Titan's is a flat event log per session, and
+`Fork` rebuilds a conversation by replaying events up to a sequence number —
+which works because the log was never a description of the session, it is the
+session. Nothing extra had to be stored to make branching possible; the event
+sourcing that exists for audit paid for it.
+
+That is the honest summary of this section: Pi's model is the better one for
+moving around a session, Titan's is the one that can prove afterwards what
+happened, and each got the other's headline feature at a cost the other would
+not pay.
 
 ## Context management
 
@@ -152,9 +166,19 @@ published measurement was found — absence of a number, not absence of quality.
 | Custom provider without recompiling | ✅ `custom_providers` in config | ✅ `models.json`, or `registerProvider` |
 | Sampling parameters | ✅ 13, refused at startup when unsupported | ⚠️ thinking level is first-class; full sampling surface not documented |
 
-Comparable breadth, opposite mechanism. Pi adds a provider with a JSON file;
-Titan needs a new file and a rebuild. Titan validates a parameter the provider
-cannot honour and refuses to start, which no other harness surveyed does.
+Comparable breadth, and both now add a provider from configuration rather than a
+rebuild. Two differences remain.
+
+Titan refuses to start when a configured sampling parameter is one the provider
+cannot honour, which no other harness surveyed does. `min_p` sent to a hosted API
+is ignored silently, and the evidence is nowhere in the output — the answers are
+simply drawn from a distribution nobody chose. Failing the config is the smaller
+harm.
+
+Pi signs in to a subscription; Titan reads a token someone else minted. That is
+deliberate — the browser flow belongs to the vendor and changes without notice,
+and a broken copy of someone else's login locks users out of their own account —
+but it does mean a Pi user runs one command and a Titan user runs two.
 
 ## Governance — where Titan is far ahead
 
@@ -187,27 +211,30 @@ That is the sentence that separates the two products.
 | The breadth of Pi's extension surface | Titan hooks eight events; Pi hooks more than thirty, including provider request and response, session fork, keyboard shortcuts and the whole TUI. The eight cover blocking, rewriting, context filtering, compaction and tool provision — most of what an operator forks a harness to do — but "an extension can do anything" remains Pi's, not Titan's. |
 | Themes, prompt templates, packaged distribution | Pi ships themes, `{{variable}}` prompt templates, and npm/git distribution for extension bundles. Titan has none of it. Cosmetic next to the rest, and genuinely missing. |
 
-## What Titan should take from Pi
+## What Titan took from Pi
 
-Ranked by value against effort, and none of these requires giving up the
-governance model. **All five are now built** — see
-[15-extensions.md](15-extensions.md). The list is kept as written so the
-reasoning behind each is still legible.
+Everything on this list was a gap when the comparison was first written, and all
+of it is now built. It is kept because the order turned out to matter: the
+extension API came second and made several of the others cheap, and skipping
+straight to the features would have meant building each of them into the core.
 
-1. **Mid-run steering.** The clearest UX gap. Interrupting and restarting is
-   strictly worse than nudging a running agent.
-2. **A real extension API.** Not Pi's whole surface — but `tool_call` (block or
-   rewrite), `tool_result` (rewrite), `context` (filter the messages sent), and
-   `before_agent_start` (adjust the system prompt) would cover most of what
-   operators currently cannot do without a fork. Titan's `policy.Hook` already
-   proves the hard part works; it has no door to the outside.
-3. **Session branching.** The event store already carries `parent_id` and
-   sequence numbers, so the data model is most of the way there.
-4. **Providers from configuration.** `models.json` rather than a rebuild.
-5. **A readable export.** `/export` already writes the event stream, but as raw
-   JSON — useful to a program, not to a colleague. Pi renders HTML and can push
-   it to a gist, which is the difference between a transcript that exists and one
-   that gets read.
+| Taken | Where it landed |
+|---|---|
+| Mid-run steering | type while the agent works; a slash command queues for after |
+| An extension API | eight events, veto-only — [15-extensions.md](15-extensions.md) |
+| Session branching | `/tree` and `/fork`, rebuilt from the event log |
+| Providers from configuration | `custom_providers`, no rebuild |
+| A readable export | `/export` writes a self-contained HTML transcript |
+| Driving it from another language | `titan rpc`, JSONL over stdio |
+| Embedding it in a program | the `sdk` package |
+| Line editing at the prompt | arrows, history, the usual control keys |
+
+One correction is worth recording, because it cost two rounds of this document
+being wrong. Building a mechanism is not closing a gap. Steering existed only
+over HTTP while the CLI still blocked on a read; `Fork` was written and called by
+nothing; and the whole thing sat on a branch, compiled to a scratch path, while
+the binary on the user's PATH was from before any of it. The tables above say
+"verified against the installed binary" for that reason.
 
 ## What Pi would take from Titan, if it wanted to
 
@@ -218,14 +245,22 @@ guarantees.
 
 ## Summary
 
-Pi is a better harness for one developer. It is smaller, more adaptable, better
-to drive, and its extension API is the best of any harness surveyed here.
+Pi is still the better harness for one developer. It is smaller, its extension
+API is the broadest of any surveyed, and its TUI is a nicer instrument than
+Titan's prompt. A developer who wants to reshape the harness itself should use
+Pi, and that is what it is for.
 
-Titan is a better platform for a regulated deployment. Its policy engine, event
-sourcing, tenant isolation and evaluation harness are the things that cannot be
-added later by anyone who is allowed to remove them.
+Titan is the better platform for a regulated deployment, and the reason is
+narrow: its policy engine, event sourcing, tenant isolation and evaluation
+harness cannot be added later by anyone who is allowed to remove them. An
+extension-supplied permission gate is one an extension can also remove; a deny
+rule that an extension cannot override is a different kind of object.
 
-The most useful conclusion is not which is better. It is that Titan's
-extensibility gap is real, large, and the one thing on this page it should fix
-next — and that it can be fixed without touching a single guarantee, because a
-hook that is allowed to veto is not the same as a hook that is allowed to permit.
+The useful conclusion has changed since this document was first written. The
+extensibility gap that was its headline is closed — not by copying Pi's surface,
+but by taking the parts an operator actually forks a harness for and keeping the
+one rule Pi gives up. What remains is real and small: no provider-request hook,
+no shortcuts or custom renderers, no minting of subscription tokens, no Copilot,
+no themes or prompt templates.
+
+The two harnesses now differ mostly where they meant to.
