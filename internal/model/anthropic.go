@@ -320,9 +320,12 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 		return httpReq, nil
 	}
 
-	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify)
+	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify, c.fatalStatus)
 	if err != nil {
 		if se, ok := err.(*StatusError); ok {
+			if c.Bearer != "" && looksLikeSubscriptionRefusal(se) {
+				return nil, errSubscriptionRestricted
+			}
 			return nil, fmt.Errorf("anthropic returned %s", se.Error())
 		}
 		return nil, fmt.Errorf("%s is unreachable: %w", c.BaseURL, err)
@@ -481,4 +484,54 @@ func betaHeader(configured []string, required string) string {
 		}
 	}
 	return strings.Join(append([]string{required}, configured...), ",")
+}
+
+
+// errSubscriptionRestricted explains a refusal that arrives dressed as a rate
+// limit.
+//
+// A Claude Pro or Max subscription token is accepted by the API and then
+// refused for anything that is not Claude Code. The refusal comes back as 429
+// with a rate_limit_error, so without this the user is told to wait for a limit
+// that will never clear — and Titan dutifully retries four times against a wall.
+//
+// Saying so plainly costs one paragraph and saves an afternoon. The condition
+// is deliberately narrow: only a bearer token, only a 429 that carries none of
+// the headers a real rate limit carries.
+var errSubscriptionRestricted = fmt.Errorf(
+	"this subscription token was refused (HTTP 429, with none of the headers a " +
+		"rate limit carries).\n" +
+		"  A Claude Pro or Max token is restricted to Claude Code: Anthropic checks " +
+		"the system prompt and refuses other clients.\n" +
+		"  Use an API key from platform.claude.com instead:\n" +
+		"      unset CLAUDE_CODE_OAUTH_TOKEN\n" +
+		"      export ANTHROPIC_API_KEY=sk-ant-api03-...")
+
+// fatalStatus stops the retry loop for a failure that will not clear.
+//
+// Only this adapter can make the call, and only when a subscription token is in
+// use: a 429 with no reset information is ambiguous in general — plenty of real
+// rate limiters omit those headers — but from a bearer token it is the shape of
+// Anthropic refusing a client that is not Claude Code, and waiting for it is
+// waiting for something that will never happen.
+func (c *Anthropic) fatalStatus(se *StatusError) bool {
+	return c.Bearer != "" && looksLikeSubscriptionRefusal(se)
+}
+
+// looksLikeSubscriptionRefusal distinguishes the refusal from a real rate
+// limit.
+//
+// A genuine limit reports when it resets — Retry-After, or the
+// anthropic-ratelimit headers — and says something specific. This one carries
+// neither and its message is the literal string "Error". Requiring the absence
+// of those headers is what keeps a real rate limit from being misreported as a
+// policy refusal, which would be the worse mistake of the two.
+func looksLikeSubscriptionRefusal(se *StatusError) bool {
+	if se.Status != http.StatusTooManyRequests {
+		return false
+	}
+	if se.RetryAfter || se.HasRateLimitHeaders {
+		return false
+	}
+	return strings.Contains(se.Body, "rate_limit_error")
 }

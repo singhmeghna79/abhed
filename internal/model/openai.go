@@ -236,7 +236,7 @@ func (c *OpenAICompatible) Complete(ctx context.Context, req Request) (<-chan Ch
 		return httpReq, nil
 	}
 
-	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify)
+	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify, c.fatalStatus)
 	if err != nil {
 		if se, ok := err.(*StatusError); ok {
 			return nil, fmt.Errorf("endpoint returned %s", se.Error())
@@ -458,3 +458,7 @@ func truncate(s string, n int) string {
 func (c *OpenAICompatible) CountTokens(req Request) (int, error) {
 	return estimateTokens(req), nil
 }
+
+// fatalStatus: this adapter has no status it can recognise as hopeless, so
+// every retryable failure is retried.
+func (c *OpenAICompatible) fatalStatus(*StatusError) bool { return false }

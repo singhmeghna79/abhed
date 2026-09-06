@@ -230,7 +230,7 @@ func (g *Gemini) Complete(ctx context.Context, req Request) (<-chan Chunk, error
 		return httpReq, nil
 	}
 
-	resp, err := send(ctx, g.HTTP, g.Retry, newRequest, g.Notify)
+	resp, err := send(ctx, g.HTTP, g.Retry, newRequest, g.Notify, g.fatalStatus)
 	if err != nil {
 		if se, ok := err.(*StatusError); ok {
 			return nil, fmt.Errorf("gemini returned %s", se.Error())
@@ -325,3 +325,7 @@ func (g *Gemini) stream(ctx context.Context, resp *http.Response, out chan<- Chu
 }
 
 func (g *Gemini) CountTokens(req Request) (int, error) { return estimateTokens(req), nil }
+
+// fatalStatus: this adapter has no status it can recognise as hopeless, so
+// every retryable failure is retried.
+func (g *Gemini) fatalStatus(*StatusError) bool { return false }
