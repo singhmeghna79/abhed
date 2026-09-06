@@ -75,7 +75,7 @@ substitution — otherwise the command runs `/scripts/run.sh` and fails.
 
 ```yaml
 description: >
-  Answer questions about IBM Z and z/OS using the enterprise
+  Answer questions from the enterprise document corpus using the
   knowledge base. Use whenever the user asks a documented question.
 ```
 
@@ -95,7 +95,7 @@ symlinks:
 
 ```bash
 mkdir -p ~/.titan/skills-active
-ln -s /path/to/skills/zrag ~/.titan/skills-active/zrag
+ln -s /path/to/skills/corpus-search ~/.titan/skills-active/corpus-search
 ```
 
 ```json

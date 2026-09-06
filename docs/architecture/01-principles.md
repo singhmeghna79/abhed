@@ -4,7 +4,7 @@ Status: Draft · 2026-09-02 · Owner: Yuvraj Singh
 
 Titan is an on-prem, air-gap-capable deep agent platform. It targets the capability
 bar set by Claude Code and OpenAI Codex CLI, with the enterprise deployment posture of
-IBM BOB / watsonx Orchestrate, and it is deliberately model-agnostic.
+other enterprise agent platforms, and it is deliberately model-agnostic.
 
 Every principle below is tagged with its evidence status:
 

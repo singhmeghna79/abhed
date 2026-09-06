@@ -15,11 +15,11 @@ import (
 const ddgFixture = `<div class="results">
 <div class="result results_links">
   <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FZ%2FOS&amp;rut=abc">z/OS - Wikipedia</a>
-  <a class="result__snippet" href="//duckduckgo.com/l/?uddg=x">z/OS is a 64-bit operating system for IBM <b>mainframes</b>.</a>
+  <a class="result__snippet" href="//duckduckgo.com/l/?uddg=x">A distributed <b>database</b> stores data on more than one machine.</a>
 </div>
 <div class="result results_links">
-  <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.ibm.com%2Fproducts%2Fzos&amp;rut=def">IBM z/OS operating system</a>
-  <a class="result__snippet" href="//duckduckgo.com/l/?uddg=y">The enterprise OS for IBM Z.</a>
+  <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fdistributed-databases&amp;rut=def">Distributed databases explained</a>
+  <a class="result__snippet" href="//duckduckgo.com/l/?uddg=y">An overview of distributed database design.</a>
 </div>
 </div>`
 
@@ -40,7 +40,7 @@ func TestParseDuckDuckGo(t *testing.T) {
 	if strings.Contains(got[0].Snippet, "<b>") {
 		t.Errorf("HTML survived in the snippet: %q", got[0].Snippet)
 	}
-	if !strings.Contains(got[0].Snippet, "mainframes") {
+	if !strings.Contains(got[0].Snippet, "database") {
 		t.Errorf("snippet text lost: %q", got[0].Snippet)
 	}
 }
@@ -152,7 +152,7 @@ func TestLiveDuckDuckGo(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 
-	got, err := p.Search(ctx, "what is IBM z/OS", 5)
+	got, err := p.Search(ctx, "what is a distributed database", 5)
 	if err != nil {
 		t.Fatalf("live search failed: %v", err)
 	}

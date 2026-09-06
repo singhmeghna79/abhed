@@ -8,7 +8,7 @@
 // This is deliberately schema-agnostic rather than a set of per-vendor
 // clients. Every retrieval API is the same shape underneath (send a query, get
 // back passages) and differs only in field names, so a small path mapping
-// covers zRAG, Watson Discovery, Elasticsearch, Vespa, Qdrant, or an internal
+// covers Elasticsearch, OpenSearch, Vespa, Qdrant, Weaviate, or an internal
 // service, without Titan carrying a client library for each and a release
 // every time one changes.
 package rag

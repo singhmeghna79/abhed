@@ -207,11 +207,11 @@ func TestToolIsReadOnly(t *testing.T) {
 // match a request against, so the skill was silently never invoked.
 func TestParseFoldedDescription(t *testing.T) {
 	s, err := Parse(`---
-name: zrag
+name: corpus-search
 description: >
-  Answer questions about IBM Z, z/OS, mainframe hardware and software
+  Answer questions from the enterprise document corpus, with inline citations
   using the enterprise knowledge base. Use whenever the user asks a
-  documented IBM Z question.
+  documented product question.
 metadata:
   version: "2.0.0"
 ---
@@ -226,7 +226,7 @@ Instructions.
 	if len(s.Description) < 50 {
 		t.Fatalf("folded description collapsed to %q", s.Description)
 	}
-	if !strings.Contains(s.Description, "IBM Z") ||
+	if !strings.Contains(s.Description, "document corpus") ||
 		!strings.Contains(s.Description, "Use whenever") {
 		t.Errorf("folded lines not joined: %q", s.Description)
 	}
@@ -238,7 +238,7 @@ Instructions.
 	if strings.Contains(s.Description, "version") {
 		t.Errorf("block ran past its indentation: %q", s.Description)
 	}
-	if s.Name != "zrag" {
+	if s.Name != "corpus-search" {
 		t.Errorf("name = %q", s.Name)
 	}
 }
