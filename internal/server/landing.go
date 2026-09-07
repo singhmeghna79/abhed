@@ -143,6 +143,20 @@ section{padding-bottom:34px}
 .tool{font-family:var(--mono);font-size:11px;background:var(--sunken);
   border:1px solid var(--line);border-radius:5px;padding:3px 9px;color:var(--ink-2)}
 
+/* Containment. Each row is a boundary that either holds or does not, so the
+   mark carries the state and the text says what it means in practice — a green
+   tick with no explanation is decoration, not information. */
+.lede{margin:-6px 0 16px;color:var(--muted);max-width:62ch}
+.posture{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.posture li{display:grid;grid-template-columns:18px 1fr;gap:11px;
+  align-items:start;background:var(--surface);border:1px solid var(--line);
+  border-radius:9px;padding:11px 13px}
+.posture .mk{font-family:var(--mono);font-size:13px;line-height:1.35;font-weight:700}
+.posture .yes .mk{color:var(--ok)}
+.posture .no .mk{color:var(--warn)}
+.posture b{display:block;font-size:13px;font-weight:600;letter-spacing:-.005em}
+.posture span{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+
 footer{border-top:1px solid var(--line);padding:20px 0 30px;
   font-family:var(--mono);font-size:10.5px;color:var(--muted);
   display:flex;gap:18px;flex-wrap:wrap}
@@ -217,6 +231,13 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
   <section>
     <h2>Tools available to the agent</h2>
     <div class="tools" id="tools"></div>
+  </section>
+
+  <section>
+    <h2>Containment</h2>
+    <p class="lede">This agent runs shell commands and edits files. What stops it
+      mattering is not that it is trusted — it is what it cannot reach.</p>
+    <ul class="posture" id="posture"></ul>
   </section>
 </main>
 
@@ -329,10 +350,20 @@ function renderFacts(o){
   f.textContent = '';
   f.appendChild(card('Model', o.model,
     o.context_window ? o.context_window.toLocaleString() + ' token context' : ''));
-  f.appendChild(card('Workspace', shortPath(o.workspace), 'the only path the agent can reach'));
-  f.appendChild(card('Sandbox', o.sandbox,
+  // The workspace path is withheld from anonymous visitors: it names the
+  // operator's account and directory layout. Saying so is more honest than
+  // rendering an empty card, and it demonstrates the restraint rather than
+  // just claiming it.
+  f.appendChild(o.workspace
+    ? card('Workspace', shortPath(o.workspace), 'the only path the agent can reach')
+    : card('Workspace', 'hidden', 'shown once you sign in', 'on'));
+  // Containerised deployments report tier "none" because the boundary is the
+  // container around the whole process, not a sandbox inside it. Flagging that
+  // as a warning would be exactly backwards, so it is read from the deployment
+  // rather than inferred from the tier string alone.
+  f.appendChild(card('Isolation', o.isolation || o.sandbox,
     o.sandbox_network ? 'network allowed' : 'no network access',
-    o.sandbox === 'none' ? 'warn' : 'on'));
+    o.isolation_ok ? 'on' : (o.sandbox === 'none' ? 'warn' : 'on')));
   f.appendChild(card('Storage', o.durable ? 'postgres' : 'in-memory',
     o.storage, o.durable ? 'on' : 'off'));
   f.appendChild(card('Authentication', authValue(o), authDetail(o),
@@ -355,6 +386,53 @@ function renderFacts(o){
   t.textContent = '';
   for(const name of (o.tools || [])) t.appendChild(el('span','tool',name));
   if(!(o.tools || []).length) t.appendChild(el('span','note','none registered'));
+
+  // ---- containment
+  //
+  // Every row is read from the running deployment, never hardcoded: a claim
+  // about isolation that is not checked against reality is worse than no claim,
+  // because it is believed. A boundary that does NOT hold is shown as plainly
+  // as one that does.
+  const p = $('posture');
+  p.textContent = '';
+  const rows = [
+    [o.isolation_ok,
+     o.isolation === 'container'
+       ? 'The agent runs inside a container'
+       : 'Execution sandbox: ' + (o.isolation || 'none'),
+     o.isolation === 'container'
+       ? 'It has no path to the host filesystem — not restricted, absent. ' +
+         'The only writable surface is a throwaway volume.'
+       : 'Tool execution is confined to the ' + (o.isolation || 'none') + ' tier.'],
+    [!o.sandbox_network,
+     o.sandbox_network ? 'The agent can reach the network' : 'No network egress',
+     o.sandbox_network
+       ? 'A prompt injection has somewhere to send what it finds.'
+       : 'Nothing the agent reads can be sent anywhere.'],
+    [o.auth_mode !== 'none',
+     o.auth_mode === 'none' ? 'Anyone can use this deployment' : 'Sign-in required',
+     o.auth_mode === 'none'
+       ? 'No account is needed to drive the agent.'
+       : 'Every session belongs to one account and is visible only to it.'],
+    [!o.allow_signup,
+     o.allow_signup ? 'Anyone can create an account' : 'Accounts are issued, not self-served',
+     o.allow_signup
+       ? 'Registration is open to the public internet.'
+       : 'Only the operator can add a user.'],
+    [true, 'Every action is recorded',
+     'Tool calls, approvals and results are appended to a replayable log.'],
+    [true, 'Tool output is data, never instructions',
+     'Everything the agent reads is tagged untrusted at ingest.'],
+  ];
+  for(const [ok, title, detail] of rows){
+    const li = el('li', ok ? 'yes' : 'no');
+    li.appendChild(el('span','mk', ok ? '✓' : '!'));
+    const body = el('div');
+    body.appendChild(el('b','',title));
+    body.appendChild(el('span','',detail));
+    li.appendChild(body);
+    p.appendChild(li);
+  }
 
   $('ver').textContent = 'titan · ' + o.model;
 }

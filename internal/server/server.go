@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -884,9 +885,20 @@ func (s *Server) serveLanding(w http.ResponseWriter, r *http.Request) {
 type overviewResponse struct {
 	Model         string `json:"model"`
 	ContextWindow int    `json:"context_window"`
-	Workspace     string `json:"workspace"`
-	Sandbox       string `json:"sandbox"`
-	SandboxNet    bool   `json:"sandbox_network"`
+	// Workspace is empty for anonymous callers: it is an absolute host path,
+	// so it names the operator's account and directory layout.
+	Workspace  string `json:"workspace,omitempty"`
+	Sandbox    string `json:"sandbox"`
+	SandboxNet bool   `json:"sandbox_network"`
+	// Isolation describes the boundary in the terms that actually apply to this
+	// deployment. A containerised Titan reports sandbox tier "none" — correct,
+	// because the boundary is the container around the whole process rather
+	// than a sandbox inside it — and presenting that bare number as a warning
+	// would tell the reader the opposite of the truth.
+	Isolation string `json:"isolation,omitempty"`
+	// IsolationOK is whether the deployment is actually contained, as opposed
+	// to whether a particular tier string was configured.
+	IsolationOK bool `json:"isolation_ok"`
 	Storage       string `json:"storage"`
 	Durable       bool   `json:"durable"`
 	AuthMode      string `json:"auth_mode"`
@@ -926,6 +938,19 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 
 	o.Sandbox = orDefaultStr(cfg.Sandbox.MinTier, "process")
 	o.SandboxNet = cfg.Sandbox.AllowNetwork
+
+	// TITAN_IN_CONTAINER is set by the deployment image, so this reports how
+	// the process is actually running rather than what a config file claims.
+	// The distinction matters: inside a container, tier "none" is the correct
+	// setting and the strongest available posture, because the boundary is the
+	// container itself.
+	if os.Getenv("TITAN_IN_CONTAINER") != "" {
+		o.Isolation = "container"
+		o.IsolationOK = true
+	} else {
+		o.Isolation = o.Sandbox
+		o.IsolationOK = o.Sandbox != "none"
+	}
 
 	o.WebSearch = "disabled"
 	if cfg.WebSearch.Enabled {
