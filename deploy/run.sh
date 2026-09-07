@@ -13,6 +13,15 @@ set -euo pipefail
 IMAGE="${TITAN_IMAGE:-titan:local}"
 NAME="${TITAN_CONTAINER:-titan}"
 VOLUME="${TITAN_VOLUME:-titan-workspace}"
+# Accounts live on their own volume rather than in the workspace.
+#
+# Two reasons, one practical and one structural. Mounting the config file into
+# /workspace/.titan makes the engine create that directory owned by root, so the
+# unprivileged user cannot write users.json beside it. And the workspace is the
+# tree the agent reads and writes: the password database does not belong in the
+# one directory the model is pointed at.
+STATE_VOLUME="${TITAN_STATE_VOLUME:-titan-state}"
+CONFIG="${TITAN_CONFIG:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.json}"
 # Bound to loopback deliberately: the only route in is the reverse proxy, which
 # terminates TLS. Publishing on 0.0.0.0 would put the API on the LAN in the
 # clear, behind nothing.
@@ -33,9 +42,16 @@ fi
 # crux of the whole design: NOT a bind mount of any host directory. A bind mount
 # of $HOME or the repo would hand back exactly the access the container exists
 # to remove.
-if ! "$RUNTIME" volume inspect "$VOLUME" >/dev/null 2>&1; then
-  echo "creating workspace volume $VOLUME"
-  "$RUNTIME" volume create "$VOLUME" >/dev/null
+for v in "$VOLUME" "$STATE_VOLUME"; do
+  if ! "$RUNTIME" volume inspect "$v" >/dev/null 2>&1; then
+    echo "creating volume $v"
+    "$RUNTIME" volume create "$v" >/dev/null
+  fi
+done
+
+if [ ! -f "$CONFIG" ]; then
+  echo "error: no config at $CONFIG" >&2
+  exit 1
 fi
 
 "$RUNTIME" rm -f "$NAME" >/dev/null 2>&1 || true
@@ -62,9 +78,16 @@ exec "$RUNTIME" run \
   `# Everything genuinely ephemeral is a tmpfs: gone on restart, never on disk,` \
   `# and noexec so a payload written there cannot be run.` \
   --tmpfs /tmp:rw,noexec,nosuid,size=512m \
-  --tmpfs /home/titan/.titan:rw,nosuid,size=64m \
-  `# The ONLY persistent writable surface, and it is a volume the engine owns.` \
+  `# The two persistent writable surfaces, both volumes the engine owns. No` \
+  `# host directory is mounted anywhere: that is the whole point.` \
   --volume "$VOLUME":/workspace:rw \
+  `# Accounts and sessions, kept out of the tree the agent reads.` \
+  --volume "$STATE_VOLUME":/home/titan/.titan:rw \
+  `# The config is the one thing that comes from the host, and it is mounted` \
+  `# read-only at the MANAGED path. That is deliberate: config.Load applies` \
+  `# /etc/titan/config.json last and sets Managed, which makes bypass mode` \
+  `# refusable and the policy non-escalatable from inside the container.` \
+  --volume "$CONFIG":/etc/titan/config.json:ro \
   \
   `# --- what the process may consume --------------------------------------` \
   `# A runaway or hostile agent should exhaust its own limits, not the host's.` \
