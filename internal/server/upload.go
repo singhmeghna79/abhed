@@ -58,6 +58,13 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 		rand.Read(b[:])
 		sessionID = "staged-" + hex.EncodeToString(b[:])
 	}
+	// The ID becomes a directory name below. filepath.Join would CLEAN a "..",
+	// not reject it — resolving the traversal rather than stopping it — so the
+	// segment is validated before it is ever joined.
+	if !validSessionID(sessionID) {
+		writeError(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
 
 	// Reject oversize bodies before reading them into memory.
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes+(1<<20))

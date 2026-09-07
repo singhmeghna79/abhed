@@ -38,6 +38,7 @@ type Config struct {
 	// CustomProviders adds model providers without a rebuild.
 	CustomProviders []CustomProviderConfig `json:"custom_providers,omitempty"`
 	Storage     StorageConfig     `json:"storage"`
+	Server      ServerConfig      `json:"server,omitempty"`
 	Auth        AuthConfig        `json:"auth"`
 
 	// Managed is set when the config came from the org-managed path.
@@ -214,6 +215,30 @@ type StorageConfig struct {
 	// Tenant scopes every row; row-level security enforces it.
 	Tenant   string `json:"tenant,omitempty"`
 	MaxConns int    `json:"max_conns,omitempty"`
+}
+
+// ServerConfig holds the settings that only matter once `titan serve` is
+// reachable from a network Titan does not control.
+//
+// These are deliberately separate from AuthConfig: they describe the deployment
+// (is TLS terminated in front of us, whose Origin do we trust, is there a proxy)
+// rather than who the user is. A laptop deployment leaves all of them at their
+// zero values and behaves exactly as before.
+type ServerConfig struct {
+	// HSTS emits Strict-Transport-Security. Only set this when TLS really is
+	// terminated in front of the server: sent over plain HTTP it pins the
+	// browser to a scheme that does not answer, and the pin outlives the
+	// mistake.
+	HSTS bool `json:"hsts,omitempty"`
+	// AllowedOrigins are the origins permitted to make state-changing requests.
+	// Empty means "the host the request arrived on", which is correct for a
+	// single-domain deployment and wrong only if the console is served from
+	// somewhere other than the API.
+	AllowedOrigins []string `json:"allowed_origins,omitempty"`
+	// TrustProxy makes rate limiting read X-Forwarded-For. Only enable it when
+	// a proxy you control is the sole route to the port: otherwise a client
+	// sets its own limiter key and rotates it at will.
+	TrustProxy bool `json:"trust_proxy,omitempty"`
 }
 
 // RetrievalConfig controls the on-prem index. Retrieval is an accelerator over

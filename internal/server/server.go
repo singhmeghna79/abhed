@@ -69,6 +69,10 @@ type Server struct {
 	log      *slog.Logger
 	mu       sync.RWMutex
 	running  map[string]*liveSession
+
+	// Throttles for the endpoints reachable before authentication succeeds.
+	signinLimiter  *limiter
+	sessionLimiter *limiter
 }
 
 type liveSession struct {
@@ -113,6 +117,10 @@ func New(opts Options) *Server {
 		store:   st,
 		log:     opts.Logger,
 		running: make(map[string]*liveSession),
+		// Ten sign-in attempts a minute is far beyond what a person typing a
+		// password needs, and far below what makes guessing viable.
+		signinLimiter:  newLimiter(10, time.Minute),
+		sessionLimiter: newLimiter(60, time.Minute),
 	}
 	if rec, ok := st.(SessionRecorder); ok {
 		s.sessions = rec
@@ -190,8 +198,63 @@ func (s *Server) Handler() http.Handler {
 	if s.opts.Config.Auth.RequireGroup != "" {
 		handler = auth.RequireGroup(s.opts.Config.Auth.RequireGroup, handler)
 	}
-	handler = s.withMiddleware(handler)     // reads identity, logs
-	return s.authMiddleware().Wrap(handler) // establishes identity
+	handler = s.withMiddleware(handler) // reads identity, logs
+
+	// Sign-in is throttled OUTSIDE authentication, because an unauthenticated
+	// attacker is precisely who this limits: by the time the auth layer has
+	// rejected a password, the bcrypt comparison has already been paid for.
+	authed := s.authMiddleware().Wrap(handler) // establishes identity
+	limited := s.throttle(authed)
+
+	// Origin is checked before anything reads a cookie, and headers are set
+	// outermost so they are present on rejections too — an error response is
+	// still a response a browser will act on.
+	guarded := sameOrigin(s.opts.Config.Server.AllowedOrigins)(limited)
+	return securityHeaders(s.bodyLimit(guarded), s.opts.Config.Server.HSTS)
+}
+
+// bodyLimit caps every request body before any handler decodes it.
+//
+// Applied centrally rather than per-handler: there are six JSON decode sites
+// today, and the one that gets added next month is the one that would have been
+// forgotten. Uploads set their own, larger limit inside uploadFile, so they are
+// exempted here rather than being clamped to the JSON size.
+func (s *Server) bodyLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil && !strings.HasSuffix(r.URL.Path, "/upload") &&
+			r.URL.Path != "/v1/uploads" {
+			capBody(w, r)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// throttle rate-limits the endpoints an anonymous caller can reach.
+//
+// Only the credential endpoints are limited, not the whole API: a signed-in
+// user driving an agent legitimately makes many requests, and throttling those
+// would degrade normal use to defend against an attacker who is already past
+// the door.
+func (s *Server) throttle(next http.Handler) http.Handler {
+	trustProxy := s.opts.Config.Auth.Mode == "proxy" || s.opts.Config.Server.TrustProxy
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/signin", "/v1/signup", "/v1/password":
+			rateLimit(s.signinLimiter, trustProxy, next).ServeHTTP(w, r)
+		case "/v1/sessions":
+			// Creating a session starts an agent loop, which is the most
+			// expensive thing this server does. It is authenticated, so the
+			// limit is generous — it exists to bound a runaway client, not to
+			// police normal use.
+			if r.Method == http.MethodPost {
+				rateLimit(s.sessionLimiter, trustProxy, next).ServeHTTP(w, r)
+				return
+			}
+			next.ServeHTTP(w, r)
+		default:
+			next.ServeHTTP(w, r)
+		}
+	})
 }
 
 // authMiddleware builds the identity layer from config unless one was injected.
@@ -229,6 +292,23 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxTenant, tenant)
 
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+		// A panicking handler would otherwise drop the connection with no
+		// status and no audit line — the request simply vanishes from the log,
+		// which is the worst possible outcome for something internet-facing.
+		// The client is told nothing beyond "internal error": a Go stack trace
+		// names packages, paths, and versions.
+		defer func() {
+			if v := recover(); v != nil {
+				s.log.Error("panic serving request",
+					"method", r.Method, "path", r.URL.Path,
+					"user", user, "panic", v)
+				if rec.status == http.StatusOK && !rec.wrote {
+					writeError(rec, http.StatusInternalServerError, "internal error")
+				}
+			}
+		}()
+
 		next.ServeHTTP(rec, r.WithContext(ctx))
 
 		s.log.Info("request",
@@ -261,10 +341,21 @@ func tenantOf(ctx context.Context) string {
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+	// wrote tracks whether anything reached the client, so panic recovery can
+	// tell "nothing was sent, send a 500" from "a response was already
+	// streaming", where a second WriteHeader would only log a superfluous-call
+	// warning and corrupt the body.
+	wrote bool
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	r.wrote = true
+	return r.ResponseWriter.Write(b)
 }
 
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
+	r.wrote = true
 	r.ResponseWriter.WriteHeader(code)
 }
 
@@ -295,7 +386,16 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID := "s-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	// The mode is resolved before anything is persisted or started, because a
+	// rejected mode must not leave a half-created session behind.
+	mode, ok := requestMode(s.opts.Config.Permissions.Mode, req.Mode)
+	if !ok {
+		writeError(w, http.StatusForbidden,
+			"mode may only narrow permissions; a client may request \"plan\" and nothing else")
+		return
+	}
+
+	sessionID := newSessionID()
 
 	// Events reference sessions, so the session row must exist first.
 	if s.sessions != nil {
@@ -309,7 +409,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 			User:      userOf(r.Context()),
 			Workspace: s.opts.Workspace,
 			Model:     s.opts.Adapter.Profile().Name,
-			Mode:      orDefaultStr(req.Mode, s.opts.Config.Permissions.Mode),
+			Mode:      mode,
 			Prompt:    req.Prompt,
 			StartedAt: time.Now().UTC(),
 		}); err != nil {
@@ -341,10 +441,6 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mode := s.opts.Config.Permissions.Mode
-	if req.Mode != "" {
-		mode = req.Mode
-	}
 	pol := policy.New(policy.Mode(mode))
 	pol.Managed = s.opts.Config.Managed
 	_ = pol.AddDeny(s.opts.Config.Permissions.Deny...)
@@ -467,7 +563,7 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 	// durable store — that is the whole point of event sourcing. Looking only
 	// at the in-memory map meant every session from before a restart returned
 	// 404, so clicking one in the UI showed a blank pane.
-	live, running := s.session(id, tenantOf(r.Context()))
+	live, running := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
 	if !running {
 		backlog, err := s.store.Events(id)
 		if err != nil || len(backlog) == 0 {
@@ -546,7 +642,7 @@ func (s *Server) replaySession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	// A durable store can replay a session this process never ran. RLS scopes
 	// the query to the caller's tenant, so a cross-tenant id returns nothing.
-	if _, ok := s.session(id, tenantOf(r.Context())); !ok && s.sessions == nil {
+	if _, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context())); !ok && s.sessions == nil {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
@@ -570,7 +666,7 @@ func (s *Server) replaySession(w http.ResponseWriter, r *http.Request) {
 // second message edit what the first one looked at.
 func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	live, ok := s.session(id, tenantOf(r.Context()))
+	live, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
 	if !ok {
 		writeError(w, http.StatusNotFound,
 			"session not found — it may have ended with this server process")
@@ -633,7 +729,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) interruptSession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	live, ok := s.session(id, tenantOf(r.Context()))
+	live, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
 	if !ok {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
@@ -655,7 +751,7 @@ type approveRequest struct {
 
 func (s *Server) approveAction(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	live, ok := s.session(id, tenantOf(r.Context()))
+	live, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
 	if !ok {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
@@ -778,7 +874,7 @@ func (s *Server) serveLanding(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy",
-		"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'")
+		"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 	w.Write([]byte(landingHTML))
 }
 
@@ -817,7 +913,6 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	o := overviewResponse{
 		Model:         s.opts.Adapter.Profile().Name,
 		ContextWindow: s.opts.Adapter.Profile().ContextWindow,
-		Workspace:     s.opts.Workspace,
 		AuthMode:      orDefaultStr(cfg.Auth.Mode, "none"),
 		Durable:       cfg.Storage.Driver == "postgres",
 		Retrieval:     cfg.Retrieval.Enabled,
@@ -861,6 +956,16 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// The workspace is an absolute path on the host: it names the operator's
+	// account and directory layout, which is reconnaissance for anyone probing
+	// the box. This endpoint is public so the landing page can describe the
+	// deployment honestly before sign-in, and everything above is a property of
+	// the deployment rather than of the machine. The path is not, so it is
+	// disclosed only to someone who has already authenticated.
+	if o.Authenticated {
+		o.Workspace = s.opts.Workspace
+	}
+
 	s.mu.RLock()
 	for _, l := range s.running {
 		l.mu.Lock()
@@ -898,11 +1003,21 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) session(id, tenant string) (*liveSession, bool) {
+// session resolves a live session for a caller, or reports absence.
+//
+// Both the tenant AND the user must match. Tenancy alone was the original
+// check, which quietly meant every user in a tenant could read another user's
+// transcript, post to their agent, interrupt it, and — worst of all — answer
+// its approval prompts. Approving a dangerous tool call on someone else's
+// behalf is a privilege the model was never meant to accept from a bystander.
+//
+// A caller who is not the owner gets the same "not found" as a caller who
+// invented the ID, so the lookup does not confirm that a session exists.
+func (s *Server) session(id, tenant, user string) (*liveSession, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	live, found := s.running[id]
-	if !found || live.Tenant != tenant {
+	if !found || live.Tenant != tenant || live.User != user {
 		return nil, false
 	}
 	return live, true
@@ -984,6 +1099,16 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		Addr:              s.opts.Addr,
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		// A slow body is the other half of slowloris: headers arrive promptly,
+		// then the body trickles in a byte at a time and holds the connection
+		// open. Generous enough for a large upload on a poor connection.
+		ReadTimeout: 5 * time.Minute,
+		// Idle keep-alive connections cost a goroutine each; an attacker opening
+		// thousands and sending nothing is otherwise free.
+		IdleTimeout: 2 * time.Minute,
+		// 1 MB of headers is the Go default and far more than anything here
+		// sends; stating it makes the bound deliberate rather than inherited.
+		MaxHeaderBytes: 1 << 20,
 		// No write timeout: SSE streams are long-lived by design.
 	}
 	go func() {

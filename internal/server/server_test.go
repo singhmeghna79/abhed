@@ -358,8 +358,11 @@ func TestOverviewReportsRealConfiguration(t *testing.T) {
 	if o.Model == "" {
 		t.Error("overview should name the model")
 	}
-	if o.Workspace == "" {
-		t.Error("overview should name the workspace")
+	// The workspace is an absolute host path, so it is withheld from anonymous
+	// callers even though the rest of the overview is public: it names the
+	// operator's account and directory layout to anyone who asks.
+	if o.Workspace != "" {
+		t.Errorf("anonymous overview disclosed the workspace path: %q", o.Workspace)
 	}
 	if o.AuthMode != "none" {
 		t.Errorf("auth mode should reflect config, got %q", o.AuthMode)

@@ -1375,9 +1375,21 @@ func generatePassword() string {
 // buildAuth constructs the identity layer. OIDC verifies tokens properly;
 // proxy mode trusts headers and is only safe behind a trusted proxy.
 func buildAuth(cfg config.Config, workspace string) (*auth.Middleware, error) {
-	mw := &auth.Middleware{PublicPaths: []string{
-		"/", "/v1/health", "/v1/overview", "/v1/signin", "/v1/signup",
-		"/login", "/auth/callback", "/logout"}}
+	// Only what must answer before a caller is signed in. Anything else added
+	// here is an unauthenticated endpoint on a public port, so the list is kept
+	// short deliberately.
+	public := []string{
+		"/", "/v1/health", "/v1/overview", "/v1/signin",
+		"/login", "/auth/callback", "/logout", "/v1/whoami"}
+	// Signup is public only when the operator has actually enabled it. It was
+	// previously listed unconditionally, which left the path reachable without
+	// authentication even in deployments that never registered the handler —
+	// harmless while it 404s, but exactly the kind of latent gap that becomes
+	// live the moment someone flips allow_signup on for a different reason.
+	if cfg.Auth.AllowSignup {
+		public = append(public, "/v1/signup")
+	}
+	mw := &auth.Middleware{PublicPaths: public}
 	ttl := time.Duration(cfg.Auth.SessionHours) * time.Hour
 
 	// Local accounts and an identity provider are independent capabilities,

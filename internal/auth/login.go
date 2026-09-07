@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
@@ -443,10 +444,24 @@ func orDefault(v, fallback string) string {
 	return v
 }
 
+// loginError renders a sign-in failure.
+//
+// Both arguments can be attacker-controlled: Callback passes the `error` and
+// `error_description` query parameters straight through, and this page is
+// served from the same origin as the session cookie. Interpolating them into
+// HTML unescaped is reflected XSS on the one origin where it matters most, so
+// they are escaped here rather than at each call site — the call sites are
+// where someone will forget.
 func loginError(w http.ResponseWriter, code int, kind, detail string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// The same policy the console and landing page carry: even with the
+	// escaping above, this page should not be able to load or execute anything
+	// external if a future edit reintroduces an injection.
+	w.Header().Set("Content-Security-Policy",
+		"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'")
 	w.WriteHeader(code)
-	fmt.Fprintf(w, loginErrorHTML, kind, detail)
+	fmt.Fprintf(w, loginErrorHTML,
+		template.HTMLEscapeString(kind), template.HTMLEscapeString(detail))
 }
 
 const loginErrorHTML = `<!doctype html><meta charset="utf-8">
