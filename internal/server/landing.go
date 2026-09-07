@@ -184,8 +184,27 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
   display:flex;gap:18px;flex-wrap:wrap}
 
 @media (max-width:760px){
-  .hero{grid-template-columns:1fr}
-  .viz{width:100%;height:190px}
+  .hero{grid-template-columns:1fr;padding:28px 0 26px;gap:26px}
+  /* The animation is decoration; on a phone it costs a third of the first
+     screen and pushes the sign-in form below the fold. The headline and the
+     form are what the page is for. */
+  .viz{display:none}
+  .wrap{padding:0 17px}
+  .hero h1{font-size:25px;letter-spacing:-.018em}
+  .hero p{font-size:14.5px}
+  h2{margin-bottom:11px}
+  section{padding-bottom:26px}
+  /* One card per row: two columns at this width truncates every value. */
+  .grid{grid-template-columns:1fr;gap:10px}
+  .signin{max-width:none}
+  /* 16px stops iOS zooming the page when a field takes focus. */
+  .signin input{font-size:16px}
+  .cta{gap:8px}
+  .btn{padding:11px 16px}
+  .stats{gap:16px}
+  footer{flex-direction:column;gap:7px;padding:16px 0 26px}
+  .bar{height:auto;min-height:48px;padding:9px 0;flex-wrap:wrap;gap:7px}
+  .bar .sub{display:none}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>

@@ -78,6 +78,15 @@ button,select,textarea,input{font:inherit;color:inherit}
   box-shadow:0 1px 0 rgba(0,0,0,.04),0 2px 8px -6px rgba(0,0,0,.28);
   position:relative;z-index:3}
 .brand{display:flex;align-items:center;gap:8px}
+/* Both of these belong to the phone layout and are switched on there. Hiding
+   them here rather than adding them conditionally in JS keeps one DOM at
+   every width, so nothing has to be rebuilt when the screen rotates. */
+.railtoggle{display:none;align-items:center;justify-content:center;
+  width:32px;height:32px;flex:none;background:none;border:1px solid var(--line);
+  border-radius:7px;color:var(--ink-2);cursor:pointer;padding:0}
+.railtoggle:active{background:var(--sunken)}
+.scrim{display:none}
+@media (max-width:760px){.scrim{display:block}}
 .mark{width:23px;height:23px;flex:none;
   filter:drop-shadow(0 1px 3px rgba(0,0,0,.22))}
 .brand b{font-size:14px;font-weight:650;letter-spacing:-.01em}
@@ -359,12 +368,92 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   .shell{grid-template-columns:var(--rail) minmax(0,1fr)}
   .inspector{display:none}
 }
+
+/* ------------------------------------------------------------------ phone */
+/* A 272px session rail on a 390px screen leaves about 110px for the
+   conversation, which is why this was unusable rather than merely cramped. On
+   a phone the rail stops being a column and becomes a slide-over panel: the
+   transcript gets the whole width, and the rail is one tap away.
+
+   100vh is also wrong here. Mobile browsers measure it against the viewport
+   WITHOUT their own chrome, so the composer sits below the fold and the page
+   scrolls when it should not. 100dvh tracks the visible area as the toolbar
+   hides and shows; the 100vh line stays first as the fallback for browsers
+   that do not know dvh. */
+@media (max-width:760px){
+  .shell{
+    grid-template-columns:minmax(0,1fr);
+    height:calc(100vh - 48px);
+    height:calc(100dvh - 48px);
+  }
+  .shell.open{grid-template-columns:minmax(0,1fr)}
+
+  .rail{
+    position:fixed;top:48px;left:0;bottom:0;width:min(84vw,300px);
+    z-index:20;transform:translateX(-101%);
+    transition:transform .2s ease;
+    box-shadow:2px 0 22px -8px rgba(0,0,0,.45);
+    border-right:1px solid var(--line-strong);
+  }
+  body.rail-open .rail{transform:translateX(0)}
+
+  /* Tapping the backdrop closes the rail — the gesture people expect, and it
+     saves a second trip to the toggle. */
+  .scrim{
+    position:fixed;inset:48px 0 0;background:rgba(0,0,0,.42);
+    opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:19;
+  }
+  body.rail-open .scrim{opacity:1;pointer-events:auto}
+
+  .railtoggle{display:inline-flex}
+
+  /* The header carries six items that do not fit. Identity and the health
+     LED earn their place; model and session counts are detail a phone can
+     do without, and they are still on the landing page. */
+  .top{gap:9px;padding:0 11px}
+  .top .stat{display:none}
+  .top .stat#whobox{display:flex;gap:7px}
+  .top .who-chip{max-width:104px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  #switchuser{display:none}
+  .brand .sub{display:none}
+
+  /* A 16px font on the input is what stops iOS zooming the whole page when
+     the keyboard opens — the single most disorienting thing a mobile web app
+     can do. */
+  .ask{font-size:16px}
+
+  .drawer{
+    position:fixed;inset:48px 0 0;width:100%;z-index:18;
+    border-left:0;transform:translateY(101%);
+    transition:transform .2s ease;
+  }
+  .shell.open .drawer{transform:translateY(0)}
+
+  .msg{padding-left:13px;padding-right:13px}
+}
+
+/* Landscape phones and small tablets keep the rail but narrow it, rather than
+   spending a third of the width on a list of chat titles. */
+@media (min-width:761px) and (max-width:1180px){
+  :root{--rail:212px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 
 <div class="top">
+  <!-- Shown only on a phone, where the rail is a slide-over rather than a
+       column. aria-expanded is kept in sync so a screen reader is told what
+       the button did, not just that it exists. -->
+  <button class="railtoggle" id="railtoggle" type="button"
+          aria-label="Show chats" aria-expanded="false" aria-controls="list">
+    <svg viewBox="0 0 20 20" aria-hidden="true" width="17" height="17">
+      <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
   <div class="brand">
     <svg class="mark" viewBox="0 0 256 256" aria-hidden="true">
       <!-- A column set inside a hexagon: the same mark the CLI draws in
@@ -398,6 +487,10 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 </div>
 
 <div class="shell">
+  <!-- Backdrop behind the slide-over rail. Present at every width but only
+       visible on a phone, so no second DOM tree has to be kept in step. -->
+  <div class="scrim" id="scrim" hidden></div>
+
   <!-- session rail -->
   <aside class="rail">
     <div class="composer">
@@ -558,6 +651,9 @@ function ago(iso){
 // original approval request: assuming every opened session is live rebuilt
 // those as clickable prompts for decisions already made.
 function openSession(id, state){
+  // On a phone the rail covers the transcript, so opening a chat has to
+  // dismiss it — otherwise the user taps a chat and still sees the list.
+  setRail(false);
   if(es){ es.close(); es = null; }
   current = id; lastSeq = 0; live = (state !== 'done'); turnEl = null;
   streamEl = null; streamBody = null;
@@ -1190,7 +1286,41 @@ $('file').onchange = e => {
   renderFiles();
 };
 
+/* The slide-over rail.
+ *
+ * State lives in one class on <body> so CSS owns the animation and JS only
+ * says open or closed. The rail must close whenever it has done its job —
+ * picking a chat, starting a new one — or on a phone it stays sitting on top
+ * of the conversation the user just asked to see. */
+function setRail(open){
+  document.body.classList.toggle('rail-open', open);
+  const t = $('railtoggle');
+  if(t){
+    t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    t.setAttribute('aria-label', open ? 'Hide chats' : 'Show chats');
+  }
+  const s = $('scrim');
+  if(s) s.hidden = !open;
+}
+const railOpen = () => document.body.classList.contains('rail-open');
+
+if($('railtoggle')) $('railtoggle').onclick = () => setRail(!railOpen());
+if($('scrim')) $('scrim').onclick = () => setRail(false);
+
+// Escape closes the rail before anything else acts on the key, matching how
+// every other dismissible layer on the platform behaves.
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && railOpen()){ setRail(false); e.stopPropagation(); }
+}, true);
+
+// Rotating to landscape turns the slide-over back into a column; a rail left
+// "open" would then be stuck behind a scrim that is no longer visible.
+window.addEventListener('resize', () => {
+  if(window.innerWidth > 760 && railOpen()) setRail(false);
+});
+
 $('new').onclick = () => {
+  setRail(false);
   if(es){ es.close(); es = null; }
   current = null; live = false; lastSeq = 0; turnEl = null;
   calls.clear();
