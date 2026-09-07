@@ -12,6 +12,9 @@
 	email admin@zybuu.com
 }
 
+# Behind Cloudflare Tunnel the edge terminates TLS, so Caddy is not used in
+# that path. Kept for a future deployment on a host with a real public IP
+# (a VPS), where HTTP-01 works and this file is correct as written.
 titan.zybuu.com {
 	# Titan listens on loopback only, so this proxy is the single route in.
 	reverse_proxy 127.0.0.1:8080 {
