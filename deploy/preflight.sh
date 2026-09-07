@@ -6,7 +6,7 @@
 # so every precondition is checked here first and reported together.
 set -uo pipefail
 
-DOMAIN="${TITAN_DOMAIN:-zybuu.com}"
+DOMAIN="${TITAN_DOMAIN:-titan.zybuu.com}"
 LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || echo unknown)"
 
 ok=0; warn=0; fail=0

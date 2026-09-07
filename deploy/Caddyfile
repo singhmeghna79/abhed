@@ -12,7 +12,7 @@
 	email admin@zybuu.com
 }
 
-zybuu.com, www.zybuu.com {
+titan.zybuu.com {
 	# Titan listens on loopback only, so this proxy is the single route in.
 	reverse_proxy 127.0.0.1:8080 {
 		# Server-sent events are the console's transport. Without this Caddy

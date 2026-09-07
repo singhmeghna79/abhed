@@ -11,7 +11,7 @@
   "server": {
     "hsts": true,
     "trust_proxy": true,
-    "allowed_origins": ["https://zybuu.com", "https://www.zybuu.com"]
+    "allowed_origins": ["https://titan.zybuu.com"]
   },
 
   "permissions": {
