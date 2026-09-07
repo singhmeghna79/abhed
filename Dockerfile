@@ -53,6 +53,7 @@ RUN apt-get update \
       python3-pip \
       zip \
       unzip \
+      graphviz \
  && rm -rf /var/lib/apt/lists/*
 
 # Document generation.
@@ -77,7 +78,10 @@ RUN pip3 install --no-cache-dir --break-system-packages \
       python-pptx==1.0.2 \
       reportlab==4.2.5 \
       pypdf==5.1.0 \
- && python3 -c "import docx, openpyxl, pptx, reportlab, pypdf; print('document writers ready')"
+      matplotlib==3.9.2 \
+      graphviz==0.20.3 \
+ && python3 -c "import docx, openpyxl, pptx, reportlab, pypdf, matplotlib, graphviz; \
+      print('document writers ready')"
 
 # pypdf is here for READING, not writing, and it earns its place.
 #
