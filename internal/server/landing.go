@@ -143,6 +143,28 @@ section{padding-bottom:34px}
 .tool{font-family:var(--mono);font-size:11px;background:var(--sunken);
   border:1px solid var(--line);border-radius:5px;padding:3px 9px;color:var(--ink-2)}
 
+/* The thesis. A number this large is the argument, so it is set as a figure
+   rather than buried in the prose — but it stays next to its source, because a
+   statistic without provenance reads as marketing. */
+.thesis{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;
+  align-items:start;padding:22px 24px;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;margin-bottom:34px}
+.thesis h2{margin-top:0}
+.thesis p{margin:0 0 9px;max-width:64ch}
+.thesis p:last-child{margin-bottom:0}
+.thesis .muted{color:var(--muted);font-size:13px}
+.figure{text-align:center;padding-right:26px;border-right:1px solid var(--line);
+  min-width:132px}
+.figure b{display:block;font-size:38px;font-weight:680;letter-spacing:-.03em;
+  color:var(--accent);line-height:1}
+.figure span{display:block;margin-top:5px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+@media (max-width:700px){
+  .thesis{grid-template-columns:1fr;gap:18px}
+  .figure{text-align:left;padding:0 0 16px;border-right:0;
+    border-bottom:1px solid var(--line)}
+}
+
 /* Containment. Each row is a boundary that either holds or does not, so the
    mark carries the state and the text says what it means in practice — a green
    tick with no explanation is decoration, not information. */
@@ -195,9 +217,11 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
 <main class="wrap">
   <div class="hero">
     <div>
-      <h1 id="headline">An agent that runs entirely on your own infrastructure.</h1>
-      <p id="pitch">Point it at any reasoning model you host. Nothing leaves your
-        network unless you configure it to.</p>
+      <h1 id="headline">A coding agent for code that cannot leave the building.</h1>
+      <p id="pitch">Titan runs on hardware you own, against a model you host.
+        Air-gap capable, sandboxed, and every action recorded — because the
+        teams who need an agent most are the ones who cannot send their source
+        to an API.</p>
       <div class="cta" id="cta"></div>
     </div>
     <div class="viz">
@@ -217,6 +241,22 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
       </svg>
     </div>
   </div>
+
+  <section class="thesis">
+    <div class="figure"><b>7.80&times;</b><span>harness &gt; model variance</span></div>
+    <div>
+      <h2>Why the scaffold is the product</h2>
+      <p>A controlled study on SWE-bench Verified found harness-induced variance
+        exceeds model-induced variance by <b>7.80&times;</b>, reversing the
+        ranking in 6 of 9 model-pair comparisons. The context management, tool
+        design, and permission model around the model decide more of the outcome
+        than the model does.</p>
+      <p class="muted">Most agents are a wrapper around someone else's API, with
+        the scaffold treated as glue. Titan engineers and evaluates that layer
+        separately, behind a provider abstraction. Better model, better agent.
+        Better harness, better agent. Both compound.</p>
+    </div>
+  </section>
 
   <section>
     <h2>This deployment</h2>
