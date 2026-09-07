@@ -1,0 +1,78 @@
+{
+  "_comment": "Titan's configuration when it runs INSIDE the deployment container. See deploy/README.md for why each value differs from a laptop config.",
+
+  "auth": {
+    "mode": "local",
+    "session_hours": 12,
+    "cookie_secure": true,
+    "allow_signup": false
+  },
+
+  "server": {
+    "hsts": true,
+    "trust_proxy": true,
+    "allowed_origins": ["https://zybuu.com", "https://www.zybuu.com"]
+  },
+
+  "permissions": {
+    "mode": "default",
+    "deny": [
+      "bash(rm -rf /*)",
+      "bash(*mkfs*)",
+      "bash(*shutdown*)",
+      "bash(*reboot*)",
+      "write(/etc/**)",
+      "write(/usr/**)",
+      "read(/proc/self/environ)"
+    ],
+    "ask": [],
+    "allow": [
+      "bash(ls*)",
+      "bash(cat *)",
+      "bash(git status*)",
+      "bash(git diff*)",
+      "bash(git log*)"
+    ]
+  },
+
+  "sandbox": {
+    "min_tier": "none",
+    "allow_network": false,
+    "max_memory_mb": 1024,
+    "max_procs": 256
+  },
+
+  "storage": {
+    "driver": "memory",
+    "tenant": "default",
+    "max_conns": 10
+  },
+
+  "limits": {
+    "max_turns": 60,
+    "max_tokens": 8192,
+    "max_subagents": 8,
+    "nested_subagents": false
+  },
+
+  "web_search": {
+    "enabled": false
+  },
+
+  "model": {
+    "default": "local",
+    "providers": {
+      "local": {
+        "type": "ollama",
+        "base_url": "http://host.containers.internal:11434/v1",
+        "model": "gemma4:26b",
+        "context_window": 32768,
+        "params": {
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "seed": 42
+        }
+      }
+    }
+  }
+}

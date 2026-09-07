@@ -1,0 +1,7 @@
+.git
+.titan
+.titan-workspace
+titan
+*.tar.gz
+docs
+deploy

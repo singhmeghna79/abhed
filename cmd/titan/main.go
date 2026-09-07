@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -1014,8 +1015,8 @@ func serveCmd(workspace, addr string) int {
 	defer stop()
 
 	bs := ui.NewStyle(os.Stdout)
-	fmt.Printf("%s %s %s  http://localhost%s\n", bs.Cyan(ui.Glyph),
-		bs.Bold("TITAN"), bs.Dim(version), addr)
+	fmt.Printf("%s %s %s  %s\n", bs.Cyan(ui.Glyph),
+		bs.Bold("TITAN"), bs.Dim(version), browsableURL(addr))
 	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n  storage   %s\n",
 		workspace, provider.Model, sb.Tier(), storageLabel(cfg))
 	fmt.Printf("  auth      %s\n", authLabel(cfg))
@@ -1370,6 +1371,25 @@ func generatePassword() string {
 		out[i] = alphabet[int(v)%len(alphabet)]
 	}
 	return string(out)
+}
+
+// browsableURL turns a listen address into one that can be pasted into a
+// browser. The banner used to print "http://localhost" + addr, which is right
+// for the default ":8080" and nonsense for anything else: binding
+// "127.0.0.1:8080" (as the container does) announced
+// "http://localhost127.0.0.1:8080".
+//
+// A wildcard bind has no single correct URL, so it resolves to localhost, which
+// is the one address the person reading the banner is certainly able to reach.
+func browsableURL(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "http://" + addr
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "localhost"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 // buildAuth constructs the identity layer. OIDC verifies tokens properly;

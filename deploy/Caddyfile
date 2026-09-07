@@ -1,0 +1,54 @@
+# TLS termination and the public edge for zybuu.com.
+#
+# Caddy obtains and renews a Let's Encrypt certificate over the HTTP-01
+# challenge. DNS-01 would be the usual choice for a home connection, but GoDaddy
+# revoked DNS API access in May 2024 for accounts below roughly 10 domains, so
+# the DNS plugin cannot authenticate. HTTP-01 needs port 80 reachable from the
+# internet instead — which is why the router must forward 80 as well as 443,
+# even though nothing is served over plain HTTP.
+{
+	# A real address here: expiry notices are the only warning before a
+	# certificate lapses and the site stops answering.
+	email admin@zybuu.com
+}
+
+zybuu.com, www.zybuu.com {
+	# Titan listens on loopback only, so this proxy is the single route in.
+	reverse_proxy 127.0.0.1:8080 {
+		# Server-sent events are the console's transport. Without this Caddy
+		# buffers the response and the transcript arrives in one lump when the
+		# run finishes, instead of streaming as the agent works. -1 means flush
+		# immediately.
+		flush_interval -1
+
+		# Titan rate-limits by client address, so it needs the real one rather
+		# than the proxy's. This is the header its trust_proxy setting reads;
+		# the pairing only stays safe because Titan is not reachable except
+		# through here.
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		# HSTS is also set by the application, deliberately: the edge covers
+		# responses Caddy generates itself, the application covers the case
+		# where it is fronted by something other than this file.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		# The server name is free reconnaissance.
+		-Server
+	}
+
+	# Compressing an SSE stream delays it; Caddy excludes text/event-stream
+	# from zstd/gzip automatically, so this is safe alongside flush_interval.
+	encode zstd gzip
+
+	log {
+		output file /opt/homebrew/var/log/caddy/zybuu.access.log {
+			roll_size 20mb
+			roll_keep 10
+		}
+	}
+}
