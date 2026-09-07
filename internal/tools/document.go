@@ -5,11 +5,14 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/zlib"
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -225,17 +228,80 @@ func extractPDF(data []byte) (string, error) {
 	}
 
 	text := collapseBlankLines(out.String())
-	if strings.TrimSpace(text) == "" {
-		return "", fmt.Errorf("no extractable text — this PDF is probably scanned " +
-			"images, which need OCR, or uses an encoding Titan cannot decode")
-	}
-	if !mostlyPrintable(text) {
-		return "", fmt.Errorf("extracted text looks like binary noise — this PDF " +
-			"uses an embedded encoding Titan cannot decode; convert it first " +
-			"(e.g. pdftotext) and read the result")
+
+	// Both failure modes below mean the same thing: the literal strings in the
+	// content stream are glyph indices for an embedded subset font, not
+	// characters, and the mapping back lives in a ToUnicode CMap this parser
+	// does not read. That is the common modern PDF — Word exports, LaTeX,
+	// resume builders — so failing here would make "read this PDF" work on
+	// simple files and fail on most real ones.
+	//
+	// pypdf implements CMap decoding properly. Falling back to it beats
+	// shipping a half-correct parser, and when it is absent the original
+	// message still explains what to do.
+	if strings.TrimSpace(text) == "" || !mostlyPrintable(text) {
+		viaPy, pyErr := extractPDFViaPython(data)
+		if pyErr == nil && strings.TrimSpace(viaPy) != "" && mostlyPrintable(viaPy) {
+			return collapseBlankLines(viaPy), nil
+		}
+		// The fallback's own failure is reported rather than swallowed. A
+		// message saying only "Titan cannot decode this" when the real cause
+		// is a missing interpreter sends the reader to fix the wrong thing.
+		detail := ""
+		if pyErr != nil {
+			detail = " (fallback unavailable: " + pyErr.Error() + ")"
+		}
+		if strings.TrimSpace(text) == "" {
+			return "", fmt.Errorf("no extractable text — this PDF is probably scanned "+
+				"images, which need OCR, or uses an encoding Titan cannot decode%s", detail)
+		}
+		return "", fmt.Errorf("extracted text looks like binary noise — this PDF "+
+			"uses an embedded encoding Titan cannot decode%s", detail)
 	}
 	return text, nil
 }
+
+// extractPDFViaPython shells out to pypdf for PDFs the native parser cannot
+// decode. It is a fallback, never the first attempt: the Go path needs no
+// interpreter and is what an air-gapped bundle relies on.
+//
+// The PDF is passed on stdin rather than written to a temp file, so nothing
+// touches the disk and a read-only rootfs stays workable.
+func extractPDFViaPython(data []byte) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "python3", "-c", pypdfScript)
+	cmd.Stdin = bytes.NewReader(data)
+	// A bare environment: this runs an interpreter over untrusted input, so it
+	// inherits nothing it does not need.
+	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/tmp"}
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("pypdf: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.String(), nil
+}
+
+// The PDF is read fully into BytesIO before parsing. A pipe is not seekable,
+// and pypdf seeks to find the cross-reference table — passing sys.stdin.buffer
+// directly fails with "File or stream is not seekable" on every file.
+const pypdfScript = `
+import sys, io
+try:
+    import pypdf
+except ImportError:
+    sys.exit(2)
+try:
+    r = pypdf.PdfReader(io.BytesIO(sys.stdin.buffer.read()))
+    sys.stdout.write("\n".join((p.extract_text() or "") for p in r.pages))
+except Exception as e:
+    sys.stderr.write(str(e))
+    sys.exit(1)
+`
 
 // decodePDFString unescapes a PDF literal string: (Hello\040World).
 func decodePDFString(lit []byte) string {

@@ -49,7 +49,50 @@ RUN apt-get update \
       git \
       ripgrep \
       curl \
+      python3 \
+      python3-pip \
+      zip \
+      unzip \
  && rm -rf /var/lib/apt/lists/*
+
+# Document generation.
+#
+# Titan can READ pdf/docx/xlsx/pptx — internal/tools/document.go parses them in
+# pure Go, deliberately, so an air-gapped bundle needs no external binary. There
+# is no writer, though: the write tool produces bytes, and a .docx is a zip of
+# XML parts, so asking the model to emit one directly cannot work.
+#
+# These four libraries are what close that gap, and they are chosen to keep the
+# property the Go parser was protecting: all are pure Python with no system
+# dependencies, so the image needs no compiler, no LaTeX, and no LibreOffice —
+# which would have added roughly a gigabyte for a headless office suite.
+#
+# --break-system-packages is correct here rather than lazy: PEP 668 guards
+# against breaking a distro's own Python tooling, and this container has no
+# distro tooling to break. A venv would add a layer and a PATH to maintain for
+# no benefit in a single-purpose image.
+RUN pip3 install --no-cache-dir --break-system-packages \
+      python-docx==1.1.2 \
+      openpyxl==3.1.5 \
+      python-pptx==1.0.2 \
+      reportlab==4.2.5 \
+      pypdf==5.1.0 \
+ && python3 -c "import docx, openpyxl, pptx, reportlab, pypdf; print('document writers ready')"
+
+# pypdf is here for READING, not writing, and it earns its place.
+#
+# The Go extractor (internal/tools/document.go) pulls literal strings out of a
+# PDF's content streams, which works for a PDF whose text is stored as text. It
+# fails on the common modern case: an embedded SUBSET font with a custom
+# encoding, where the content stream holds glyph indices and the mapping back to
+# characters lives in a ToUnicode CMap. Word exports, LaTeX, and most resume
+# builders all produce those, so "read this PDF" failed on a real resume while
+# succeeding on simpler files — the worst kind of bug, because it looks like it
+# works until it silently does not.
+#
+# Implementing CMap parsing in Go is the right long-term fix. pypdf already does
+# it correctly, so the extractor falls back to it rather than shipping a
+# half-correct parser.
 
 # A fixed non-root UID. Nothing in the image is owned by it, so even a full
 # compromise of the process cannot modify the image's own contents — combined

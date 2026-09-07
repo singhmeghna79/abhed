@@ -179,3 +179,28 @@ func TestPlainTextPassesThrough(t *testing.T) {
 		t.Errorf("ExtractText(plain) = %q, %v", text, err)
 	}
 }
+
+// A PDF whose text is stored as glyph indices for an embedded subset font —
+// which is what Word, LaTeX and most resume builders produce — decodes to
+// binary noise through the literal-string path. The extractor must recognise
+// that and fall back rather than returning the noise as if it were text.
+//
+// This was found on a real resume: "read this PDF" worked on simple files and
+// failed on the common case, which is the worst shape a bug can have.
+func TestPDFBinaryNoiseIsNotReturnedAsText(t *testing.T) {
+	// A literal string of glyph indices, not characters.
+	pdf := []byte("%PDF-1.7\nstream\n" +
+		"BT (\x00\x03\x00\x05\x00\x07\xb1\x00\x05) Tj ET\n" +
+		"endstream\n")
+
+	text, err := ExtractText(pdf, KindPDF)
+	if err == nil && !mostlyPrintable(text) {
+		t.Fatalf("binary noise returned as extracted text: %q", text)
+	}
+	// Either it errors, or a fallback decoded it properly. Silently handing
+	// the model unreadable bytes is the one outcome that must not happen.
+	if err != nil && !strings.Contains(err.Error(), "encoding") &&
+		!strings.Contains(err.Error(), "no extractable text") {
+		t.Fatalf("unhelpful error for an undecodable PDF: %v", err)
+	}
+}

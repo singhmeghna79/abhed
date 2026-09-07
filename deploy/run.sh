@@ -22,6 +22,7 @@ VOLUME="${TITAN_VOLUME:-titan-workspace}"
 # one directory the model is pointed at.
 STATE_VOLUME="${TITAN_STATE_VOLUME:-titan-state}"
 CONFIG="${TITAN_CONFIG:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.json}"
+SKILLS="${TITAN_SKILLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.titan/skills}"
 # Bound to loopback deliberately: the only route in is the reverse proxy, which
 # terminates TLS. Publishing on 0.0.0.0 would put the API on the LAN in the
 # clear, behind nothing.
@@ -88,6 +89,10 @@ exec "$RUNTIME" run \
   `# /etc/titan/config.json last and sets Managed, which makes bypass mode` \
   `# refusable and the policy non-escalatable from inside the container.` \
   --volume "$CONFIG":/etc/titan/config.json:ro \
+  `# Skills are procedures the agent follows, which makes them instructions.` \
+  `# Mounted READ-ONLY so the agent cannot rewrite its own operating rules —` \
+  `# the same reason skills are never loaded from the workspace being edited.` \
+  --volume "$SKILLS":/workspace/.titan/skills:ro \
   \
   `# --- what the process may consume --------------------------------------` \
   `# A runaway or hostile agent should exhaust its own limits, not the host's.` \
