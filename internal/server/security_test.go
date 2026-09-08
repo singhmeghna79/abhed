@@ -277,3 +277,63 @@ func TestAnonymousOverviewHidesWorkspacePath(t *testing.T) {
 		t.Error("overview no longer names the model")
 	}
 }
+
+// The session LIST leaked across users while the single-session fetch did not.
+// That asymmetry is how the bug survived: fetching another user's transcript
+// 404'd correctly, so the ownership check looked present, while the list handed
+// out everyone's prompts — which name what people are working on and what they
+// uploaded.
+//
+// Found in production by a user seeing another user's chat history.
+func TestSessionListIsPerUser(t *testing.T) {
+	s := proxyServer(t)
+
+	mk := func(user, prompt string) {
+		req := httptest.NewRequest("POST", "/v1/sessions",
+			strings.NewReader(`{"prompt":"`+prompt+`"}`))
+		req.Header.Set("X-Titan-User", user)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("create for %s: %d", user, rec.Code)
+		}
+	}
+	mk("alice", "alice private prompt")
+	mk("bob", "bob private prompt")
+	time.Sleep(200 * time.Millisecond)
+
+	list := func(user string) string {
+		req := httptest.NewRequest("GET", "/v1/sessions", nil)
+		req.Header.Set("X-Titan-User", user)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		return rec.Body.String()
+	}
+
+	if got := list("bob"); strings.Contains(got, "alice private prompt") {
+		t.Fatalf("bob's session list contains alice's prompt — history leak:\n%s", got)
+	}
+	if got := list("alice"); !strings.Contains(got, "alice private prompt") {
+		t.Fatalf("alice cannot see her own session:\n%s", got)
+	}
+}
+
+// The list and the single-session fetch must agree. A list more permissive than
+// the fetch leaks; one that is stricter hides sessions the user can open.
+func TestListAndFetchAgreeOnOwnership(t *testing.T) {
+	for _, tc := range []struct {
+		name                             string
+		recTenant, recUser, tenant, user string
+		want                             bool
+	}{
+		{"same user", "t1", "alice", "t1", "alice", true},
+		{"different user", "t1", "alice", "t1", "bob", false},
+		{"different tenant", "t1", "alice", "t2", "alice", false},
+		{"anonymous sees all in tenant", "t1", "alice", "t1", "anonymous", true},
+		{"anonymous is still tenant-scoped", "t1", "alice", "t2", "anonymous", false},
+	} {
+		if got := ownsSession(tc.recTenant, tc.recUser, tc.tenant, tc.user); got != tc.want {
+			t.Errorf("%s: ownsSession = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

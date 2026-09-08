@@ -505,6 +505,7 @@ type sessionSummary struct {
 
 func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 	tenant := tenantOf(r.Context())
+	user := userOf(r.Context())
 
 	// A durable store also returns sessions from before this process started,
 	// which is what makes audit useful after a restart.
@@ -513,6 +514,15 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			out := make([]sessionSummary, 0, len(records))
 			for _, rec := range records {
+				// The store hands back every session it holds. Row-level
+				// security scopes that by TENANT in Postgres, and not at all
+				// in the memory store — neither scopes it by user. So the
+				// filter has to be here, or one person's list of prompts
+				// (which is a list of what they were working on, and often
+				// what they uploaded) is shown to everyone else in the tenant.
+				if !ownsSession(rec.Tenant, rec.User, tenant, user) {
+					continue
+				}
 				state := "done"
 				if rec.EndedAt == nil {
 					state = "running"
@@ -541,8 +551,11 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 	out := make([]sessionSummary, 0, len(s.running))
 	for _, l := range s.running {
 		// Tenant isolation is enforced here AND at the data layer: a boundary
-		// that exists in only one place is not a boundary (docs/ops §4).
-		if l.Tenant != tenant {
+		// that exists in only one place is not a boundary (docs/ops §4). The
+		// user check is the same rule s.session() applies to a single session,
+		// applied to the list — they must agree, or the list advertises
+		// sessions that then 404.
+		if !ownsSession(l.Tenant, l.User, tenant, user) {
 			continue
 		}
 		l.mu.Lock()
@@ -553,6 +566,54 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 		l.mu.Unlock()
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// mayAccess reports whether the request's caller owns session id, checking the
+// live map first and then the durable store.
+//
+// The store is consulted because a session outlives the process that ran it:
+// after a restart every session is "not running", and refusing those would make
+// history unreadable. When neither source knows the id, access is denied —
+// failing closed, so an unknown id can never be mistaken for an owned one.
+func (s *Server) mayAccess(r *http.Request, id string) bool {
+	tenant, user := tenantOf(r.Context()), userOf(r.Context())
+	if _, ok := s.session(id, tenant, user); ok {
+		return true
+	}
+	if s.sessions == nil {
+		return false
+	}
+	records, err := s.sessions.ListSessions(r.Context(), 500)
+	if err != nil {
+		// A store that cannot answer is not permission to proceed.
+		return false
+	}
+	for _, rec := range records {
+		if rec.ID == id {
+			return ownsSession(rec.Tenant, rec.User, tenant, user)
+		}
+	}
+	return false
+}
+
+// ownsSession reports whether a caller may see a session.
+//
+// One definition used by both the list and the single-session lookup, because
+// the failure this prevents is precisely the two drifting apart: a list that is
+// more permissive than the fetch leaks prompts, and one that is stricter hides
+// sessions the user can actually open.
+//
+// The anonymous case is deliberately permissive: with auth disabled every
+// caller is "anonymous" in tenant "default", and filtering by user would leave
+// a single-user local deployment unable to see its own history.
+func ownsSession(recTenant, recUser, tenant, user string) bool {
+	if recTenant != tenant {
+		return false
+	}
+	if user == "" || user == "anonymous" {
+		return true
+	}
+	return recUser == user
 }
 
 // streamEvents serves the session's event stream over SSE, resumable via
@@ -566,6 +627,13 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 	// 404, so clicking one in the UI showed a blank pane.
 	live, running := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
 	if !running {
+		// Not running is not the same as not ours. Ownership is checked
+		// against the stored record before any event is streamed, or a
+		// finished session becomes readable by anyone who knows its id.
+		if !s.mayAccess(r, id) {
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		}
 		backlog, err := s.store.Events(id)
 		if err != nil || len(backlog) == 0 {
 			writeError(w, http.StatusNotFound, "session not found")
@@ -641,9 +709,12 @@ func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) {
 // audit and incident reconstruction work (docs P6).
 func (s *Server) replaySession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	// A durable store can replay a session this process never ran. RLS scopes
-	// the query to the caller's tenant, so a cross-tenant id returns nothing.
-	if _, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context())); !ok && s.sessions == nil {
+	// A durable store can replay a session this process never ran, so a miss in
+	// the live map is not by itself a 404. Ownership still has to be proven
+	// against the stored record: row-level security scopes the query by tenant,
+	// never by user, so without this any signed-in account could replay a
+	// colleague's full transcript by id.
+	if !s.mayAccess(r, id) {
 		writeError(w, http.StatusNotFound, "session not found")
 		return
 	}
@@ -1042,7 +1113,7 @@ func (s *Server) session(id, tenant, user string) (*liveSession, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	live, found := s.running[id]
-	if !found || live.Tenant != tenant || live.User != user {
+	if !found || !ownsSession(live.Tenant, live.User, tenant, user) {
 		return nil, false
 	}
 	return live, true
