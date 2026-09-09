@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Zybuu">
+  <title>Zybuu</title>
+  <desc>Three stacked layers forming a Z, cut from a rounded square: the
+    substrate other products are built on.</desc>
+
+  <defs>
+    <linearGradient id="zy" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#3FA9F5"/>
+      <stop offset="55%"  stop-color="#1F6FB8"/>
+      <stop offset="100%" stop-color="#123E6B"/>
+    </linearGradient>
+    <linearGradient id="zy-lift" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- A rounded square, not a hexagon.
+       The hexagon is Titan's, and it means "a component in a system" — the
+       shared vocabulary of Kubernetes, Docker, Terraform, Vault. Zybuu is not
+       a component; it is what components are built on. A square reads as a
+       platform, a substrate, a foundation, and it keeps the two marks in one
+       family without letting the parent wear its product's identity. -->
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zy)"/>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zy-lift)"/>
+
+  <!-- Three horizontal layers with the middle one set on a diagonal: read as a
+       stack, and read as a Z. The diagonal is what makes it a letter rather
+       than a generic "layers" glyph, and it is the same stroke weight
+       throughout so it survives being scaled to a 16px favicon.
+
+       The middle bar is a parallelogram rather than a rotated rectangle so its
+       ends stay vertical and align with the bars above and below — a rotated
+       rect leaves ragged diagonal ends that look like a rendering error at
+       small sizes. -->
+  <g fill="#FFFFFF">
+    <rect x="66" y="72" width="124" height="27" rx="5"/>
+    <path d="M152 105 H190 L104 151 H66 Z"/>
+    <rect x="66" y="157" width="124" height="27" rx="5"/>
+  </g>
+</svg>

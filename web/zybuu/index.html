@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zybuu — infrastructure for AI you can actually run</title>
+<title>Zybuu — AI that never leaves home</title>
 <meta name="description" content="Zybuu builds AI infrastructure that runs where your data already lives. Titan, our first product, is an on-prem, air-gap-capable agent platform.">
 
-<meta property="og:title" content="Zybuu — infrastructure for AI you can actually run">
+<meta property="og:title" content="Zybuu — AI that never leaves home">
 <meta property="og:description" content="On-prem AI infrastructure for teams whose data cannot leave the building. Titan, our agent platform, is live.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://zybuu.com">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128 8 236 70v116L128 248 20 186V70Z' fill='%231F6FB8'/%3E%3Cg fill='%23fff'%3E%3Crect x='66' y='74' width='124' height='26' rx='5'/%3E%3Crect x='114' y='100' width='28' height='72'/%3E%3Crect x='80' y='172' width='96' height='24' rx='5'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='8' y='8' width='240' height='240' rx='54' fill='%231F6FB8'/%3E%3Cg fill='%23fff'%3E%3Crect x='66' y='72' width='124' height='27' rx='5'/%3E%3Cpath d='M152 105 H190 L104 151 H66 Z'/%3E%3Crect x='66' y='157' width='124' height='27' rx='5'/%3E%3C/g%3E%3C/svg%3E">
 
 <style>
 /* The same tokens the Titan console uses. A homepage and the product behind it
@@ -202,16 +202,27 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
   <div class="wrap bar">
     <a class="logo" href="/">
       <svg viewBox="0 0 256 256" aria-hidden="true">
-        <defs><linearGradient id="zg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#3FA9F5"/>
-          <stop offset="55%" stop-color="#1F6FB8"/>
-          <stop offset="100%" stop-color="#123E6B"/>
-        </linearGradient></defs>
-        <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#zg)"/>
+        <defs>
+          <linearGradient id="zg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#3FA9F5"/>
+            <stop offset="55%" stop-color="#1F6FB8"/>
+            <stop offset="100%" stop-color="#123E6B"/>
+          </linearGradient>
+          <linearGradient id="zg-lift" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".22"/>
+            <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- A rounded square, where Titan uses a hexagon. The hexagon is the
+             vocabulary of "a component in a system"; Zybuu is what components
+             are built on, so the parent gets a substrate shape and the two
+             stay a family without the company wearing its product's mark. -->
+        <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zg)"/>
+        <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zg-lift)"/>
         <g fill="#fff">
-          <rect x="66" y="74" width="124" height="26" rx="5"/>
-          <rect x="114" y="100" width="28" height="72"/>
-          <rect x="80" y="172" width="96" height="24" rx="5"/>
+          <rect x="66" y="72" width="124" height="27" rx="5"/>
+          <path d="M152 105 H190 L104 151 H66 Z"/>
+          <rect x="66" y="157" width="124" height="27" rx="5"/>
         </g>
       </svg>
       Zybuu
@@ -232,7 +243,7 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
      the one question that ends the meeting. -->
 <div class="hero">
   <div class="wrap inner">
-    <div class="eyebrow">Infrastructure for private AI</div>
+    <div class="eyebrow">AI that never leaves home</div>
     <h1>AI infrastructure for data that cannot leave the building.</h1>
     <p class="lede">
       The teams with the most to gain from AI are the ones least able to send
@@ -397,7 +408,7 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
   <div class="wrap foot">
     <span>Zybuu</span>
     <span class="spacer"></span>
-    <span>On-prem by default</span>
+    <span>AI that never leaves home</span>
     <span>Every action recorded</span>
     <span>Tool output is data, never instructions</span>
   </div>
