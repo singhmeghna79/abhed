@@ -21,7 +21,7 @@ echo
 # the version here beats depending on whatever wrangler a machine happens to
 # have. The first run opens a browser to authorise — that step cannot be
 # automated, and should not be.
-npx --yes wrangler@3 pages deploy "$DIR" \
+npm_config_cache="${TMPDIR:-/tmp}/zybuu-npm" npx --yes wrangler@3 pages deploy "$DIR" \
     --project-name "$PROJECT" \
     --commit-dirty=true
 
