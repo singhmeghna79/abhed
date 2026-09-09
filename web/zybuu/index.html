@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zybuu — infrastructure for AI you can actually run</title>
+<meta name="description" content="Zybuu builds AI infrastructure that runs where your data already lives. Titan, our first product, is an on-prem, air-gap-capable agent platform.">
+
+<meta property="og:title" content="Zybuu — infrastructure for AI you can actually run">
+<meta property="og:description" content="On-prem AI infrastructure for teams whose data cannot leave the building. Titan, our agent platform, is live.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://zybuu.com">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128 8 236 70v116L128 248 20 186V70Z' fill='%231F6FB8'/%3E%3Cg fill='%23fff'%3E%3Crect x='66' y='74' width='124' height='26' rx='5'/%3E%3Crect x='114' y='100' width='28' height='72'/%3E%3Crect x='80' y='172' width='96' height='24' rx='5'/%3E%3C/g%3E%3C/svg%3E">
+
+<style>
+/* The same tokens the Titan console uses. A homepage and the product behind it
+   reading as one company is not decoration — it is the cheapest possible signal
+   that the thing is coherently built. */
+:root{
+  --bg:#F5F7FA; --surface:#FFFFFF; --sunken:#EDF1F6;
+  --line:#DCE3EC; --line-strong:#C4CFDD;
+  --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
+  --accent:#1F6FB8; --accent-2:#3FA9F5; --accent-deep:#123E6B;
+  --accent-soft:#E3EEF8;
+  --ok:#1A7F4B; --ok-bg:#E3F3EA; --warn:#9A6A16; --warn-bg:#FAF0DC;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
+  --maxw:1080px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+    --line:#252D3A; --line-strong:#333D4D;
+    --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
+    --accent:#4C8FD6; --accent-soft:#16283C;
+    --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+  --line:#252D3A; --line-strong:#333D4D;
+  --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
+  --accent:#4C8FD6; --accent-soft:#16283C;
+  --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
+img,svg{max-width:100%}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+
+/* ------------------------------------------------------------------ header */
+header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:12px;height:58px}
+.logo{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:660;
+  font-size:16px;letter-spacing:-.015em}
+.logo:hover{text-decoration:none}
+.logo svg{width:25px;height:25px;flex:none}
+.nav{margin-left:auto;display:flex;align-items:center;gap:22px}
+.nav a{color:var(--ink-2);font-size:14px;font-weight:500}
+.nav a:hover{color:var(--ink);text-decoration:none}
+@media (max-width:720px){.nav a.hide-sm{display:none}}
+
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--accent);
+  color:#fff;border:1px solid var(--accent);border-radius:8px;padding:9px 17px;
+  font-size:14px;font-weight:600;cursor:pointer;
+  transition:filter .14s,transform .14s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px);text-decoration:none;color:#fff}
+.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+.btn.ghost:hover{border-color:var(--accent);filter:none;color:var(--ink)}
+.btn.lg{padding:12px 22px;font-size:15px}
+
+/* -------------------------------------------------------------------- hero */
+.hero{padding:78px 0 62px;position:relative;overflow:hidden}
+/* min() rather than a fixed 900px: a decorative glow must never be the thing
+   that makes the page scroll sideways, and capping it here means the rule holds
+   at every width instead of only below a breakpoint. */
+.hero::before{content:'';position:absolute;top:-180px;left:50%;
+  width:min(900px,100%);height:520px;
+  transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(ellipse at center,var(--accent-soft),transparent 68%);
+  opacity:.75}
+.hero .inner{position:relative}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);
+  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
+  border-radius:999px;padding:5px 13px;margin-bottom:20px}
+h1{margin:0 0 18px;font-size:clamp(30px,5.2vw,52px);line-height:1.08;
+  letter-spacing:-.032em;font-weight:680;max-width:19ch;text-wrap:balance}
+.lede{margin:0 0 28px;font-size:clamp(16px,2.1vw,19px);color:var(--ink-2);
+  max-width:62ch;line-height:1.58}
+.hero-cta{display:flex;gap:11px;flex-wrap:wrap;align-items:center}
+.hero-note{margin-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+/* ------------------------------------------------------------------ thesis */
+section{padding:58px 0}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+h2{margin:0 0 16px;font-size:clamp(22px,3.2vw,31px);line-height:1.2;
+  letter-spacing:-.022em;font-weight:660;max-width:24ch;text-wrap:balance}
+.body{color:var(--ink-2);max-width:66ch;margin:0 0 14px}
+.body:last-child{margin-bottom:0}
+
+.thesis{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  padding:34px 34px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:34px;
+  align-items:start}
+.bignum{text-align:center;padding-right:32px;border-right:1px solid var(--line);min-width:150px}
+.bignum b{display:block;font-size:clamp(38px,6vw,54px);font-weight:700;
+  letter-spacing:-.04em;line-height:1;
+  background:linear-gradient(135deg,var(--accent-2),var(--accent) 55%,var(--accent-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.bignum span{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);line-height:1.5}
+@media (max-width:740px){
+  .thesis{grid-template-columns:1fr;gap:20px;padding:26px 22px}
+  .bignum{text-align:left;padding:0 0 18px;border-right:0;border-bottom:1px solid var(--line)}
+}
+
+/* ---------------------------------------------------------------- products */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:15px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:22px;display:flex;flex-direction:column;gap:9px;
+  transition:border-color .16s,transform .16s}
+.card.live{border-color:color-mix(in srgb,var(--accent) 38%,var(--line))}
+.card.live:hover{transform:translateY(-2px);border-color:var(--accent)}
+.card h3{margin:0;font-size:16.5px;font-weight:640;letter-spacing:-.012em;
+  display:flex;align-items:center;gap:9px}
+.card p{margin:0;font-size:14px;color:var(--ink-2);line-height:1.55}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;
+  padding:3px 8px;border-radius:5px;font-weight:600;white-space:nowrap}
+.tag.shipped{background:var(--ok-bg);color:var(--ok)}
+.tag.soon{background:var(--sunken);color:var(--muted);border:1px solid var(--line)}
+.card .more{margin-top:auto;padding-top:10px;font-size:13.5px;font-weight:600}
+
+/* ---------------------------------------------------------------- evidence */
+.ev{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;
+  margin-bottom:20px}
+.ev div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:19px}
+.ev b{display:block;font-size:26px;font-weight:700;letter-spacing:-.03em;
+  color:var(--accent);line-height:1.1}
+.ev span{display:block;margin-top:6px;font-size:12.5px;color:var(--muted);line-height:1.45}
+
+.honest{background:var(--sunken);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:0 12px 12px 0;padding:18px 22px;margin-top:22px}
+.honest p{margin:0;font-size:14px;color:var(--ink-2);max-width:70ch}
+.honest strong{color:var(--ink)}
+
+/* ----------------------------------------------------------------- contact */
+.cta-band{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  padding:38px 34px;text-align:center}
+.cta-band h2{margin:0 auto 12px;max-width:22ch}
+.cta-band .body{margin:0 auto 22px}
+.cta-row{display:flex;gap:11px;justify-content:center;flex-wrap:wrap}
+
+footer{border-top:1px solid var(--line);padding:26px 0 40px;margin-top:34px}
+.foot{display:flex;gap:16px;flex-wrap:wrap;align-items:center;
+  font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.foot .spacer{flex:1}
+
+/* Nothing may exceed the viewport width. A single overflowing element makes the
+   whole page scroll sideways, which on a phone reads as broken rather than as
+   one wide element — and this is the page an investor opens on their phone. */
+html,body{max-width:100%;overflow-x:hidden}
+h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
+
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .hero{padding:46px 0 40px}
+  section{padding:40px 0}
+  .thesis,.cta-band{padding:24px 20px}
+  .ev b{font-size:22px}
+  /* The radial glow is 900px wide and would itself force a sideways scroll. */
+  .hero::before{width:100%;left:0;transform:none}
+  /* Full-width buttons: a 44px tap target that spans the column is easier to
+     hit than two half-width ones, and it stops the pair wrapping awkwardly. */
+  .hero-cta{flex-direction:column;align-items:stretch}
+  .hero-cta .btn{justify-content:center}
+  .cta-row{flex-direction:column}
+  .cta-row .btn{justify-content:center}
+  .bar{height:54px;gap:9px}
+  .nav{gap:14px}
+  /* The lockup name is redundant next to the mark at this width. */
+  .logo{font-size:15px}
+  .foot{flex-direction:column;align-items:flex-start;gap:6px}
+  .foot .spacer{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="/">
+      <svg viewBox="0 0 256 256" aria-hidden="true">
+        <defs><linearGradient id="zg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3FA9F5"/>
+          <stop offset="55%" stop-color="#1F6FB8"/>
+          <stop offset="100%" stop-color="#123E6B"/>
+        </linearGradient></defs>
+        <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#zg)"/>
+        <g fill="#fff">
+          <rect x="66" y="74" width="124" height="26" rx="5"/>
+          <rect x="114" y="100" width="28" height="72"/>
+          <rect x="80" y="172" width="96" height="24" rx="5"/>
+        </g>
+      </svg>
+      Zybuu
+    </a>
+    <nav class="nav">
+      <a href="#products" class="hide-sm">Products</a>
+      <a href="#evidence" class="hide-sm">Evidence</a>
+      <a href="#contact">Contact</a>
+      <a class="btn" href="https://titan.zybuu.com">Open Titan</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- Hero. The claim is narrow on purpose: "AI you can actually run" is a
+     position a solo founder can defend, where "the leading AI platform" invites
+     the one question that ends the meeting. -->
+<div class="hero">
+  <div class="wrap inner">
+    <div class="eyebrow">Infrastructure for private AI</div>
+    <h1>AI infrastructure for data that cannot leave the building.</h1>
+    <p class="lede">
+      The teams with the most to gain from AI are the ones least able to send
+      their data to an API. Zybuu builds the layer that runs where the data
+      already lives — on your hardware, against models you host, with every
+      action recorded.
+    </p>
+    <div class="hero-cta">
+      <a class="btn lg" href="https://titan.zybuu.com">Try Titan, live</a>
+      <a class="btn ghost lg" href="#thesis">Read the thesis</a>
+    </div>
+    <p class="hero-note">Titan is running now · on-prem · air-gap capable</p>
+  </div>
+</div>
+
+<!-- The thesis. This is the actual investment case, and it leads with a number
+     because a number is checkable and an adjective is not. -->
+<section id="thesis">
+  <div class="wrap">
+    <p class="kicker">The thesis</p>
+    <div class="thesis">
+      <div class="bignum">
+        <b>7.80&times;</b>
+        <span>harness &gt; model<br>variance</span>
+      </div>
+      <div>
+        <h2>The scaffold around the model decides more than the model does.</h2>
+        <p class="body">
+          A controlled study on SWE-bench Verified found harness-induced variance
+          exceeds model-induced variance by <strong>7.80&times;</strong>, reversing
+          the ranking in 6 of 9 model-pair comparisons. Change the scaffold — the
+          context management, the tool contracts, the permission model — and the
+          same model becomes a different product.
+        </p>
+        <p class="body">
+          Most of the industry treats that layer as glue code around someone
+          else's API. Zybuu treats it as the product: engineered separately,
+          evaluated separately, behind a provider abstraction. Better model,
+          better system. Better harness, better system. Both compound.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Products. Shipped and planned are visually distinct, because a roadmap
+     presented as a catalogue is the fastest way to lose a technical investor. -->
+<section id="products">
+  <div class="wrap">
+    <p class="kicker">Products</p>
+    <h2>One product shipped. A platform underneath it.</h2>
+    <p class="body" style="margin-bottom:26px">
+      Titan is live and in use today. The verticals below share its foundations —
+      the same execution sandbox, policy engine, and audit layer — and are stated
+      as what they are: planned, not shipped.
+    </p>
+
+    <div class="grid">
+      <a class="card live" href="https://titan.zybuu.com">
+        <h3>Titan <span class="tag shipped">Live</span></h3>
+        <p>
+          An on-prem, air-gap-capable deep agent platform. Model-agnostic across
+          20+ providers, tiered execution sandbox, absolute deny rules, and a
+          replayable audit trail for every action.
+        </p>
+        <span class="more">Open the console &rarr;</span>
+      </a>
+
+      <div class="card">
+        <h3>GPU &amp; Workload Benchmarking <span class="tag soon">Planned</span></h3>
+        <p>
+          Reproducible evaluation for inference workloads: what a model actually
+          costs on your hardware, and which scaffold configuration wins on your
+          tasks rather than on a public leaderboard.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>AI Security &amp; Red Team <span class="tag soon">Planned</span></h3>
+        <p>
+          Adversarial testing for agent deployments — prompt injection, tool
+          abuse, sandbox escape, and exfiltration paths, run continuously against
+          your own configuration.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Observability for Agents <span class="tag soon">Planned</span></h3>
+        <p>
+          Traces built for non-deterministic systems: which tool call changed the
+          outcome, where context was lost, what a run cost, and why two identical
+          prompts diverged.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Inference Infrastructure <span class="tag soon">Planned</span></h3>
+        <p>
+          Serving and scheduling for self-hosted models, sized for teams running
+          their own GPUs rather than renting capacity by the token.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Private Cloud Deployment <span class="tag soon">Planned</span></h3>
+        <p>
+          Signed, verifiable bundles for enclaves with no internet route —
+          the install path Titan already ships, generalised across the platform.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Evidence. Every number here is checkable in the repository, which is the
+     point: a technical diligence call should find these true, not generous. -->
+<section id="evidence">
+  <div class="wrap">
+    <p class="kicker">Evidence</p>
+    <h2>Numbers that survive a technical diligence call.</h2>
+
+    <div class="ev">
+      <div><b>16 / 16</b><span>adversarial attacks blocked in the red-team suite</span></div>
+      <div><b>511</b><span>test functions across the engine</span></div>
+      <div><b>20+</b><span>model providers behind one abstraction</span></div>
+      <div><b>0</b><span>bytes leaving the network by default</span></div>
+    </div>
+
+    <div class="honest">
+      <p>
+        <strong>What is not true yet.</strong> Zybuu holds no SOC 2, ISO 27001 or
+        HIPAA certification. There is no support SLA. A human red-team engagement
+        remains outstanding and is not substitutable by the adversarial suite.
+        Those are stated here rather than discovered later, because the buyers
+        this is built for will ask — and an honest answer is worth more than a
+        careful one.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="cta-band">
+      <h2>Building this in the open.</h2>
+      <p class="body">
+        Zybuu is early and founder-led. If you are an investor, a team with data
+        that cannot leave your network, or an engineer who finds the thesis
+        interesting — the fastest way to judge it is to use the product.
+      </p>
+      <div class="cta-row">
+        <a class="btn lg" href="https://titan.zybuu.com">Open Titan</a>
+        <a class="btn ghost lg" href="mailto:support@zybuu.com">Get in touch</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>Zybuu</span>
+    <span class="spacer"></span>
+    <span>On-prem by default</span>
+    <span>Every action recorded</span>
+    <span>Tool output is data, never instructions</span>
+  </div>
+</footer>
+
+</body>
+</html>
