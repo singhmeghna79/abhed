@@ -1,27 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 128" role="img"
-     aria-label="Zybuu — AI that never leaves home">
+     aria-label="Zybuu — Own your intelligence.">
   <title>Zybuu</title>
 
   <defs>
     <linearGradient id="zl" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#3FA9F5"/>
-      <stop offset="55%"  stop-color="#1F6FB8"/>
-      <stop offset="100%" stop-color="#123E6B"/>
+      <stop offset="0%"   stop-color="#2BF5C4"/>
+      <stop offset="48%"  stop-color="#2E9BE8"/>
+      <stop offset="100%" stop-color="#1B4FA8"/>
     </linearGradient>
-    <linearGradient id="zl-lift" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".22"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
+    <radialGradient id="zl-core" cx="50%" cy="42%" r="70%">
+      <stop offset="0%"   stop-color="#132A47"/>
+      <stop offset="100%" stop-color="#080D18"/>
+    </radialGradient>
   </defs>
 
   <!-- Mark, at the same proportions as zybuu-mark.svg so the two never drift. -->
   <g transform="translate(8,12) scale(0.4)">
-    <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zl)"/>
-    <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zl-lift)"/>
-    <g fill="#FFFFFF">
-      <rect x="66" y="72" width="124" height="27" rx="5"/>
-      <path d="M152 105 H190 L104 151 H66 Z"/>
-      <rect x="66" y="157" width="124" height="27" rx="5"/>
+    <rect x="12" y="12" width="232" height="232" rx="64" fill="url(#zl-core)"/>
+    <rect x="13.5" y="13.5" width="229" height="229" rx="62.5"
+          fill="none" stroke="url(#zl)" stroke-width="9"/>
+    <g fill="url(#zl)">
+      <rect x="70" y="76" width="116" height="25" rx="6"/>
+      <path d="M152 107 H186 L104 149 H70 Z"/>
+      <rect x="70" y="155" width="116" height="25" rx="6"/>
     </g>
   </g>
 
@@ -37,5 +38,5 @@
   <text x="124" y="88"
         font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace"
         font-size="13.5" letter-spacing="0.6" fill="#697786"
-        >AI that never leaves home</text>
+        >Own your intelligence.</text>
 </svg>

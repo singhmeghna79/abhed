@@ -1,41 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Zybuu">
   <title>Zybuu</title>
-  <desc>Three stacked layers forming a Z, cut from a rounded square: the
-    substrate other products are built on.</desc>
+  <desc>Three stacked layers forming a Z, lit from mint to blue inside a dark
+    tile: the substrate other products are built on.</desc>
 
   <defs>
+    <!-- Mint into blue into navy. The mint end is what stops this reading as
+         another flat-blue B2B mark: it is the colour of something powered on,
+         and it survives being shrunk to a favicon where a subtle gradient
+         would collapse to a single muddy tone. -->
     <linearGradient id="zy" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#3FA9F5"/>
-      <stop offset="55%"  stop-color="#1F6FB8"/>
-      <stop offset="100%" stop-color="#123E6B"/>
+      <stop offset="0%"   stop-color="#2BF5C4"/>
+      <stop offset="48%"  stop-color="#2E9BE8"/>
+      <stop offset="100%" stop-color="#1B4FA8"/>
     </linearGradient>
-    <linearGradient id="zy-lift" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".22"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
+    <!-- A soft inner glow so the dark core does not read as a hole. -->
+    <radialGradient id="zy-core" cx="50%" cy="42%" r="70%">
+      <stop offset="0%"   stop-color="#132A47"/>
+      <stop offset="100%" stop-color="#080D18"/>
+    </radialGradient>
   </defs>
 
-  <!-- A rounded square, not a hexagon.
-       The hexagon is Titan's, and it means "a component in a system" — the
-       shared vocabulary of Kubernetes, Docker, Terraform, Vault. Zybuu is not
-       a component; it is what components are built on. A square reads as a
-       platform, a substrate, a foundation, and it keeps the two marks in one
-       family without letting the parent wear its product's identity. -->
-  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zy)"/>
-  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#zy-lift)"/>
+  <!-- A dark tile with a lit edge, where Titan uses a solid hexagon.
+       The hexagon is the shared vocabulary of "a component in a system" —
+       Kubernetes, Docker, Terraform, Vault all sit in one — and it is right
+       for Titan. Zybuu is not a component; it is what components are built on,
+       so the parent gets a substrate shape. Keeping the mark dark-cored and
+       lit at the edge is what separates the two at a glance while leaving them
+       obviously related. -->
+  <rect x="12" y="12" width="232" height="232" rx="64" fill="url(#zy-core)"/>
+  <rect x="13.5" y="13.5" width="229" height="229" rx="62.5"
+        fill="none" stroke="url(#zy)" stroke-width="9"/>
 
-  <!-- Three horizontal layers with the middle one set on a diagonal: read as a
-       stack, and read as a Z. The diagonal is what makes it a letter rather
-       than a generic "layers" glyph, and it is the same stroke weight
-       throughout so it survives being scaled to a 16px favicon.
-
+  <!-- Three layers, the middle one on a diagonal: a stack, and a Z.
        The middle bar is a parallelogram rather than a rotated rectangle so its
        ends stay vertical and align with the bars above and below — a rotated
-       rect leaves ragged diagonal ends that look like a rendering error at
-       small sizes. -->
-  <g fill="#FFFFFF">
-    <rect x="66" y="72" width="124" height="27" rx="5"/>
-    <path d="M152 105 H190 L104 151 H66 Z"/>
-    <rect x="66" y="157" width="124" height="27" rx="5"/>
+       rect leaves ragged diagonal ends that look like a rendering fault at
+       small sizes. The diagonal is steep on purpose: a shallower one reads
+       closer to a euro sign than a Z once it is 16px wide. -->
+  <g fill="url(#zy)">
+    <rect x="70" y="76" width="116" height="25" rx="6"/>
+    <path d="M152 107 H186 L104 149 H70 Z"/>
+    <rect x="70" y="155" width="116" height="25" rx="6"/>
   </g>
 </svg>
