@@ -422,8 +422,9 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <div class="grid">
       <div class="card">
         <h3>Extensions</h3>
-        <p>Separate processes speaking JSONL, in any language, on eight events —
-          tool calls, results, context, compaction. They may <strong>veto,
+        <p>Separate processes speaking JSONL, in any language, on seven live events —
+          tool calls, results, context, compaction, tool listing and
+          invocation. They may <strong>veto,
           never permit</strong>: an extension that could grant permission could
           also remove the proof of what was permitted.</p>
       </div>
@@ -466,9 +467,11 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       What survives is chosen rather than truncated: the system prompt and
       memory file are re-injected whole, recent turns are kept verbatim and
       split at a tool-call boundary so the model never sees a result answering
-      a call it cannot see. Measured: a hundred-turn session in a 32k window
-      peaks at <strong>17,981 tokens</strong>, about one compaction per twenty
-      turns.
+      a call it cannot see. How many turns are kept is a preference rather than
+      a promise — exchanges are dropped from the front until what remains
+      actually fits, and compaction returns to half the window rather than to
+      the threshold, because stopping at the threshold leaves the session one
+      turn away from compacting again.
     </p>
     <p class="body">
       Subagents get a fresh context and a narrower tool set, and return a
@@ -510,8 +513,8 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <h2>Numbers that survive a technical diligence call.</h2>
 
     <div class="ev">
-      <div><b>16 / 16</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>538</b><span>test functions across the engine</span></div>
+      <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
+      <div><b>543</b><span>test functions across the engine</span></div>
       <div><b>20+</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
