@@ -355,7 +355,7 @@ async function load(){
   // user was typing into: a half-filled sign-up form was replaced with a fresh
   // sign-in form mid-keystroke.
   const cta = $('cta');
-  const state = [o.authenticated, o.local_auth, o.allow_signup,
+  const state = [o.authenticated, o.local_auth, o.allow_signup, o.invite_signup,
                  o.sign_in_url || ''].join('|');
   if(cta.dataset.state === state){
     renderFacts(o);
@@ -564,14 +564,18 @@ function signInForm(o){
 
   const foot = el('div','note');
   foot.style.marginTop = '13px';
-  if(o.allow_signup){
-    foot.textContent = 'No account? ';
+  if(o.allow_signup || o.invite_signup){
+    // Invite-only is still a door. Hiding it because allow_signup is false
+    // told invited users the deployment was closed to them, which was the
+    // whole point of issuing them a code.
+    foot.textContent = o.allow_signup ? 'No account? ' : 'Have an invite code? ';
     const a = document.createElement('a');
-    a.href = '#'; a.textContent = 'Create one';
+    a.href = '#';
+    a.textContent = o.allow_signup ? 'Create one' : 'Register';
     a.onclick = e => { e.preventDefault(); swapCard(box, signUpForm(o)); };
     foot.appendChild(a);
   }else{
-    // Self-registration is off. Say what actually gets an account rather
+    // Registration is genuinely off. Say what actually gets an account rather
     // than leaving the reader at a dead end.
     foot.textContent = 'Accounts are created by an administrator: titan user add <name>';
   }
@@ -729,7 +733,8 @@ function swapCard(from, to){
 function signUpForm(o){
   const box = el('div','signin');
 
-  const h = el('div','note','Create an account');
+  const h = el('div','note',
+    o.allow_signup ? 'Create an account' : 'Register with an invite');
   h.style.cssText = 'font-size:13px;color:var(--ink);margin-bottom:14px;font-weight:600';
   box.appendChild(h);
 
@@ -743,6 +748,9 @@ function signUpForm(o){
     box.appendChild(i);
     return i;
   }
+  // The invite field only appears when a code is what gets you in. Showing it
+  // on an open deployment would ask for something nobody has.
+  const invite = o.allow_signup ? null : field('Invite code', 'text', 'off');
   const user = field('Username', 'text', 'username');
   const email = field('Email', 'email', 'email');
   const name = field('Display name (optional)', 'text', 'name');
@@ -770,7 +778,8 @@ function signUpForm(o){
       const r = await fetch('/v1/signup', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({username:user.value, email:email.value,
-                              name:name.value, password:pass.value}),
+                              name:name.value, password:pass.value,
+                              invite: invite ? invite.value.trim() : ''}),
       });
       const body = await r.json();
       if(!r.ok) return fail(body.error || 'Could not create the account.');
@@ -818,9 +827,10 @@ function authValue(o){
 function authDetail(o){
   switch(o.auth_mode){
     case 'none':  return 'single tenant, no accounts';
-    case 'local': return o.allow_signup
-      ? 'password sign-in, open registration'
-      : 'password sign-in, accounts created by an administrator';
+    case 'local':
+      if(o.allow_signup)  return 'password sign-in, open registration';
+      if(o.invite_signup) return 'password sign-in, registration by invite';
+      return 'password sign-in, accounts created by an administrator';
     case 'proxy': return 'identity asserted by a trusted proxy';
     default:      return 'sessions verified against your identity provider';
   }

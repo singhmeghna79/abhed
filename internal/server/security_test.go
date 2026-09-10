@@ -690,3 +690,79 @@ func TestImageDetectionUsesMagicBytes(t *testing.T) {
 		}
 	}
 }
+
+// Invite-only registration has to be REACHABLE. An earlier version gated the
+// public path on allow_signup, which was right when the only two states were
+// open and closed — and wrong once invites existed, because a valid code got a
+// 401 from the middleware before the handler could read it.
+//
+// The distinction this pins: 401 means "the door is locked to you", 403 means
+// "the door is here and you did not present a key". Only the second lets an
+// invited user in.
+func TestInviteSignupIsReachableWhenClosed(t *testing.T) {
+	cfg := config.Default()
+	cfg.Auth.Mode = "local"
+	cfg.Auth.AllowSignup = false
+	local := auth.NewLocalAuth(auth.NewMemoryUserStore(), time.Hour, false)
+	s := New(Options{
+		Workspace: t.TempDir(),
+		Config:    cfg,
+		Adapter:   stubAdapter{},
+		Registry:  tools.NewRegistry(tools.Read{}),
+		Auth: &auth.Middleware{Local: local,
+			PublicPaths: []string{"/v1/signup", "/v1/overview"}},
+	})
+
+	// Mint a code the way an administrator would.
+	inv := s.invites.mint("admin", time.Hour)
+
+	body := `{"username":"invited","password":"correct-horse-battery",` +
+		`"invite":"` + inv.Code + `"}`
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(
+		"POST", "/v1/signup", strings.NewReader(body)))
+
+	if rec.Code == http.StatusUnauthorized {
+		t.Fatal("a valid invite was rejected by the auth layer before the " +
+			"handler saw it — registration is unreachable")
+	}
+	if rec.Code != http.StatusOK && rec.Code != http.StatusCreated {
+		t.Fatalf("registration with a valid invite failed: %d %s",
+			rec.Code, rec.Body.String())
+	}
+}
+
+// The page cannot offer a door it is not told about. allow_signup alone cannot
+// distinguish invite-only from closed, so an invite-only deployment looked shut
+// to the people who had just been given codes.
+func TestOverviewAnnouncesInviteSignup(t *testing.T) {
+	// Local accounts must actually be configured: the overview only reports
+	// signup state where Titan holds the accounts.
+	cfg := config.Default()
+	cfg.Auth.Mode = "local"
+	cfg.Auth.AllowSignup = false
+	s := New(Options{
+		Workspace: t.TempDir(),
+		Config:    cfg,
+		Adapter:   stubAdapter{},
+		Registry:  tools.NewRegistry(tools.Read{}),
+		Auth: &auth.Middleware{
+			Local:       auth.NewLocalAuth(auth.NewMemoryUserStore(), time.Hour, false),
+			PublicPaths: []string{"/v1/overview"}},
+	})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/v1/overview", nil))
+
+	var o overviewResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &o); err != nil {
+		t.Fatal(err)
+	}
+	if o.AllowSignup {
+		t.Error("closed registration reported as open")
+	}
+	if !o.InviteSignup {
+		t.Error("invite registration not announced — the sign-in card will " +
+			"hide a door that is open")
+	}
+}

@@ -1431,12 +1431,16 @@ func buildAuth(cfg config.Config, workspace string) (*auth.Middleware, error) {
 	public := []string{
 		"/", "/v1/health", "/v1/overview", "/v1/signin",
 		"/login", "/auth/callback", "/logout", "/v1/whoami"}
-	// Signup is public only when the operator has actually enabled it. It was
-	// previously listed unconditionally, which left the path reachable without
-	// authentication even in deployments that never registered the handler —
-	// harmless while it 404s, but exactly the kind of latent gap that becomes
-	// live the moment someone flips allow_signup on for a different reason.
-	if cfg.Auth.AllowSignup {
+	// Signup has to be reachable without being signed in — that is what
+	// registering means. The handler decides admission: open when
+	// allow_signup is set, invite-only otherwise, and it refuses with a
+	// reason either way.
+	//
+	// An earlier version gated this path on allow_signup, which was right when
+	// the only two states were open and closed. It is wrong now: it made the
+	// invite flow unreachable, so a valid code got a 401 from the middleware
+	// before the handler could read it.
+	if local := cfg.Auth.Mode == "local"; local {
 		public = append(public, "/v1/signup")
 	}
 	mw := &auth.Middleware{PublicPaths: public}

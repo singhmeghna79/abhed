@@ -1072,6 +1072,14 @@ type overviewResponse struct {
 	// rather than a redirect button.
 	LocalAuth     bool     `json:"local_auth"`
 	AllowSignup   bool     `json:"allow_signup"`
+	// InviteSignup reports that registration is possible with a code.
+	//
+	// Distinct from AllowSignup, which means "anyone may register". The two
+	// booleans together are what let the page offer a code field instead of
+	// either an open form or nothing at all — with only AllowSignup, an
+	// invite-only deployment is indistinguishable from a closed one and the
+	// UI correctly hides a door that is in fact open.
+	InviteSignup bool `json:"invite_signup"`
 	ProviderLabel string   `json:"provider_label,omitempty"`
 	User          string   `json:"user,omitempty"`
 	Tenant        string   `json:"tenant,omitempty"`
@@ -1129,6 +1137,7 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	if local := s.localAuth(); local != nil {
 		o.LocalAuth = true
 		o.AllowSignup = cfg.Auth.AllowSignup
+		o.InviteSignup = !cfg.Auth.AllowSignup
 		if id, found := local.FromCookie(r); found {
 			o.Authenticated = true
 			o.User = orDefaultStr(id.Email, id.Subject)
