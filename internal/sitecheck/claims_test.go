@@ -164,3 +164,35 @@ func itoa(n int) string {
 	}
 	return string(b)
 }
+
+// The page must not claim a control that is declared and never executed.
+//
+// Two of these shipped: MCP digest pinning, carried through config and verified
+// nowhere, and "the guarantees do not weaken when embedded" while the SDK
+// builds no sandbox at all. Both were sold to the air-gapped buyer the page
+// targets, which is the worst audience to be wrong in front of.
+func TestPageDoesNotClaimUnenforcedControls(t *testing.T) {
+	p := strings.ToLower(page(t))
+
+	// Digest is enforced when connectOne reads it. Until then the page may not
+	// mention it, and when it is wired up this test is what unblocks the claim.
+	gw, err := os.ReadFile(filepath.Join("..", "..", "internal", "mcp", "gateway.go"))
+	if err == nil {
+		enforced := regexp.MustCompile(`(?s)func \(g \*Gateway\) connectOne.*?\n}`).Find(gw)
+		if enforced != nil && !strings.Contains(string(enforced), "Digest") {
+			if strings.Contains(p, "digest") {
+				t.Error("the page claims digest pinning; connectOne does not " +
+					"read Digest, so setting it protects nothing")
+			}
+		}
+	}
+
+	// The SDK's own tool registry decides this one.
+	sdk, err := os.ReadFile(filepath.Join("..", "..", "sdk", "titan.go"))
+	if err == nil && strings.Contains(string(sdk), "tools.Bash{}") {
+		if strings.Contains(p, "guarantees do not weaken when embedded") {
+			t.Error("the page claims the guarantees do not weaken when " +
+				"embedded, but sdk builds tools.Bash{} with no sandbox")
+		}
+	}
+}

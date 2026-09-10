@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Zybuu — Own your intelligence.</title>
-<meta name="description" content="Titan is a deep agent harness that runs on your own hardware, against a model you host. Five run surfaces, twenty providers, and an SDK whose guarantees do not weaken when embedded.">
+<meta name="description" content="Titan is a deep agent harness that runs on your own hardware, against a model you host. Five run surfaces, twenty providers, and an SDK that keeps policy, audit and deny rules intact when embedded.">
 
 <meta property="og:title" content="Zybuu — Own your intelligence">
 <meta property="og:description" content="Many agent harnesses. This one runs where your data cannot leave.">
@@ -290,8 +290,8 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
     <p class="lede">
       Titan is the scaffold around the model — the agent loop, the tool
       contracts, the permission engine, the sandbox. It runs on your hardware
-      against a model you host, and the guarantees do not weaken when you embed
-      it in something else.
+      against a model you host, and its policy, audit and deny rules stay
+      intact when you embed it in something else.
     </p>
     <div class="hero-cta">
       <a class="btn lg" href="#access">Request access</a>
@@ -371,13 +371,20 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
 <section id="embed">
   <div class="wrap">
     <p class="kicker">Embed it</p>
-    <h2>The guarantees do not weaken when embedded.</h2>
+    <h2>Policy, audit and deny rules hold when embedded.</h2>
     <p class="body">
       Your application supplies the approver and consumes the event stream —
       because a host usually has better ideas than a terminal prompt about how
       to ask a user for permission. Policy still decides what runs, every action
       is still recorded, and an extension still cannot permit what a deny rule
-      forbids.
+      forbids. No approver means refuse, never assume yes.
+    </p>
+    <p class="body">
+      One guarantee that does <em>not</em> come with it: the SDK builds no
+      sandbox. An embedded agent runs commands with the privileges of the
+      process that embedded it, so the host is responsible for isolation — a
+      container, a jail, a separate user — exactly as it would be for any other
+      library that shells out.
     </p>
 
     <div class="scroll">
@@ -438,8 +445,8 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       <div class="card">
         <h3>MCP</h3>
         <p>Registered servers only, disabled until explicitly enabled, with an
-          optional tool allowlist and digest pinning for air-gapped installs.
-          Discovery does not imply trust.</p>
+          optional tool allowlist, and credentials read from the environment
+          rather than a config file. Discovery does not imply trust.</p>
       </div>
       <div class="card">
         <h3>Providers</h3>
@@ -514,7 +521,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>543</b><span>test functions across the engine</span></div>
+      <div><b>544</b><span>test functions across the engine</span></div>
       <div><b>20+</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>

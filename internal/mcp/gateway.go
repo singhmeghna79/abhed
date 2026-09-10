@@ -38,7 +38,14 @@ type ServerConfig struct {
 	// AllowTools optionally restricts which of the server's tools are exposed.
 	// Empty means all of them, which is the riskier choice.
 	AllowTools []string `json:"allow_tools,omitempty"`
-	// Digest pins the server artifact. Air-gapped installs must set this;
+	// Digest is NOT YET ENFORCED. It is carried through configuration and
+	// verified nowhere — connectOne does not read it — so setting it today
+	// buys an air-gapped operator no protection at all. It is left in place
+	// because the field is the right shape and removing it would break
+	// configs that already set it, but anything that reads like a
+	// supply-chain guarantee must not be claimed until this is wired up.
+	//
+	// Intended: pins the server artifact. Air-gapped installs must set this;
 	// a tag or floating command is not reproducible (docs/ops/air-gap.md).
 	Digest string `json:"digest,omitempty"`
 }
