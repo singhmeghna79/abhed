@@ -88,6 +88,45 @@ func (r *Registry) All() []Tool {
 	return out
 }
 
+// Clone returns an independent copy.
+//
+// This is what makes the tool set changeable at runtime without a lock on the
+// read path. A Registry is read on every turn of every session, from many
+// goroutines; adding a mutex would put lock traffic in the agent's hot loop to
+// serve a change that happens once in a while.
+//
+// Instead a settings change clones, mutates the clone, and swaps the pointer.
+// Sessions already running keep the registry they started with — which is also
+// the correct semantics, since a tool set that changed mid-session would mean
+// the model was told about tools that were not there when it planned.
+func (r *Registry) Clone() *Registry {
+	out := &Registry{
+		tools: make(map[string]Tool, len(r.tools)),
+		order: make([]string, len(r.order)),
+	}
+	for k, v := range r.tools {
+		out.tools[k] = v
+	}
+	copy(out.order, r.order)
+	return out
+}
+
+// Remove drops a tool. Used when an MCP server is disconnected, whose tools
+// must not outlive the connection that served them.
+func (r *Registry) Remove(name string) {
+	if _, found := r.tools[name]; !found {
+		return
+	}
+	delete(r.tools, name)
+	out := r.order[:0]
+	for _, n := range r.order {
+		if n != name {
+			out = append(out, n)
+		}
+	}
+	r.order = out
+}
+
 // Subset returns a registry limited to the named tools. Subagent profiles use
 // this: a narrow role with a narrow tool set outperforms a general one, and
 // read-only profiles must not be able to write (docs §07).

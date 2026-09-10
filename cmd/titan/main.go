@@ -981,9 +981,13 @@ func serveCmd(workspace, addr string) int {
 	} else if t != nil {
 		registry.Add(t)
 	}
+	// Kept rather than discarded: the settings surface can trigger a reindex,
+	// which needs the same Index the search tool is reading.
+	var searchIndex *index.Index
 	if cfg.Retrieval.Enabled {
 		if ix, err := openIndex(context.Background(), cfg, workspace); err == nil {
 			registry.Add(&index.SearchTool{Index: ix})
+			searchIndex = ix
 		}
 	}
 
@@ -1010,6 +1014,13 @@ func serveCmd(workspace, addr string) int {
 		SkillDirs:    skillDirs(cfg),
 		Store:        eventStore,
 		Auth:         authMW,
+		// The live objects behind the settings surface. Passing the registries
+		// rather than only their rendered output is what lets a change reach
+		// the next session without a restart.
+		SkillRegistry: skillReg,
+		Gateway:       gateway,
+		Index:         searchIndex,
+		IndexOptions:  indexOptions(cfg),
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -1610,6 +1621,15 @@ func storageLabel(cfg config.Config) string {
 		return "postgres (durable, tenant=" + orDefault(cfg.Storage.Tenant, "default") + ")"
 	}
 	return "memory (sessions do not survive restart)"
+}
+
+// indexOptions mirrors what openIndex uses, so a reindex triggered from the
+// settings surface rebuilds on the same terms as the startup build rather than
+// quietly dropping the vector tier.
+func indexOptions(cfg config.Config) index.BuildOptions {
+	opts := index.DefaultBuildOptions()
+	opts.Embed = cfg.Retrieval.Embed && cfg.Retrieval.EmbedBaseURL != ""
+	return opts
 }
 
 // openIndex builds the retrieval index for this workspace.

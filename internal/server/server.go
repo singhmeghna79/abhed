@@ -20,8 +20,11 @@ import (
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/index"
+	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/titan/internal/skills"
 	"github.com/yuvrajsingh/titan/internal/store"
 	"github.com/yuvrajsingh/titan/internal/tools"
 )
@@ -60,6 +63,15 @@ type Options struct {
 	Store EventStore
 	// Auth verifies callers. Nil means the mode from Config is used.
 	Auth *auth.Middleware
+	// SkillRegistry is the loaded skill set. Held alongside SkillListing so a
+	// settings change can re-render the listing rather than being stuck with
+	// the string computed at startup.
+	SkillRegistry *skills.Registry
+	// Gateway holds the MCP connections, so a server can be added at runtime.
+	Gateway *mcp.Gateway
+	// Index backs the retrieval tool, for a reindex triggered from settings.
+	Index        *index.Index
+	IndexOptions index.BuildOptions
 }
 
 // Server holds live sessions and serves the API.
@@ -77,6 +89,12 @@ type Server struct {
 
 	// Outstanding signup invitations, minted by an administrator.
 	invites *inviteStore
+
+	// state holds what a settings change may replace, behind its own lock.
+	// Separate from opts, which stays immutable — mixing "set once" and
+	// "changes at runtime" in one struct is how a field ends up read without
+	// the lock.
+	state *mutable
 }
 
 type liveSession struct {
@@ -126,6 +144,12 @@ func New(opts Options) *Server {
 		signinLimiter:  newLimiter(10, time.Minute),
 		sessionLimiter: newLimiter(60, time.Minute),
 		invites:        newInviteStore(),
+		state: &mutable{
+			registry: opts.Registry,
+			skills:   opts.SkillRegistry,
+			gateway:  opts.Gateway,
+			cfg:      opts.Config,
+		},
 	}
 	if rec, ok := st.(SessionRecorder); ok {
 		s.sessions = rec
@@ -154,6 +178,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /v1/admin/invites", s.admin(s.listInvites))
 	mux.Handle("GET /v1/admin/users", s.admin(s.listUsers))
 	mux.Handle("POST /v1/admin/users/admin", s.admin(s.setUserAdmin))
+	mux.Handle("GET /v1/admin/settings", s.admin(s.getSettings))
+	mux.Handle("POST /v1/admin/skills/reload", s.admin(s.reloadSkills))
+	mux.Handle("POST /v1/admin/mcp", s.admin(s.addMCP))
+	mux.Handle("POST /v1/admin/reindex", s.admin(s.reindex))
 	mux.HandleFunc("GET /v1/sessions/{id}/files", s.listDownloads)
 	mux.HandleFunc("GET /v1/sessions/{id}/download", s.serveDownload)
 	mux.HandleFunc("GET /v1/providers", s.listProviders)
@@ -418,6 +446,11 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// One snapshot for the whole of session creation. Taking it once means a
+	// settings change landing mid-request cannot give this session a tool
+	// registry from before the change and a skill listing from after it.
+	registry, skillReg, _ := s.state.snapshot()
+
 	// Resolved before anything is persisted or started: a session half-created
 	// against a provider that does not exist is worse than a clean refusal.
 	adapter := s.opts.Adapter
@@ -495,11 +528,11 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		Model:         adapter.Profile().Name,
 		ContextWindow: adapter.Profile().ContextWindow,
 		MemoryFiles:   agent.DiscoverMemoryFiles(s.opts.Workspace),
-		Skills:        s.opts.SkillListing,
+		Skills:        s.skillListing(skillReg),
 	})
 	cfg.MaxTurns = s.opts.Config.Limits.MaxTurns
 
-	loop := agent.NewLoop(adapter, s.opts.Registry, pol, live, sess, rec, cfg)
+	loop := agent.NewLoop(adapter, registry, pol, live, sess, rec, cfg)
 	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	live.Loop = loop
 
@@ -1084,8 +1117,8 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 		o.WebSearch = orDefaultStr(cfg.WebSearch.Provider, "duckduckgo")
 	}
 
-	if s.opts.Registry != nil {
-		o.Tools = s.opts.Registry.Names()
+	if reg := s.state.toolRegistry(); reg != nil {
+		o.Tools = reg.Names()
 	}
 
 	// Sign-in only matters when there is somewhere to sign in TO.

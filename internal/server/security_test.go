@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -586,5 +587,82 @@ func TestProviderListIsStableAndScoped(t *testing.T) {
 	raw, _ := json.Marshal(first)
 	if strings.Contains(string(raw), "api_key") {
 		t.Error("the provider list leaks credential fields")
+	}
+}
+
+// The tool registry is read on every turn of every session. A settings change
+// that mutated it in place would race with those readers, so a change clones,
+// mutates the clone, and swaps the pointer.
+//
+// Run with -race: without the copy-on-write this fails, and it fails as a
+// corrupted map rather than a clean error.
+func TestToolRegistrySwapIsRaceFree(t *testing.T) {
+	st := &mutable{registry: tools.NewRegistry(tools.Read{}, tools.Glob{})}
+
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	// Readers, standing in for live sessions.
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					reg := st.toolRegistry()
+					_ = reg.Names()
+					_ = reg.Definitions()
+					_, _ = reg.Get("read")
+				}
+			}
+		}()
+	}
+
+	// Writers, standing in for settings changes.
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				st.swapTools(func(reg *tools.Registry) { reg.Add(tools.Grep{}) })
+			}
+		}(i)
+	}
+
+	time.Sleep(120 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// The tool added by the writers must actually be there afterwards.
+	if _, ok := st.toolRegistry().Get("grep"); !ok {
+		t.Error("a swapped-in tool is missing after the swaps settled")
+	}
+	// And the originals must survive: a clone that dropped entries would be a
+	// silent capability loss.
+	if _, ok := st.toolRegistry().Get("read"); !ok {
+		t.Error("clone lost a pre-existing tool")
+	}
+}
+
+// A registry clone must be independent: mutating the copy must not reach into
+// the original a running session is still holding.
+func TestRegistryCloneIsIndependent(t *testing.T) {
+	orig := tools.NewRegistry(tools.Read{})
+	clone := orig.Clone()
+	clone.Add(tools.Grep{})
+
+	if _, ok := orig.Get("grep"); ok {
+		t.Error("mutating a clone changed the original")
+	}
+	if _, ok := clone.Get("read"); !ok {
+		t.Error("the clone lost the original's tools")
+	}
+
+	clone.Remove("read")
+	if _, ok := orig.Get("read"); !ok {
+		t.Error("removing from a clone removed from the original")
 	}
 }
