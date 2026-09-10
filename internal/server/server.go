@@ -141,6 +141,9 @@ func (s *Server) Handler() http.Handler {
 	// Uploading before a session exists: see uploadFile for why a placeholder
 	// session was the wrong answer.
 	mux.HandleFunc("POST /v1/uploads", s.uploadFile)
+	mux.HandleFunc("DELETE /v1/sessions/{id}", s.deleteSession)
+	mux.HandleFunc("GET /v1/sessions/{id}/files", s.listDownloads)
+	mux.HandleFunc("GET /v1/sessions/{id}/download", s.serveDownload)
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
 	mux.HandleFunc("POST /v1/sessions/{id}/approve", s.approveAction)
 	mux.HandleFunc("GET /v1/health", s.health)

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -335,5 +337,101 @@ func TestListAndFetchAgreeOnOwnership(t *testing.T) {
 		if got := ownsSession(tc.recTenant, tc.recUser, tc.tenant, tc.user); got != tc.want {
 			t.Errorf("%s: ownsSession = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// A file the agent produced was reachable only as a path like
+// /workspace/report.docx — a location inside a container the reader cannot
+// open. The work was done and then stranded.
+func TestDownloadRequiresOwnership(t *testing.T) {
+	s := proxyServer(t)
+	if err := os.WriteFile(filepath.Join(s.opts.Workspace, "report.docx"),
+		[]byte("PK\x03\x04fake"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mk := func(user string) string {
+		req := httptest.NewRequest("POST", "/v1/sessions",
+			strings.NewReader(`{"prompt":"hi"}`))
+		req.Header.Set("X-Titan-User", user)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		var out struct {
+			SessionID string `json:"session_id"`
+		}
+		json.Unmarshal(rec.Body.Bytes(), &out)
+		return out.SessionID
+	}
+	sid := mk("alice")
+	time.Sleep(150 * time.Millisecond)
+
+	get := func(user, id, path string) int {
+		req := httptest.NewRequest("GET",
+			"/v1/sessions/"+id+"/download?path="+path, nil)
+		req.Header.Set("X-Titan-User", user)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := get("alice", sid, "report.docx"); code != http.StatusOK {
+		t.Errorf("owner could not download their own file: %d", code)
+	}
+	if code := get("bob", sid, "report.docx"); code == http.StatusOK {
+		t.Error("another user downloaded a file from someone else's session")
+	}
+}
+
+// A path is attacker-controlled input. filepath.Join CLEANS "..", which
+// resolves a traversal rather than refusing it, so the workspace boundary has
+// to be proven after resolution rather than assumed before it.
+func TestDownloadRejectsEscape(t *testing.T) {
+	s := proxyServer(t)
+	for _, p := range []string{
+		"../../etc/passwd", "/etc/passwd", "..%2F..%2Fetc%2Fpasswd",
+	} {
+		if _, err := s.resolveInWorkspace(p); err == nil {
+			t.Errorf("path %q escaped the workspace", p)
+		}
+	}
+}
+
+// A transcript can hold a pasted credential or an uploaded document. "You
+// cannot remove that" is the wrong answer, and a delete that silently does
+// nothing is worse than no delete at all.
+func TestDeleteSessionRemovesTranscript(t *testing.T) {
+	s := proxyServer(t)
+	req := httptest.NewRequest("POST", "/v1/sessions",
+		strings.NewReader(`{"prompt":"secret"}`))
+	req.Header.Set("X-Titan-User", "alice")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	var out struct {
+		SessionID string `json:"session_id"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	time.Sleep(200 * time.Millisecond)
+
+	del := func(user string) int {
+		r := httptest.NewRequest("DELETE", "/v1/sessions/"+out.SessionID, nil)
+		r.Header.Set("X-Titan-User", user)
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		return w.Code
+	}
+
+	if code := del("bob"); code == http.StatusNoContent {
+		t.Fatal("another user deleted someone else's session")
+	}
+	if code := del("alice"); code != http.StatusNoContent {
+		t.Fatalf("owner could not delete their own session: %d", code)
+	}
+
+	r := httptest.NewRequest("GET", "/v1/sessions/"+out.SessionID+"/replay", nil)
+	r.Header.Set("X-Titan-User", "alice")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("transcript still readable after delete: %d", w.Code)
 	}
 }

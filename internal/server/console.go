@@ -1429,8 +1429,13 @@ async function whoami(){
 
 // A first-run console that only says "ask something" teaches nothing. These
 // are the three shapes Titan handles, so the examples double as documentation.
+// Deliberately generic. The first example was "What is z/OS and where is it
+// used?", which read as a product aimed at mainframe shops to everyone else —
+// a first-run screen sets the expectation of what the tool is FOR, so a niche
+// example narrows the product in the reader's mind before they have typed
+// anything.
 const EXAMPLES = [
-  ['Explain a concept',  'What is z/OS and where is it used?'],
+  ['Explain a concept',  'Explain how TLS certificate validation works.'],
   ['Understand code',    'What does the Valid function do in this codebase?'],
   ['Make a change',      'The tests in pkg/auth are failing. Find the bug and fix it.'],
 ];

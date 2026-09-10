@@ -197,6 +197,17 @@ type Store interface {
 	Since(sessionID string, seq int64) ([]Event, error)
 }
 
+// SessionDeleter is implemented by stores that can forget a session.
+//
+// Optional rather than part of Store, because "delete" is not meaningful for
+// every backend — an append-only audit log in a regulated deployment must NOT
+// support it, and a store that silently ignored the call would be worse than
+// one that never offered it. The server checks for this interface and reports
+// honestly when it is absent.
+type SessionDeleter interface {
+	DeleteSession(sessionID string) error
+}
+
 // MemStore is an in-memory Store for local development and tests. The
 // production path uses Postgres with the schema in docs/architecture/10-data-model.md.
 type MemStore struct {
@@ -210,6 +221,16 @@ func NewMemStore() *MemStore {
 		events: make(map[string][]Event),
 		subs:   make(map[string][]chan Event),
 	}
+}
+
+// DeleteSession forgets a session's events. Subscribers are left alone: a live
+// stream that is cut mid-run should end because the run ended, not because the
+// rows vanished underneath it.
+func (m *MemStore) DeleteSession(sessionID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.events, sessionID)
+	return nil
 }
 
 func (m *MemStore) Append(ev Event) error {
