@@ -127,7 +127,10 @@ h2{margin:0 0 16px;font-size:clamp(22px,3.2vw,31px);line-height:1.2;
 }
 
 /* ---------------------------------------------------------------- products */
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:15px}
+/* auto-fit packs four cards as 3 + 1, leaving the fourth alone on a row and
+   reading as an accident. Both grids on this page hold four, so pair them. */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+@media (max-width:680px){.grid{grid-template-columns:1fr}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
   padding:22px;display:flex;flex-direction:column;gap:9px;
   transition:border-color .16s,transform .16s}
@@ -270,6 +273,7 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
     <nav class="nav">
       <a href="#harness" class="hide-sm">The harness</a>
       <a href="#embed" class="hide-sm">Embed</a>
+      <a href="#governance" class="hide-sm">Governance</a>
       <a href="#limitations" class="hide-sm">Limitations</a>
       <a href="#access">Access</a>
       <a class="btn ghost hide-sm" href="https://titan.zybuu.com">Open console</a>
@@ -454,6 +458,66 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
           rebuild. A sampling parameter the provider cannot honour fails at
           startup rather than being silently ignored.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Governance. The section aimed at the buyer we can actually win.
+     Our own competitive doc concludes that a developer who wants to reshape
+     the harness should use Pi — and names the two things a Pi user cannot
+     build as an extension: an event store with deterministic replay, and
+     tenant isolation enforced in the database. Both have to be in the core or
+     they are not guarantees, and both are what an auditor asks about. -->
+<section id="governance">
+  <div class="wrap">
+    <p class="kicker">Governance</p>
+    <h2>What the agent did, provable afterwards.</h2>
+    <p class="body" style="margin-bottom:24px">
+      Most of what an agent harness offers can be added later as an extension.
+      Two things cannot: a log you can replay, and an isolation boundary the
+      database enforces. Both have to be in the core, which is where these are.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>The log is the session</h3>
+        <p>Every action is an event in an append-only store, and the
+          conversation is <em>derived</em> from those events rather than
+          described by them. That is what makes replay exact and forking from
+          any earlier step cheap — nothing extra had to be stored to make
+          either work.</p>
+      </div>
+      <div class="card">
+        <h3>Immutable by trigger</h3>
+        <p>Recorded events cannot be updated or deleted. Not by convention and
+          not in application code — by database triggers that reject the
+          statement, so an audit trail cannot be quietly rewritten by whatever
+          is holding the connection.</p>
+      </div>
+      <div class="card">
+        <h3>Tenants isolated in the database</h3>
+        <p>Row-level security scopes every query, with <code>FORCE</code>
+          because a table's owner bypasses ordinary RLS — and the application
+          role usually owns the tables it created, which leaves the policy
+          silently inert. A test read another tenant's rows until
+          <code>FORCE</code> was added.</p>
+      </div>
+      <div class="card">
+        <h3>Deny is absolute</h3>
+        <p>A deny rule holds in every permission mode, including bypass. An
+          extension may veto a call and can never permit one, so no plugin,
+          profile or mode can widen what an operator forbade.</p>
+      </div>
+    </div>
+
+    <div class="honest" style="margin-top:22px">
+      <p>
+        <strong>What this is not.</strong> None of it is a compliance
+        certification, and none of it substitutes for one. It is the mechanism
+        an auditor would ask to see — who did what, under whose authority, and
+        can it be shown afterwards — built where it cannot be turned off rather
+        than asserted in a policy document.
+      </p>
     </div>
   </div>
 </section>
