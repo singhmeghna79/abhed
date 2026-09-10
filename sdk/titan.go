@@ -5,11 +5,17 @@
 // agent inside their own service. This package is the supported surface across
 // that wall: it is small on purpose, so the internals stay free to change.
 //
-// The guarantees do not weaken when embedded. Policy still decides what runs,
+// Policy, audit and deny rules hold when embedded. Policy still decides what runs,
 // every action is still recorded as an event, and an extension still cannot
 // permit what a deny rule forbids. A caller supplies its own approver and
 // receives the event stream, which is the point — a host application usually
 // has better ideas than a terminal prompt about how to ask for permission.
+//
+// One guarantee does NOT come with it: this package builds no sandbox. Bash
+// runs with the privileges of the process that embedded it, where the CLI
+// would have wrapped it in the configured tier. A host that needs isolation
+// owns it — a container, a jail, a separate user — exactly as for any other
+// library that shells out.
 package titan
 
 import (

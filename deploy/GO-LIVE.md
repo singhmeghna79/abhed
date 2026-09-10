@@ -72,6 +72,20 @@ Create your account — there is no public signup:
 podman exec -it titan titan user add yuvraj
 ```
 
+## The homepage form
+
+`zybuu.com` carries an access-request form backed by a Cloudflare Pages
+Function. It needs one secret, set by hand:
+
+**Workers & Pages → zybuu → Settings → Environment variables** →
+`RESEND_API_KEY`, from [resend.com](https://resend.com) (free tier is enough).
+Optionally `ACCESS_TO` to route requests somewhere other than
+`support@zybuu.com`.
+
+Until it is set the form refuses honestly — "the form is not connected yet,
+email support@zybuu.com" — rather than accepting a request and dropping it.
+Nothing is lost either way, but nothing is emailed either.
+
 ## Verify
 
 ```bash

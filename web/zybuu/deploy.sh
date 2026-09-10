@@ -27,7 +27,17 @@ npm_config_cache="${TMPDIR:-/tmp}/zybuu-npm" npx --yes wrangler@3 pages deploy "
 
 cat <<'TEXT'
 
-Done. Two things to check in the Cloudflare dashboard the first time:
+Done. Three things to set in the Cloudflare dashboard the first time:
+
+  0. Workers & Pages -> zybuu -> Settings -> Environment variables
+     Add RESEND_API_KEY (an API key from resend.com; the free tier is enough).
+     Optionally ACCESS_TO to send requests somewhere other than
+     support@zybuu.com.
+
+     WITHOUT IT the access form still answers, honestly: every submission
+     returns "The form is not connected yet. Email support@zybuu.com." No
+     request is lost, but none is emailed either.
+
 
   1. Workers & Pages -> zybuu -> Custom domains -> add  zybuu.com  and  www.zybuu.com
      Cloudflare adds the DNS records itself, since it already runs this zone.

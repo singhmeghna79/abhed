@@ -2,6 +2,13 @@
 # responses. A static marketing page is a smaller target than an agent console,
 # but these cost nothing and the two should not disagree about the basics.
 #
+# The rule these two directives share: default-src 'none' means every resource
+# kind the page actually uses needs naming, and a kind that is added later
+# without widening the policy is blocked in the BROWSER — no request, no log,
+# the page simply sits there. That has now happened twice on this file, once
+# for the form and once for the script that reports its result, so the check in
+# internal/sitecheck asserts the rule rather than the last instance of it.
+#
 # form-action is 'self' rather than 'none' because the access form posts to
 # /api/access on this origin. It was 'none' while the page had no form at all,
 # and left that way it blocks the submission in the BROWSER — no request is
@@ -14,4 +21,4 @@
   Referrer-Policy: no-referrer
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'

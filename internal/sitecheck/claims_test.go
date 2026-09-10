@@ -137,13 +137,37 @@ func TestFormActionAgreesWithCSP(t *testing.T) {
 	if err != nil {
 		t.Skipf("_headers not present: %v", err)
 	}
-	hasForm := strings.Contains(p, "<form")
-	if !hasForm {
-		return
+	csp := string(hdr)
+
+	// The rule, not the last instance of it. This test previously grepped for
+	// the one literal that had been wrong — form-action 'none' — and passed
+	// while a missing script-src blocked the page's status script in exactly
+	// the same way. Under default-src 'none' every resource kind the page uses
+	// has to be named, so the check is per kind.
+	kinds := []struct {
+		markup    string // what the page contains
+		directive string // what the CSP must therefore permit
+		why       string
+	}{
+		{"<form", "form-action", "submissions are blocked before a request is made"},
+		{"<script", "script-src", "the script never runs and the page looks inert"},
+		{"<img", "img-src", "images do not load"},
 	}
-	if strings.Contains(string(hdr), "form-action 'none'") {
-		t.Error("the page has a form and the CSP is form-action 'none' — " +
-			"submissions are blocked in the browser, silently")
+	strict := strings.Contains(csp, "default-src 'none'")
+	for _, k := range kinds {
+		if !strings.Contains(p, k.markup) {
+			continue
+		}
+		named := strings.Contains(csp, k.directive+" ")
+		blocked := strings.Contains(csp, k.directive+" 'none'")
+		if blocked || (strict && !named) {
+			t.Errorf("the page contains %s but the CSP does not permit %s — %s",
+				k.markup, k.directive, k.why)
+		}
+	}
+
+	if !strings.Contains(p, "<form") {
+		return
 	}
 	// A relative action stays same-origin on the apex, on www, and on a
 	// preview deployment. An absolute one is cross-origin on two of the three.
@@ -194,5 +218,63 @@ func TestPageDoesNotClaimUnenforcedControls(t *testing.T) {
 			t.Error("the page claims the guarantees do not weaken when " +
 				"embedded, but sdk builds tools.Bash{} with no sandbox")
 		}
+	}
+}
+
+// The provider count drifted to "20+" because it was the one number on the
+// page nothing asserted. "20+" implies more than twenty; exactly twenty are
+// registered. A plus sign is a small dishonesty and this page's whole argument
+// is that its numbers are checkable.
+func TestProviderCountOnPageMatchesRegistry(t *testing.T) {
+	dir := filepath.Join("..", "..", "internal", "model")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Skipf("model package not present: %v", err)
+	}
+	re := regexp.MustCompile(`Register\("[a-z0-9-]+"`)
+	n := 0
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), "providers_") ||
+			strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		n += len(re.FindAll(b, -1))
+	}
+	if n == 0 {
+		t.Fatal("no Register calls found — the provider registry moved")
+	}
+
+	m := regexp.MustCompile(`<b>(\d+)(\+?)</b><span>model providers`).
+		FindStringSubmatch(page(t))
+	if m == nil {
+		t.Fatal("the page no longer states a provider count")
+	}
+	if m[2] == "+" {
+		t.Errorf("the page says %s+ providers; exactly %d are registered, so "+
+			"the plus claims something that is not there", m[1], n)
+	}
+	if m[1] != itoa(n) {
+		t.Errorf("page says %s providers, registry has %d", m[1], n)
+	}
+}
+
+// The SDK's package doc is godoc — the first thing a Go developer reads, and
+// the same audience the page addresses. It carried "the guarantees do not
+// weaken when embedded" for a week after the page retracted that exact
+// sentence, which is a worse place to be wrong than the page.
+func TestSDKDocDoesNotOverclaim(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "sdk", "titan.go"))
+	if err != nil {
+		t.Skipf("sdk not present: %v", err)
+	}
+	src := string(b)
+	if strings.Contains(src, "tools.Bash{}") &&
+		strings.Contains(src, "guarantees do not weaken when embedded") {
+		t.Error("sdk/titan.go claims the guarantees do not weaken when " +
+			"embedded while building tools.Bash{} with no sandbox")
 	}
 }
