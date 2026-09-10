@@ -348,3 +348,45 @@ func (l *LocalAuth) CreateUserOrReset(ctx context.Context, u *User, password str
 	u.MustChange = true
 	return l.Store.Put(ctx, u)
 }
+
+// ListUsers returns every local account, for an administrator's user list.
+//
+// Hashes are never included: User.Hash is json:"-" and the store's own wrapper
+// type exists to keep it that way, so a handler that marshals this cannot leak
+// one by accident.
+func (l *LocalAuth) ListUsers(ctx context.Context) ([]*User, error) {
+	return l.Store.List(ctx)
+}
+
+// SetGroups adds or removes one group on an account.
+//
+// Scoped to a single named group rather than replacing the whole list: an
+// admin toggle that overwrote Groups would silently discard whatever else an
+// OIDC deployment or an operator had put there.
+//
+// Existing sessions are NOT re-issued. A user promoted while signed in gets
+// their new rights on next sign-in, because the session Identity was copied at
+// issue time (see issue). That is the safe direction — a demotion likewise
+// takes effect at the next sign-in rather than mid-request.
+func (l *LocalAuth) SetGroups(ctx context.Context, username, group string, member bool) error {
+	u, err := l.Store.Get(ctx, username)
+	if err != nil || u == nil {
+		return ErrNoSuchUser
+	}
+	has := false
+	out := make([]string, 0, len(u.Groups)+1)
+	for _, g := range u.Groups {
+		if g == group {
+			has = true
+			if !member {
+				continue // dropping it
+			}
+		}
+		out = append(out, g)
+	}
+	if member && !has {
+		out = append(out, group)
+	}
+	u.Groups = out
+	return l.Store.Put(ctx, u)
+}

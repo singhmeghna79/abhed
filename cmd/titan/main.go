@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1228,6 +1229,7 @@ func userCmd(workspace string, args []string) int {
 		name := fs.String("name", "", "display name")
 		tenant := fs.String("tenant", "", "tenant (defaults to storage.tenant)")
 		groups := fs.String("groups", "", "comma-separated groups")
+		admin := fs.Bool("admin", false, "grant administrator rights (settings, users, invites)")
 		pass := fs.String("password", "", "password (generated if omitted)")
 
 		// Go's flag package stops at the first non-flag argument, so parsing
@@ -1254,11 +1256,27 @@ func userCmd(workspace string, args []string) int {
 		if *groups != "" {
 			u.Groups = splitRules(*groups)
 		}
+		// The admin group is what gates settings, users and invites. A
+		// deployment whose first account is not an admin cannot reach its own
+		// settings page, so this is offered as a flag rather than something to
+		// discover from a config file.
+		if *admin {
+			g := cfg.Auth.AdminGroup
+			if g == "" {
+				g = server.DefaultAdminGroup
+			}
+			if !slices.Contains(u.Groups, g) {
+				u.Groups = append(u.Groups, g)
+			}
+		}
 		if err := la.CreateUser(ctx, u, password); err != nil {
 			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
 			return 1
 		}
 		fmt.Printf("created %s (tenant %s)\n", username, u.Tenant)
+		if *admin {
+			fmt.Println("  administrator — can manage settings, users and invites")
+		}
 
 	case "list":
 		users, err := us.List(ctx)

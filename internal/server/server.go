@@ -74,6 +74,9 @@ type Server struct {
 	// Throttles for the endpoints reachable before authentication succeeds.
 	signinLimiter  *limiter
 	sessionLimiter *limiter
+
+	// Outstanding signup invitations, minted by an administrator.
+	invites *inviteStore
 }
 
 type liveSession struct {
@@ -122,6 +125,7 @@ func New(opts Options) *Server {
 		// password needs, and far below what makes guessing viable.
 		signinLimiter:  newLimiter(10, time.Minute),
 		sessionLimiter: newLimiter(60, time.Minute),
+		invites:        newInviteStore(),
 	}
 	if rec, ok := st.(SessionRecorder); ok {
 		s.sessions = rec
@@ -142,6 +146,14 @@ func (s *Server) Handler() http.Handler {
 	// session was the wrong answer.
 	mux.HandleFunc("POST /v1/uploads", s.uploadFile)
 	mux.HandleFunc("DELETE /v1/sessions/{id}", s.deleteSession)
+
+	// Administrative routes, gated per-route on group membership rather than
+	// by wrapping the whole mux — see admin.go for why that distinction
+	// matters. mux.Handle rather than HandleFunc because each is wrapped.
+	mux.Handle("POST /v1/admin/invites", s.admin(s.createInvite))
+	mux.Handle("GET /v1/admin/invites", s.admin(s.listInvites))
+	mux.Handle("GET /v1/admin/users", s.admin(s.listUsers))
+	mux.Handle("POST /v1/admin/users/admin", s.admin(s.setUserAdmin))
 	mux.HandleFunc("GET /v1/sessions/{id}/files", s.listDownloads)
 	mux.HandleFunc("GET /v1/sessions/{id}/download", s.serveDownload)
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
@@ -159,9 +171,11 @@ func (s *Server) Handler() http.Handler {
 	case local != nil:
 		mux.HandleFunc("POST /v1/signin", local.SignIn)
 		mux.HandleFunc("POST /v1/password", local.ChangePasswordHandler)
-		if s.opts.Config.Auth.AllowSignup {
-			mux.HandleFunc("POST /v1/signup", s.signup)
-		}
+		// Registered whenever local accounts exist. The handler decides
+		// admission: open, invite-only, or closed. Registering it
+		// conditionally would make "invite-only" impossible without a
+		// restart, which is the case that matters most.
+		mux.HandleFunc("POST /v1/signup", s.signup)
 		if oidc != nil {
 			// Both enabled: OIDC keeps its own entry points, and sign-out
 			// has to clear whichever session the browser actually holds.
@@ -889,7 +903,7 @@ func (s *Server) whoamiEither(w http.ResponseWriter, r *http.Request) {
 // anyone who can reach the port, not a convenience.
 func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 	local := s.localAuth()
-	if local == nil || !s.opts.Config.Auth.AllowSignup {
+	if local == nil {
 		writeJSON(w, http.StatusForbidden, map[string]string{
 			"error": "self-registration is disabled"})
 		return
@@ -899,12 +913,34 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		Email    string `json:"email"`
 		Name     string `json:"name"`
 		Password string `json:"password"`
+		Invite   string `json:"invite,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{
 			"error": "invalid request"})
 		return
 	}
+	// Three admission modes. Open registration on a public URL hands a
+	// stranger an agent with a shell, so it stays off by default — but
+	// "closed" was blocking adoption, and an invite is the middle ground:
+	// the operator decides who gets in without having to create every
+	// account by hand.
+	//
+	// A new account gets NO groups, so an invited user is an ordinary user
+	// until an administrator promotes them.
+	if !s.opts.Config.Auth.AllowSignup {
+		if strings.TrimSpace(req.Invite) == "" {
+			writeJSON(w, http.StatusForbidden, map[string]string{
+				"error": "an invite code is required to register here"})
+			return
+		}
+		if err := s.invites.redeem(req.Invite, req.Username); err != nil {
+			writeJSON(w, http.StatusForbidden, map[string]string{
+				"error": err.Error()})
+			return
+		}
+	}
+
 	u := auth.User{
 		Username: req.Username, Email: req.Email, Name: req.Name,
 		Tenant: orDefaultStr(s.opts.Config.Auth.DefaultTenant, "default"),

@@ -10,6 +10,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yuvrajsingh/titan/internal/auth"
+	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/tools"
 )
 
 // These tests exist because the server is reachable from the public internet.
@@ -433,5 +437,101 @@ func TestDeleteSessionRemovesTranscript(t *testing.T) {
 	s.Handler().ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("transcript still readable after delete: %d", w.Code)
+	}
+}
+
+// Every local account was equal until the admin group existed. That was
+// survivable while a user could only run their own sessions, and stops being
+// survivable the moment the console can add a skill or an MCP server — a skill
+// is instructions, so granting one is granting the power to rewrite what the
+// agent does.
+//
+// Both directions are tested deliberately: a gate that never denies is not a
+// gate, and a gate that never admits is an outage.
+func TestAdminRoutesRequireTheAdminGroup(t *testing.T) {
+	s := proxyServer(t)
+
+	call := func(user, groups, method, path string) int {
+		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
+		req.Header.Set("X-Titan-User", user)
+		if groups != "" {
+			req.Header.Set("X-Titan-Groups", groups)
+		}
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	routes := []struct{ method, path string }{
+		{"GET", "/v1/admin/users"},
+		{"GET", "/v1/admin/invites"},
+		{"POST", "/v1/admin/invites"},
+	}
+	for _, rt := range routes {
+		if code := call("bob", "", rt.method, rt.path); code != http.StatusForbidden {
+			t.Errorf("%s %s: non-admin got %d, want 403 — admin surface is open",
+				rt.method, rt.path, code)
+		}
+		if code := call("alice", DefaultAdminGroup, rt.method, rt.path); code == http.StatusForbidden {
+			t.Errorf("%s %s: admin was refused — the gate never admits",
+				rt.method, rt.path)
+		}
+	}
+
+	// A group that merely looks adjacent must not pass.
+	if code := call("eve", "titan-admins,admin", "GET", "/v1/admin/users"); code != http.StatusForbidden {
+		t.Errorf("a near-miss group name was accepted: %d", code)
+	}
+}
+
+// An invite is single-use. Two signups racing on one code must not both
+// succeed, which is why redemption happens under the lock rather than as a
+// check followed by a use.
+func TestInviteIsSingleUseAndExpires(t *testing.T) {
+	store := newInviteStore()
+
+	inv := store.mint("alice", time.Hour)
+	if err := store.redeem(inv.Code, "bob"); err != nil {
+		t.Fatalf("first redemption failed: %v", err)
+	}
+	if err := store.redeem(inv.Code, "carol"); err != errInviteUsed {
+		t.Errorf("an invite was redeemed twice: %v", err)
+	}
+	if err := store.redeem("not-a-code", "dave"); err != errInviteInvalid {
+		t.Errorf("an unknown code was accepted: %v", err)
+	}
+
+	old := store.mint("alice", -time.Minute)
+	if err := store.redeem(old.Code, "erin"); err != errInviteExpired {
+		t.Errorf("an expired invite was accepted: %v", err)
+	}
+}
+
+// Signup is closed by default because Titan runs shell commands. Invite-only is
+// the middle ground, and it must actually refuse a request with no code.
+func TestSignupRequiresAnInviteWhenClosed(t *testing.T) {
+	// Local accounts, because signup only exists where Titan holds them.
+	cfg := config.Default()
+	cfg.Auth.Mode = "local"
+	cfg.Auth.AllowSignup = false
+	local := auth.NewLocalAuth(auth.NewMemoryUserStore(), time.Hour, false)
+	s := New(Options{
+		Workspace: t.TempDir(),
+		Config:    cfg,
+		Adapter:   stubAdapter{},
+		Registry:  tools.NewRegistry(tools.Read{}),
+		Auth:      &auth.Middleware{Local: local, PublicPaths: []string{"/v1/signup"}},
+	})
+
+	body := `{"username":"mallory","password":"correct-horse-battery"}`
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(
+		"POST", "/v1/signup", strings.NewReader(body)))
+
+	if rec.Code == http.StatusCreated || rec.Code == http.StatusOK {
+		t.Fatalf("registration succeeded with no invite: %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "invite") {
+		t.Errorf("the refusal does not say an invite is needed: %s", rec.Body.String())
 	}
 }

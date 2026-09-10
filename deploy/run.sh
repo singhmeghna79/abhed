@@ -28,6 +28,17 @@ SKILLS="${TITAN_SKILLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.titan/
 # clear, behind nothing.
 PORT="${TITAN_PORT:-127.0.0.1:8080}"
 
+# Postgres, so sessions and accounts survive a restart.
+NETWORK="${TITAN_NETWORK:-titan-net}"
+DB_NAME="${TITAN_DB_CONTAINER:-titan-db}"
+DB_VOLUME="${TITAN_DB_VOLUME:-titan-db-data}"
+DB_IMAGE="${TITAN_DB_IMAGE:-docker.io/library/postgres:16-alpine}"
+# Generated once and kept in the state volume rather than written here. A
+# password committed to a repo is a password published, and this one guards
+# every transcript the deployment holds.
+DB_PASSWORD="${TITAN_DB_PASSWORD:-}"
+WITH_DB="${TITAN_WITH_DB:-1}"
+
 # podman, not docker: this machine has both half-installed, DOCKER_HOST points
 # at a socket the docker CLI cannot reach, and picking one explicitly avoids an
 # hour of confusing failures. podman also runs containers inside a
@@ -43,7 +54,7 @@ fi
 # crux of the whole design: NOT a bind mount of any host directory. A bind mount
 # of $HOME or the repo would hand back exactly the access the container exists
 # to remove.
-for v in "$VOLUME" "$STATE_VOLUME"; do
+for v in "$VOLUME" "$STATE_VOLUME" "$DB_VOLUME"; do
   if ! "$RUNTIME" volume inspect "$v" >/dev/null 2>&1; then
     echo "creating volume $v"
     "$RUNTIME" volume create "$v" >/dev/null
@@ -55,12 +66,88 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 
+# The password is generated once and kept beside the deploy config, mode 0600.
+# It must be STABLE across restarts: Postgres sets the role password when it
+# initialises its data directory, so a fresh password on a second run leaves a
+# database nobody can open.
+DB_SECRET="$(dirname "$CONFIG")/.db-password"
+if [ -z "$DB_PASSWORD" ]; then
+  if [ -f "$DB_SECRET" ]; then
+    DB_PASSWORD="$(cat "$DB_SECRET")"
+  else
+    DB_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)"
+    (umask 077; printf '%s' "$DB_PASSWORD" > "$DB_SECRET")
+    echo "generated database password → $DB_SECRET"
+  fi
+fi
+
+# ------------------------------------------------------------------ database
+#
+# Postgres runs as its own container rather than on the host.
+#
+# The host's Postgres binds loopback only — verified: 127.0.0.1 and [::1], with
+# nothing on the VM's interface — so the container simply cannot reach it, and
+# "point the DSN at host.containers.internal" fails. Running it here also keeps
+# the deployment self-contained: one script brings up the whole thing, and there
+# is no dependency on what happens to be installed on the laptop.
+#
+# Durability is the point. With the in-memory store every session and every
+# account vanished on restart, which is not a property you can ask a user to
+# accept.
+if [ "$WITH_DB" = "1" ]; then
+  if ! "$RUNTIME" network exists "$NETWORK" 2>/dev/null; then
+    echo "creating network $NETWORK"
+    "$RUNTIME" network create "$NETWORK" >/dev/null
+  fi
+
+  if ! "$RUNTIME" container exists "$DB_NAME" 2>/dev/null || \
+     [ "$("$RUNTIME" inspect -f '{{.State.Running}}' "$DB_NAME" 2>/dev/null)" != "true" ]; then
+    "$RUNTIME" rm -f "$DB_NAME" >/dev/null 2>&1 || true
+    echo "starting $DB_NAME"
+    # No published port: the database is reachable only from the container
+    # network, never from the LAN or the host. Titan is its only client.
+    "$RUNTIME" run -d \
+      --name "$DB_NAME" \
+      --network "$NETWORK" \
+      --restart unless-stopped \
+      --env POSTGRES_USER=titan \
+      --env POSTGRES_PASSWORD="$DB_PASSWORD" \
+      --env POSTGRES_DB=titan \
+      --volume "$DB_VOLUME":/var/lib/postgresql/data:rw \
+      --health-cmd 'pg_isready -U titan -d titan' \
+      --health-interval 5s \
+      "$DB_IMAGE" >/dev/null
+  fi
+
+  # Titan applies its schema on connect (internal/store/postgres.go), but only
+  # once the server is actually accepting connections. Starting Titan against a
+  # database still initialising fails the first run for no good reason.
+  printf 'waiting for %s' "$DB_NAME"
+  for _ in $(seq 1 40); do
+    if "$RUNTIME" exec "$DB_NAME" pg_isready -U titan -d titan >/dev/null 2>&1; then
+      echo " ready"; break
+    fi
+    printf '.'; sleep 1
+  done
+fi
+
 "$RUNTIME" rm -f "$NAME" >/dev/null 2>&1 || true
+
+DB_ARGS=()
+if [ "$WITH_DB" = "1" ]; then
+  # TITAN_DATABASE_URL is read by config.Load's applyEnv, so the credential
+  # never has to appear in the config file that gets mounted read-only.
+  DB_ARGS=(
+    --network "$NETWORK"
+    --env "TITAN_DATABASE_URL=postgres://titan:${DB_PASSWORD}@${DB_NAME}:5432/titan?sslmode=disable"
+  )
+fi
 
 exec "$RUNTIME" run \
   --name "$NAME" \
   --detach \
   --restart unless-stopped \
+  "${DB_ARGS[@]}" \
   \
   `# --- what the process may do -------------------------------------------` \
   --user 10001:10001 \

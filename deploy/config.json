@@ -4,7 +4,8 @@
     "mode": "local",
     "session_hours": 12,
     "cookie_secure": true,
-    "allow_signup": false
+    "allow_signup": false,
+    "admin_group": "titan-admin"
   },
   "server": {
     "hsts": true,
@@ -42,7 +43,7 @@
     "max_procs": 256
   },
   "storage": {
-    "driver": "memory",
+    "driver": "postgres",
     "tenant": "default",
     "max_conns": 10
   },
@@ -77,5 +78,20 @@
     "dirs": [
       "/workspace/.titan/skills"
     ]
+  },
+  "k8s": {
+    "enabled": true,
+    "allow_writes": false
+  },
+  "ssh": {
+    "enabled": true,
+    "hosts": []
+  },
+  "retrieval": {
+    "enabled": true,
+    "embed": false
+  },
+  "mcp": {
+    "servers": []
   }
 }

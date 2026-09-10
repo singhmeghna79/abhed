@@ -168,6 +168,14 @@ type AuthConfig struct {
 	GroupsClaim   string `json:"groups_claim,omitempty"`
 	// RequireGroup gates all access on membership, above tenancy.
 	RequireGroup string `json:"require_group,omitempty"`
+	// AdminGroup gates the administrative routes — settings, users, invites —
+	// rather than the whole server.
+	//
+	// Deliberately separate from RequireGroup, whose meaning is the opposite:
+	// "everyone who may use this deployment at all". Reusing it would make
+	// every ordinary user an administrator, which is how a settings page
+	// becomes a privilege-escalation hole.
+	AdminGroup string `json:"admin_group,omitempty"`
 
 	// Browser sign-in. Without these, OIDC still validates bearer tokens for
 	// API clients, but a person opening the console has no way to sign in.
