@@ -234,8 +234,10 @@ func (w *WatsonX) buildRequest(req Request) wxRequest {
 	synthesised := map[string]string{} // original (possibly empty) -> synthesised
 	for _, m := range req.Messages {
 		wm := wxMessage{Role: string(m.Role), ToolCallID: m.ToolCallID}
-		if m.Content != "" {
-			wm.Content = m.Content
+		// wxMessage.Content is already `any`, so OpenAI-style array content
+		// serialises without a type change here.
+		if c := openAIContent(m); c != "" {
+			wm.Content = c
 		}
 		for i, tc := range m.ToolCalls {
 			var call wxToolCall
@@ -277,6 +279,11 @@ func (w *WatsonX) buildRequest(req Request) wxRequest {
 func (w *WatsonX) Complete(ctx context.Context, req Request) (<-chan Chunk, error) {
 	token, err := w.bearer(ctx)
 	if err != nil {
+		return nil, err
+	}
+	// Refuse an image the endpoint cannot read, rather than sending it and
+	// letting the provider 400 with its own wording — or silently ignore it.
+	if err := CheckVision(w.Profile(), req); err != nil {
 		return nil, err
 	}
 	body, err := json.Marshal(w.buildRequest(req))

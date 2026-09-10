@@ -30,6 +30,7 @@ func newAnthropicAdapter(s Spec) (Adapter, error) {
 				ContextWindow:   s.ContextWindow,
 				MaxOutputTokens: s.MaxOutputTokens,
 				SupportsTools:   true,
+			SupportsVision:  true,
 				SupportsStream:  true,
 				ToolCallFormat:  "json",
 				ReasoningTokens: true,

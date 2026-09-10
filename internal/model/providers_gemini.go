@@ -22,6 +22,7 @@ func geminiStyle(defaultURL string) Factory {
 			ContextWindow:   s.ContextWindow,
 			MaxOutputTokens: s.MaxOutputTokens,
 			SupportsTools:   true,
+			SupportsVision:  true,
 			SupportsStream:  true,
 			ToolCallFormat:  "json",
 			ReasoningTokens: true,

@@ -197,3 +197,17 @@ func samplingFor(names []string, fallback Sampling) Sampling {
 	}
 	return s
 }
+
+// visionFromSpec lets an operator declare that a local endpoint can see.
+//
+// The OpenAI-compatible family covers both hosted vision models and local
+// text-only servers, so it cannot have a sensible default — and guessing wrong
+// in the permissive direction means images silently ignored. Off unless the
+// config says otherwise, using the same Extra escape hatch that already
+// carries api_version and beta flags:
+//
+//	"extra": { "vision": "true" }
+func visionFromSpec(s Spec) bool {
+	v := s.Get("vision")
+	return v == "true" || v == "1" || v == "yes"
+}

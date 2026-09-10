@@ -22,9 +22,21 @@ import (
 // The uploaded file lands in a per-session directory INSIDE the workspace, so
 // the existing scoping rules cover it with no special case: the agent reads it
 // with the ordinary `read` tool, subject to the same boundary as any other
-// file. There is deliberately no separate "attachment" pathway into the model's
-// context, because that would be a second way for untrusted bytes to reach the
-// prompt, and the whole trust model depends on there being one.
+// file.
+//
+// For text and documents there is deliberately no separate "attachment"
+// pathway into the model's context, because that would be a second way for
+// untrusted bytes to reach the prompt, and the trust model depends on there
+// being one.
+//
+// Images are the single, deliberate exception. They cannot be read as text at
+// all, so the choice is between a second pathway and no vision — and a stated
+// invariant is worth overturning openly rather than working around. The
+// exception is kept narrow: a recognised image format identified by MAGIC
+// BYTES rather than by the filename the uploader chose, still written into the
+// same per-session directory, and still tagged untrusted like every other
+// observation. An image reaching a model that cannot see is refused loudly
+// rather than dropped (model.CheckVision).
 
 // maxUploadBytes bounds a single file. Large enough for a real specification,
 // small enough that a session directory cannot fill the disk.
@@ -40,6 +52,10 @@ type uploadResponse struct {
 	Extracted bool   `json:"extracted"`
 	Preview   string `json:"preview,omitempty"`
 	Note      string `json:"note,omitempty"`
+	// Image and MediaType mark a file the console should attach as content
+	// rather than only naming by path.
+	Image     bool   `json:"image,omitempty"`
+	MediaType string `json:"media_type,omitempty"`
 }
 
 // uploadFile accepts a multipart file and stores it under the session's
@@ -119,6 +135,20 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 			resp.Extracted = true
 			resp.Preview = firstLines(text, 3)
 		}
+	} else if mt := imageMediaType(data); mt != "" {
+		// An image is the one binary the agent can now use directly, on a
+		// vision-capable model.
+		//
+		// This deliberately widens the invariant stated at the top of this
+		// file: image bytes reach the model as content rather than only as a
+		// path for the read tool. That is a real change to the trust surface,
+		// so it is narrow — a recognised image format, by magic bytes rather
+		// than by the filename the uploader chose, and the bytes stay tagged
+		// untrusted exactly as any other observation is.
+		resp.Kind = "image"
+		resp.Image = true
+		resp.MediaType = mt
+		resp.Note = "an image; readable by a vision-capable model"
 	} else if isProbablyBinary(data) {
 		resp.Note = "this looks like a binary file; the agent will not be able to read it as text"
 	}
@@ -174,6 +204,27 @@ func firstLines(s string, n int) string {
 		out = out[:400] + "…"
 	}
 	return out
+}
+
+// imageMediaType identifies an image by its magic bytes, returning "" for
+// anything else.
+//
+// By content, never by extension: the filename comes from the uploader, so
+// trusting ".png" would let anything at all be presented to the model as an
+// image. The four formats here are the ones every vision-capable provider
+// accepts; anything more exotic is better refused than half-supported.
+func imageMediaType(data []byte) string {
+	switch {
+	case len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n":
+		return "image/png"
+	case len(data) >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF:
+		return "image/jpeg"
+	case len(data) >= 6 && (string(data[:6]) == "GIF87a" || string(data[:6]) == "GIF89a"):
+		return "image/gif"
+	case len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP":
+		return "image/webp"
+	}
+	return ""
 }
 
 // isProbablyBinary mirrors the read tool's judgement so the two agree about

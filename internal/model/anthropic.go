@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -109,11 +110,23 @@ type anthropicBlock struct {
 	// thinking
 	Thinking string `json:"thinking,omitempty"`
 
+	// Image content. Anthropic takes base64 with an explicit media type.
+	Source *anthropicSource `json:"source,omitempty"`
+
 	CacheControl *anthropicCache `json:"cache_control,omitempty"`
 }
 
 type anthropicCache struct {
 	Type string `json:"type"`
+}
+
+// anthropicSource carries an image. Base64 rather than a URL: a URL would make
+// the provider fetch it, which sends the bytes out of the network on a
+// deployment whose premise is that they stay in.
+type anthropicSource struct {
+	Type      string `json:"type"`       // always "base64"
+	MediaType string `json:"media_type"` // image/png, image/jpeg, ...
+	Data      string `json:"data"`
 }
 
 type anthropicMessage struct {
@@ -146,6 +159,39 @@ type anthropicRequest struct {
 	StopSequences []string           `json:"stop_sequences,omitempty"`
 	Stream        bool               `json:"stream"`
 	Thinking      *anthropicThinking `json:"thinking,omitempty"`
+}
+
+// anthropicBlocks renders one message's content.
+//
+// The common case is still a single text block, so a text-only message
+// produces exactly the body it did before — which matters, because an
+// unchanged prefix is what keeps the cache warm.
+func anthropicBlocks(m Message) []anthropicBlock {
+	if len(m.Blocks) == 0 {
+		return []anthropicBlock{{Type: "text", Text: m.Content}}
+	}
+	out := make([]anthropicBlock, 0, len(m.Blocks))
+	for _, b := range m.Blocks {
+		switch b.Kind {
+		case BlockText:
+			if b.Text != "" {
+				out = append(out, anthropicBlock{Type: "text", Text: b.Text})
+			}
+		case BlockImage:
+			out = append(out, anthropicBlock{
+				Type: "image",
+				Source: &anthropicSource{
+					Type:      "base64",
+					MediaType: b.MediaType,
+					Data:      base64.StdEncoding.EncodeToString(b.Data),
+				},
+			})
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, anthropicBlock{Type: "text", Text: m.Content})
+	}
+	return out
 }
 
 func (c *Anthropic) buildRequest(req Request) anthropicRequest {
@@ -188,7 +234,7 @@ func (c *Anthropic) buildRequest(req Request) anthropicRequest {
 		default:
 			msgs = append(msgs, anthropicMessage{
 				Role:    "user",
-				Content: []anthropicBlock{{Type: "text", Text: m.Content}},
+				Content: anthropicBlocks(m),
 			})
 		}
 	}
@@ -287,6 +333,11 @@ type anthropicUsage struct {
 }
 
 func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, error) {
+	// Refuse an image the endpoint cannot read, rather than sending it and
+	// letting the provider 400 with its own wording — or silently ignore it.
+	if err := CheckVision(c.Profile(), req); err != nil {
+		return nil, err
+	}
 	body, err := json.Marshal(c.buildRequest(req))
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)

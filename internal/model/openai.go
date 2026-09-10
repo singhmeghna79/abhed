@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,8 +66,13 @@ func (c *OpenAICompatible) Profile() Profile { return c.profile }
 // wire types
 
 type wireMessage struct {
-	Role       string         `json:"role"`
-	Content    string         `json:"content,omitempty"`
+	Role string `json:"role"`
+	// Content is a string OR an array of parts, which is what the OpenAI
+	// schema allows. It stays a plain string whenever the message is text
+	// only, so the body for every existing request is byte-identical to what
+	// it was — the prefix cache depends on that, and 14 of the 20 providers
+	// ride this adapter.
+	Content    any            `json:"content,omitempty"`
 	ToolCalls  []wireToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string         `json:"tool_call_id,omitempty"`
 }
@@ -156,6 +162,50 @@ type wireChunk struct {
 	} `json:"error"`
 }
 
+// wirePart is one element of OpenAI-style array content.
+type wirePart struct {
+	Type     string        `json:"type"`
+	Text     string        `json:"text,omitempty"`
+	ImageURL *wireImageURL `json:"image_url,omitempty"`
+}
+
+// wireImageURL carries the image inline as a data: URI. Not an http URL — that
+// would have the provider fetch the bytes, taking them out of the network.
+type wireImageURL struct {
+	URL string `json:"url"`
+}
+
+// openAIContent renders a message's content.
+//
+// Returns a bare string for a text-only message, which is both what the API
+// prefers and what keeps existing request bodies unchanged.
+func openAIContent(m Message) any {
+	if len(m.Blocks) == 0 {
+		return m.Content
+	}
+	parts := make([]wirePart, 0, len(m.Blocks))
+	for _, b := range m.Blocks {
+		switch b.Kind {
+		case BlockText:
+			if b.Text != "" {
+				parts = append(parts, wirePart{Type: "text", Text: b.Text})
+			}
+		case BlockImage:
+			parts = append(parts, wirePart{
+				Type: "image_url",
+				ImageURL: &wireImageURL{
+					URL: "data:" + b.MediaType + ";base64," +
+						base64.StdEncoding.EncodeToString(b.Data),
+				},
+			})
+		}
+	}
+	if len(parts) == 0 {
+		return m.Content
+	}
+	return parts
+}
+
 func (c *OpenAICompatible) buildRequest(req Request) wireRequest {
 	msgs := make([]wireMessage, 0, len(req.Messages)+1)
 	if req.System != "" {
@@ -165,7 +215,7 @@ func (c *OpenAICompatible) buildRequest(req Request) wireRequest {
 	}
 
 	for _, m := range req.Messages {
-		wm := wireMessage{Role: string(m.Role), Content: m.Content}
+		wm := wireMessage{Role: string(m.Role), Content: openAIContent(m)}
 		switch m.Role {
 		case RoleTool:
 			wm.ToolCallID = m.ToolCallID
@@ -217,6 +267,11 @@ func (c *OpenAICompatible) buildRequest(req Request) wireRequest {
 }
 
 func (c *OpenAICompatible) Complete(ctx context.Context, req Request) (<-chan Chunk, error) {
+	// Refuse an image the endpoint cannot read, rather than sending it and
+	// letting the provider 400 with its own wording — or silently ignore it.
+	if err := CheckVision(c.Profile(), req); err != nil {
+		return nil, err
+	}
 	body, err := json.Marshal(c.buildRequest(req))
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)

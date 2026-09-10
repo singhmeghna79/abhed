@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,6 +67,8 @@ type geminiPart struct {
 	FunctionCall     *geminiCall     `json:"functionCall,omitempty"`
 	FunctionResponse *geminiResponse `json:"functionResponse,omitempty"`
 	Thought          bool            `json:"thought,omitempty"`
+	// InlineData carries an image. Gemini takes base64 with a mime type.
+	InlineData *geminiBlob `json:"inlineData,omitempty"`
 }
 
 type geminiCall struct {
@@ -76,6 +79,12 @@ type geminiCall struct {
 type geminiResponse struct {
 	Name     string          `json:"name"`
 	Response json.RawMessage `json:"response"`
+}
+
+// geminiBlob is an inline image.
+type geminiBlob struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"`
 }
 
 type geminiContent struct {
@@ -114,6 +123,32 @@ type geminiFunc struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+// geminiParts renders one message's content, staying a single text part when
+// that is all the message holds.
+func geminiParts(m Message) []geminiPart {
+	if len(m.Blocks) == 0 {
+		return []geminiPart{{Text: m.Content}}
+	}
+	out := make([]geminiPart, 0, len(m.Blocks))
+	for _, b := range m.Blocks {
+		switch b.Kind {
+		case BlockText:
+			if b.Text != "" {
+				out = append(out, geminiPart{Text: b.Text})
+			}
+		case BlockImage:
+			out = append(out, geminiPart{InlineData: &geminiBlob{
+				MimeType: b.MediaType,
+				Data:     base64.StdEncoding.EncodeToString(b.Data),
+			}})
+		}
+	}
+	if len(out) == 0 {
+		return []geminiPart{{Text: m.Content}}
+	}
+	return out
 }
 
 func (g *Gemini) buildRequest(req Request) geminiRequest {
@@ -155,7 +190,7 @@ func (g *Gemini) buildRequest(req Request) geminiRequest {
 			contents = append(contents, geminiContent{Role: "model", Parts: parts})
 		default:
 			contents = append(contents, geminiContent{
-				Role: "user", Parts: []geminiPart{{Text: m.Content}},
+				Role: "user", Parts: geminiParts(m),
 			})
 		}
 	}
@@ -210,6 +245,11 @@ type geminiStreamChunk struct {
 }
 
 func (g *Gemini) Complete(ctx context.Context, req Request) (<-chan Chunk, error) {
+	// Refuse an image the endpoint cannot read, rather than sending it and
+	// letting the provider 400 with its own wording — or silently ignore it.
+	if err := CheckVision(g.Profile(), req); err != nil {
+		return nil, err
+	}
 	body, err := json.Marshal(g.buildRequest(req))
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)

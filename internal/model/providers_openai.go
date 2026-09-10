@@ -68,6 +68,7 @@ func openAIStyle(defaultURL string, sampling Sampling) Factory {
 			ContextWindow:   s.ContextWindow,
 			MaxOutputTokens: s.MaxOutputTokens,
 			SupportsTools:   true,
+			SupportsVision:  visionFromSpec(s),
 			SupportsStream:  true,
 			ToolCallFormat:  orElse(s.ToolCallFormat, "json"),
 			Sampling:        sampling,

@@ -666,3 +666,27 @@ func TestRegistryCloneIsIndependent(t *testing.T) {
 		t.Error("removing from a clone removed from the original")
 	}
 }
+
+// Images are identified by magic bytes, never by the filename. The name comes
+// from the uploader, so trusting ".png" would let anything at all be presented
+// to the model as an image.
+func TestImageDetectionUsesMagicBytes(t *testing.T) {
+	cases := []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"png", []byte("\x89PNG\r\n\x1a\n....."), "image/png"},
+		{"jpeg", []byte{0xFF, 0xD8, 0xFF, 0xE0, 0, 0}, "image/jpeg"},
+		{"gif", []byte("GIF89a......"), "image/gif"},
+		{"webp", []byte("RIFF....WEBPVP8 "), "image/webp"},
+		{"plain text", []byte("hello, this is text"), ""},
+		{"empty", []byte{}, ""},
+		{"a lie", []byte("this is not a png at all"), ""},
+	}
+	for _, tc := range cases {
+		if got := imageMediaType(tc.data); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
