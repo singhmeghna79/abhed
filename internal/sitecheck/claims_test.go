@@ -18,14 +18,23 @@ import (
 	"testing"
 )
 
+// flat collapses runs of whitespace so a prose match is not defeated by the
+// line wrapping in the HTML. "builds no sandbox" is three words on the page
+// and two lines in the file.
+func flat(s string) string { return strings.Join(strings.Fields(s), " ") }
+
 // page returns the published homepage.
 func page(t *testing.T) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "web", "zybuu", "index.html"))
 	if err != nil {
-		t.Skipf("homepage not present: %v", err)
+		// Fatal, not Skip. Skipping turned this whole package into a silent
+		// no-op when the page moved: every test reported ok with nothing
+		// checked, and green-when-absent is the worst failure a guard can
+		// have. The page is in the repository; its absence is the bug.
+		t.Fatalf("homepage not readable, so nothing here was checked: %v", err)
 	}
-	return string(b)
+	return flat(string(b))
 }
 
 // countFuncs counts functions matching a prefix across a package's test files.
@@ -135,7 +144,7 @@ func TestFormActionAgreesWithCSP(t *testing.T) {
 	p := page(t)
 	hdr, err := os.ReadFile(filepath.Join("..", "..", "web", "zybuu", "_headers"))
 	if err != nil {
-		t.Skipf("_headers not present: %v", err)
+		t.Fatalf("_headers not readable, so the CSP was not checked: %v", err)
 	}
 	csp := string(hdr)
 
@@ -177,6 +186,36 @@ func TestFormActionAgreesWithCSP(t *testing.T) {
 	}
 }
 
+// A count and a list that disagree is how the last round's numbers were found
+// wrong. If the page says seven events, the sentence had better name seven.
+func TestEventListMatchesItsOwnCount(t *testing.T) {
+	m := regexp.MustCompile(`on (\w+) live events\s*&mdash;?\s*([^.<]*)`).
+		FindStringSubmatch(page(t))
+	if m == nil {
+		m = regexp.MustCompile(`on (\w+) live events[^.]*?—([^.<]*)`).
+			FindStringSubmatch(page(t))
+	}
+	if m == nil {
+		t.Skip("the page no longer enumerates extension events")
+	}
+	words := map[string]int{"six": 6, "seven": 7, "eight": 8, "nine": 9}
+	want, ok := words[strings.ToLower(m[1])]
+	if !ok {
+		t.Fatalf("unrecognised event count %q", m[1])
+	}
+	// Items are comma-separated with a final "and".
+	list := strings.ReplaceAll(m[2], " and ", ", ")
+	got := 0
+	for _, item := range strings.Split(list, ",") {
+		if strings.TrimSpace(item) != "" {
+			got++
+		}
+	}
+	if got != want {
+		t.Errorf("the page says %s events and names %d: %q", m[1], got, m[2])
+	}
+}
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"
@@ -214,9 +253,25 @@ func TestPageDoesNotClaimUnenforcedControls(t *testing.T) {
 	// The SDK's own tool registry decides this one.
 	sdk, err := os.ReadFile(filepath.Join("..", "..", "sdk", "titan.go"))
 	if err == nil && strings.Contains(string(sdk), "tools.Bash{}") {
-		if strings.Contains(p, "guarantees do not weaken when embedded") {
-			t.Error("the page claims the guarantees do not weaken when " +
-				"embedded, but sdk builds tools.Bash{} with no sandbox")
+		// Any wording of "everything holds when embedded" is the overclaim,
+		// not just the one sentence that shipped. Keying on a literal meant a
+		// reword silently disarmed this.
+		for _, claim := range []string{
+			"guarantees do not weaken when embedded",
+			"guarantees hold when embedded",
+			"same guarantees when embedded",
+			"nothing is lost when embedded",
+		} {
+			if strings.Contains(p, claim) {
+				t.Errorf("the page claims %q while the SDK builds tools.Bash{} "+
+					"with no sandbox", claim)
+			}
+		}
+		// And the page must say somewhere that the host owns isolation.
+		if strings.Contains(p, "when embedded") &&
+			!strings.Contains(p, "builds no sandbox") {
+			t.Error("the page discusses embedding without disclosing that the " +
+				"SDK builds no sandbox")
 		}
 	}
 }

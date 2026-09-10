@@ -148,6 +148,12 @@ h2{margin:0 0 16px;font-size:clamp(22px,3.2vw,31px);line-height:1.2;
 
 /* The limitations table. Plainly set on purpose — this is the section a
    sceptical reader goes to first, and dressing it up would undercut it. */
+/* A card whose guarantee depends on the durable store says so on its face.
+   The alternative is a reader assuming it applies to the default install. */
+.req-pg{font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;font-weight:600;padding:2px 6px;border-radius:4px;
+  background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+
 .lim{width:100%;border-collapse:collapse;font-size:14px}
 .lim th,.lim td{text-align:left;padding:11px 14px;vertical-align:top;
   border-bottom:1px solid var(--line)}
@@ -434,8 +440,8 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       <div class="card">
         <h3>Extensions</h3>
         <p>Separate processes speaking JSONL, in any language, on seven live events —
-          tool calls, results, context, compaction, tool listing and
-          invocation. They may <strong>veto,
+          tool calls, results, context, compaction, agent start, tool listing
+          and invocation. They may <strong>veto,
           never permit</strong>: an extension that could grant permission could
           also remove the proof of what was permitted.</p>
       </div>
@@ -477,25 +483,32 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       Two things cannot: a log you can replay, and an isolation boundary the
       database enforces. Both have to be in the core, which is where these are.
     </p>
+    <p class="body" style="margin-bottom:24px">
+      <strong>They are not on by default.</strong> Titan ships with an
+      in-memory store, which keeps a single-machine trial simple and gives you
+      none of what follows. The triggers and the row-level security are
+      properties of the Postgres store — one config line — and a deployment
+      that needs to prove anything to an auditor has to be running it.
+    </p>
 
     <div class="grid">
       <div class="card">
         <h3>The log is the session</h3>
-        <p>Every action is an event in an append-only store, and the
+        <p>Every action is an event in the store, and the
           conversation is <em>derived</em> from those events rather than
           described by them. That is what makes replay exact and forking from
           any earlier step cheap — nothing extra had to be stored to make
           either work.</p>
       </div>
       <div class="card">
-        <h3>Immutable by trigger</h3>
+        <h3>Immutable by trigger <span class="req-pg">Postgres</span></h3>
         <p>Recorded events cannot be updated or deleted. Not by convention and
           not in application code — by database triggers that reject the
           statement, so an audit trail cannot be quietly rewritten by whatever
           is holding the connection.</p>
       </div>
       <div class="card">
-        <h3>Tenants isolated in the database</h3>
+        <h3>Tenants isolated in the database <span class="req-pg">Postgres</span></h3>
         <p>Row-level security scopes every query, with <code>FORCE</code>
           because a table's owner bypasses ordinary RLS — and the application
           role usually owns the tables it created, which leaves the policy
@@ -585,7 +598,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>546</b><span>test functions across the engine</span></div>
+      <div><b>547</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
