@@ -156,6 +156,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /v1/admin/users/admin", s.admin(s.setUserAdmin))
 	mux.HandleFunc("GET /v1/sessions/{id}/files", s.listDownloads)
 	mux.HandleFunc("GET /v1/sessions/{id}/download", s.serveDownload)
+	mux.HandleFunc("GET /v1/providers", s.listProviders)
+	mux.HandleFunc("POST /v1/sessions/{id}/model", s.setSessionModel)
 	mux.HandleFunc("POST /v1/sessions/{id}/interrupt", s.interruptSession)
 	mux.HandleFunc("POST /v1/sessions/{id}/approve", s.approveAction)
 	mux.HandleFunc("GET /v1/health", s.health)
@@ -387,6 +389,9 @@ func (r *statusRecorder) Flush() {
 type createRequest struct {
 	Prompt string `json:"prompt"`
 	Mode   string `json:"mode,omitempty"`
+	// Provider names one of the CONFIGURED providers. Never a URL or a key —
+	// see provider.go for why that distinction is load-bearing.
+	Provider string `json:"provider,omitempty"`
 }
 
 type createResponse struct {
@@ -413,6 +418,18 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolved before anything is persisted or started: a session half-created
+	// against a provider that does not exist is worse than a clean refusal.
+	adapter := s.opts.Adapter
+	if req.Provider != "" {
+		a, _, err := s.resolveProvider(req.Provider)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		adapter = a
+	}
+
 	sessionID := newSessionID()
 
 	// Events reference sessions, so the session row must exist first.
@@ -426,7 +443,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 			Tenant:    storeTenant(s.opts.Config, tenantOf(r.Context())),
 			User:      userOf(r.Context()),
 			Workspace: s.opts.Workspace,
-			Model:     s.opts.Adapter.Profile().Name,
+			Model:     adapter.Profile().Name,
 			Mode:      mode,
 			Prompt:    req.Prompt,
 			StartedAt: time.Now().UTC(),
@@ -475,15 +492,15 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	cfg.SystemPrompt = agent.BuildSystemPrompt(agent.BuildOptions{
 		Profile:       "main",
 		Workspace:     s.opts.Workspace,
-		Model:         s.opts.Adapter.Profile().Name,
-		ContextWindow: s.opts.Adapter.Profile().ContextWindow,
+		Model:         adapter.Profile().Name,
+		ContextWindow: adapter.Profile().ContextWindow,
 		MemoryFiles:   agent.DiscoverMemoryFiles(s.opts.Workspace),
 		Skills:        s.opts.SkillListing,
 	})
 	cfg.MaxTurns = s.opts.Config.Limits.MaxTurns
 
-	loop := agent.NewLoop(s.opts.Adapter, s.opts.Registry, pol, live, sess, rec, cfg)
-	loop.Compactor = agent.NewCompactor(s.opts.Adapter, cfg.CompactAt)
+	loop := agent.NewLoop(adapter, s.opts.Registry, pol, live, sess, rec, cfg)
+	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	live.Loop = loop
 
 	ctx, cancel := context.WithCancel(context.Background())

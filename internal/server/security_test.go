@@ -535,3 +535,56 @@ func TestSignupRequiresAnInviteWhenClosed(t *testing.T) {
 		t.Errorf("the refusal does not say an invite is needed: %s", rec.Body.String())
 	}
 }
+
+// A client names a provider from the configured set. It must never be able to
+// supply a URL or a key: that would let a session point the agent at a host of
+// the caller's choosing and deliver every prompt and every file the agent had
+// read straight to it.
+func TestSessionProviderMustBeConfigured(t *testing.T) {
+	s := proxyServer(t)
+
+	for _, name := range []string{
+		"http://evil.example/v1",
+		"https://attacker.test",
+		"not-configured",
+		"../local",
+	} {
+		body := `{"prompt":"hi","provider":"` + name + `"}`
+		req := httptest.NewRequest("POST", "/v1/sessions", strings.NewReader(body))
+		req.Header.Set("X-Titan-User", "alice")
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+
+		if rec.Code == http.StatusAccepted {
+			t.Errorf("provider %q was accepted — a caller can choose the endpoint", name)
+		}
+	}
+}
+
+// The picker only offers what the deployment configured, and the list has to be
+// stable or the dropdown reshuffles under the user on every poll.
+func TestProviderListIsStableAndScoped(t *testing.T) {
+	s := proxyServer(t)
+	s.opts.Config.Model.Default = "b"
+	s.opts.Config.Model.Providers = map[string]config.ProviderConfig{
+		"c": {Type: "ollama", Model: "m3"},
+		"a": {Type: "ollama", Model: "m1"},
+		"b": {Type: "ollama", Model: "m2"},
+	}
+
+	first := s.providers()
+	if len(first) != 3 {
+		t.Fatalf("expected 3 providers, got %d", len(first))
+	}
+	if first[0].Name != "a" || first[2].Name != "c" {
+		t.Errorf("provider list is not sorted: %v", first)
+	}
+	if !first[1].Default {
+		t.Error("the configured default is not marked")
+	}
+	// A key must never reach the client.
+	raw, _ := json.Marshal(first)
+	if strings.Contains(string(raw), "api_key") {
+		t.Error("the provider list leaks credential fields")
+	}
+}

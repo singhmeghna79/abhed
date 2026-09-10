@@ -75,7 +75,11 @@ if [ -z "$DB_PASSWORD" ]; then
   if [ -f "$DB_SECRET" ]; then
     DB_PASSWORD="$(cat "$DB_SECRET")"
   else
-    DB_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)"
+    # `tr </dev/urandom | head -c` makes tr die of SIGPIPE once head has taken
+    # its 32 bytes. Harmless, but under `set -o pipefail` that failure is the
+    # pipeline's exit status and the script dies here — silently, before
+    # anything starts. openssl reads a bounded amount and exits cleanly.
+    DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')"
     (umask 077; printf '%s' "$DB_PASSWORD" > "$DB_SECRET")
     echo "generated database password → $DB_SECRET"
   fi

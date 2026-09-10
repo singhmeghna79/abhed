@@ -545,17 +545,31 @@ func ValidateProvider(p ProviderConfig) error {
 }
 
 func (c Config) Provider() (ProviderConfig, error) {
-	p, found := c.Model.Providers[c.Model.Default]
+	return c.ProviderNamed(c.Model.Default)
+}
+
+// ProviderNamed resolves one configured provider by name.
+//
+// Split out from Provider so a caller that lets someone CHOOSE a model — the
+// console's picker, `titan -model` — resolves it exactly the way the default is
+// resolved: the key comes from the server's environment via APIKeyEnv, and the
+// same validation runs. A second implementation of this would eventually
+// forget one of those two things.
+//
+// The name is looked up in the configured map, never treated as an endpoint.
+// That is what stops a caller pointing the agent at a host of their choosing.
+func (c Config) ProviderNamed(name string) (ProviderConfig, error) {
+	p, found := c.Model.Providers[name]
 	if !found {
 		return ProviderConfig{}, fmt.Errorf(
 			"model %q is not defined. Available: %s",
-			c.Model.Default, strings.Join(providerNames(c.Model.Providers), ", "))
+			name, strings.Join(providerNames(c.Model.Providers), ", "))
 	}
 	if p.APIKey == "" && p.APIKeyEnv != "" {
 		p.APIKey = os.Getenv(p.APIKeyEnv)
 	}
 	if err := ValidateProvider(p); err != nil {
-		return p, fmt.Errorf("model %q: %w", c.Model.Default, err)
+		return p, fmt.Errorf("model %q: %w", name, err)
 	}
 	return p, nil
 }

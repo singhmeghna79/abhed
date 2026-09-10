@@ -81,6 +81,16 @@ button,select,textarea,input{font:inherit;color:inherit}
 /* Both of these belong to the phone layout and are switched on there. Hiding
    them here rather than adding them conditionally in JS keeps one DOM at
    every width, so nothing has to be rebuilt when the screen rotates. */
+/* The model picker. Only rendered when more than one provider is configured:
+   a dropdown offering a single choice implies an option that is not there. */
+#mdlpick{background:var(--sunken);color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;font-family:var(--mono);font-size:11.5px;padding:2px 6px;
+  max-width:180px;cursor:pointer}
+#mdlpick:hover{border-color:var(--accent)}
+#mdlpick:disabled{opacity:.55;cursor:not-allowed}
+.note-line{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  padding:7px 16px;border-left:2px solid var(--line-strong);margin:8px 0}
+
 .railtoggle{display:none;align-items:center;justify-content:center;
   width:32px;height:32px;flex:none;background:none;border:1px solid var(--line);
   border-radius:7px;color:var(--ink-2);cursor:pointer;padding:0}
@@ -476,7 +486,10 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   </div>
   <div class="stat"><span class="led" id="led"></span><span id="health">connecting</span></div>
   <div class="spacer"></div>
-  <div class="stat">model <b id="mdl">—</b></div>
+  <div class="stat">model
+    <b id="mdl">—</b>
+    <select id="mdlpick" hidden title="Run this session on a different model"></select>
+  </div>
   <div class="stat">active <b id="active">0</b></div>
   <div class="stat" id="whobox" hidden>
     <span class="who-chip" id="who"></span>
@@ -593,12 +606,70 @@ async function health(){
     const h = await api('/v1/health');
     $('led').className = 'led up';
     $('health').textContent = 'connected';
-    $('mdl').textContent = h.model;
+    if($('mdlpick').hidden) $('mdl').textContent = h.model;
     $('active').textContent = h.sessions;
   }catch{
     $('led').className = 'led down';
     $('health').textContent = 'unreachable';
   }
+}
+
+/* The model picker.
+ *
+ * Loaded once: the configured provider set does not change while the page is
+ * open, and re-fetching it on every health poll would reset the dropdown under
+ * anyone who had just changed it.
+ *
+ * Only shown when there is a real choice. A select with one option tells the
+ * user they can pick something when they cannot. */
+let providers = [];
+async function loadProviders(){
+  try{ providers = await api('/v1/providers'); }catch{ return; }
+  if(!Array.isArray(providers) || providers.length < 2) return;
+
+  const sel = $('mdlpick');
+  sel.textContent = '';
+  for(const p of providers){
+    const o = document.createElement('option');
+    o.value = p.name;
+    o.textContent = p.model || p.name;
+    o.selected = p.default;
+    sel.appendChild(o);
+  }
+  $('mdl').hidden = true;
+  sel.hidden = false;
+
+  sel.onchange = async () => {
+    // With no session yet the choice simply applies to the next one, so there
+    // is nothing to send — createSession carries the provider.
+    if(!current){ return; }
+    sel.disabled = true;
+    try{
+      await api('/v1/sessions/' + current + '/model', {
+        method:'POST', body: JSON.stringify({provider: sel.value}),
+      });
+      note('Model switched to ' + sel.value + ' for this chat.');
+    }catch(e){
+      // The server refuses a swap mid-turn, which is the common case here.
+      note(String(e.message || e));
+      const cur = providers.find(p => p.default);
+      if(cur) sel.value = cur.name;
+    }finally{
+      sel.disabled = false;
+    }
+  };
+}
+
+// A one-line status message in the transcript, for things that are neither an
+// agent event nor an error worth a dialog.
+function note(text){
+  const t = $('tx');
+  if(!t) return;
+  const el = document.createElement('div');
+  el.className = 'note-line';
+  el.textContent = text;
+  t.appendChild(el);
+  t.scrollTop = t.scrollHeight;
 }
 
 async function refresh(){
@@ -1487,7 +1558,7 @@ function hideThinking(){
   el.remove();
 }
 
-drawExamples(); whoami(); health(); refresh();
+drawExamples(); whoami(); health(); refresh(); loadProviders();
 setInterval(health, 10000);
 setInterval(refresh, 5000);
 </script>
