@@ -63,6 +63,10 @@ type Options struct {
 	Store EventStore
 	// Auth verifies callers. Nil means the mode from Config is used.
 	Auth *auth.Middleware
+	// SkillRoots are the directories skills are looked FOR in — distinct from
+	// SkillDirs, which holds each loaded skill's own directory so its assets
+	// can be read. A reload has to scan the roots.
+	SkillRoots []string
 	// SkillRegistry is the loaded skill set. Held alongside SkillListing so a
 	// settings change can re-render the listing rather than being stuck with
 	// the string computed at startup.

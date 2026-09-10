@@ -1018,6 +1018,7 @@ func serveCmd(workspace, addr string) int {
 		// rather than only their rendered output is what lets a change reach
 		// the next session without a restart.
 		SkillRegistry: skillReg,
+		SkillRoots:    skillRoots(cfg),
 		Gateway:       gateway,
 		Index:         searchIndex,
 		IndexOptions:  indexOptions(cfg),
@@ -1806,14 +1807,27 @@ func skillDirs(cfg config.Config) []string {
 	return out
 }
 
+// skillRoots is where skills are looked FOR, as distinct from skillDirs, which
+// returns each loaded skill's own directory so its assets can be read.
+//
+// The two were easy to confuse and the confusion was silent: reloading from
+// skillDirs scans inside individual skills and finds nothing, so a reload
+// reported zero skills loaded while eleven were live.
+func skillRoots(cfg config.Config) []string {
+	if cfg.Skills.Disabled {
+		return nil
+	}
+	if dirs := cfg.Skills.Dirs; len(dirs) > 0 {
+		return dirs
+	}
+	return []string{"~/.titan/skills"}
+}
+
 func buildSkills(cfg config.Config) (*skills.Registry, string) {
 	if cfg.Skills.Disabled {
 		return skills.NewRegistry(), ""
 	}
-	dirs := cfg.Skills.Dirs
-	if len(dirs) == 0 {
-		dirs = []string{"~/.titan/skills"}
-	}
+	dirs := skillRoots(cfg)
 	reg, errs := skills.Load(dirs)
 	for _, err := range errs {
 		fmt.Fprintf(os.Stderr, "titan: %v\n", err)

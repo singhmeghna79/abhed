@@ -155,7 +155,9 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 // not be able to write its own operating instructions. So this rescans what an
 // operator put there; it does not accept a skill body over HTTP.
 func (s *Server) reloadSkills(w http.ResponseWriter, r *http.Request) {
-	dirs := s.opts.SkillDirs
+	// The ROOTS, not the individual skill directories: Load scans a root for
+	// subdirectories, so scanning inside a skill finds nothing at all.
+	dirs := s.opts.SkillRoots
 	if len(dirs) == 0 {
 		writeError(w, http.StatusNotImplemented, "no skill directories are configured")
 		return
