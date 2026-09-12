@@ -17,6 +17,19 @@ PROJECT="${ZYBUU_PAGES_PROJECT:-zybuu}"
 # file it is handed, and zybuu.com/deploy.sh returned 200 when it sat inside.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../web/zybuu" && pwd)"
 
+# The access Function is the page's only conversion and its two most important
+# behaviours are invisible in a browser: refusing honestly when RESEND_API_KEY
+# is unset, and reporting an upstream failure instead of claiming success.
+# Checked here so a broken form cannot be published.
+if command -v node >/dev/null 2>&1; then
+    echo "==> Checking the access Function"
+    node "$(dirname "${BASH_SOURCE[0]}")/sitetests/access.test.mjs"
+    echo
+else
+    echo "!!  node not found — publishing without checking the access Function"
+    echo
+fi
+
 echo "==> Publishing $DIR to Cloudflare Pages project '$PROJECT'"
 echo
 
