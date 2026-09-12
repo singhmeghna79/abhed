@@ -621,3 +621,47 @@ func TestPageDoesNotContradictItsOwnLimitations(t *testing.T) {
 		}
 	}
 }
+
+// TestInternalDocsCiteFilesThatExist catches a fabricated citation before it is
+// quoted outward.
+//
+// docs/internal/comparison-pi.md carried "a hundred-turn session peaks at
+// 17,981 tokens" for months, citing two files that have never existed in this
+// repository. Nobody caught it because a markdown link to a missing sibling
+// looks exactly like a link to a real one. That document is what a salesperson
+// reads before a call, so an untraceable number there is a number that ends up
+// in a deck — the GTM rule is "no benchmark not in docs/", and this one WAS in
+// docs/ while being unsourced, which is the failure the rule did not cover.
+func TestInternalDocsCiteFilesThatExist(t *testing.T) {
+	dir := filepath.Join("..", "..", "docs", "internal")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("docs/internal not readable, so no citation was checked: %v", err)
+	}
+	// Relative markdown links, excluding URLs and in-page anchors.
+	link := regexp.MustCompile(`\]\(([^)#:]+\.(?:md|json|csv))\)`)
+	checked := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Errorf("%s unreadable: %v", e.Name(), err)
+			continue
+		}
+		for _, m := range link.FindAllStringSubmatch(string(b), -1) {
+			checked++
+			target := filepath.Join(dir, filepath.Clean(m[1]))
+			if _, err := os.Stat(target); err != nil {
+				t.Errorf("%s cites %q, which does not exist — a citation to a "+
+					"missing file is how an unsourced number survives review",
+					e.Name(), m[1])
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no relative citations found in docs/internal — either the " +
+			"docs moved or this check stopped checking anything")
+	}
+}
