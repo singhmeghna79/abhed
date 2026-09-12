@@ -28,8 +28,8 @@ import (
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/extension"
 	"github.com/yuvrajsingh/titan/internal/eval"
+	"github.com/yuvrajsingh/titan/internal/extension"
 	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/k8s"
 	"github.com/yuvrajsingh/titan/internal/mcp"
@@ -1007,6 +1007,7 @@ func serveCmd(workspace, addr string) int {
 	srv := server.New(server.Options{
 		Addr:         addr,
 		Workspace:    workspace,
+		HomeURL:      cfg.Server.HomeURL,
 		Config:       cfg,
 		Adapter:      buildAdapter(provider),
 		Registry:     registry,
@@ -2185,7 +2186,6 @@ func fail(err error) {
 	os.Exit(1)
 }
 
-
 // providersCmd lists the model providers this build supports.
 //
 // The set is whatever registered itself at init, so it is accurate for the
@@ -2205,7 +2205,6 @@ func providersCmd() int {
 	return 0
 }
 
-
 // toAgentTodos converts the tool's items to the event payload's.
 //
 // The two types are deliberately separate: internal/tools must not import the
@@ -2217,7 +2216,6 @@ func toAgentTodos(items []tools.TodoItem) []agent.Todo {
 	}
 	return out
 }
-
 
 // forkPoints lists the steps a session can be forked at, so the user has
 // something to name rather than guessing a sequence number.
@@ -2258,7 +2256,6 @@ func firstLine(s string, n int) string {
 	}
 	return s
 }
-
 
 // attachExtensionSummarizer lets an extension supply or refuse a compaction
 // summary. Compaction is the one place the harness discards information on

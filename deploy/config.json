@@ -12,7 +12,8 @@
     "trust_proxy": true,
     "allowed_origins": [
       "https://titan.zybuu.com"
-    ]
+    ],
+    "home_url": "https://zybuu.com/"
   },
   "permissions": {
     "mode": "default",

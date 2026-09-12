@@ -1,6 +1,7 @@
 package server
 
 import (
+	"html"
 	"net/http"
 	"strings"
 )
@@ -25,7 +26,19 @@ func (s *Server) serveConsole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-	w.Write([]byte(consoleHTML))
+	w.Write([]byte(withHome(consoleHTML, s.opts.HomeURL)))
+}
+
+// withHome substitutes the operator's site link, or removes the placeholder
+// entirely when there is no such site. An air-gapped install renders no link
+// rather than one that cannot be followed.
+func withHome(page, home string) string {
+	if home == "" {
+		return strings.ReplaceAll(page, "<!--HOME-->", "")
+	}
+	esc := html.EscapeString(home)
+	return strings.ReplaceAll(page, "<!--HOME-->",
+		`<a href="`+esc+`" class="home" title="Back to the site">&#8599;</a>`)
 }
 
 var consoleHTML = strings.ReplaceAll(`<!doctype html>
@@ -102,6 +115,8 @@ button,select,textarea,input{font:inherit;color:inherit}
 .brand b{font-size:14px;font-weight:650;letter-spacing:-.01em}
 .brand span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .top .spacer{flex:1}
+.home{text-decoration:none;color:var(--muted);font-size:13px;margin-left:8px}
+.home:hover{color:var(--accent)}
 .stat{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;
   align-items:center;gap:6px;white-space:nowrap}
 .stat b{color:var(--ink-2);font-weight:500}
@@ -482,13 +497,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     </svg>
     <a href="/" style="text-decoration:none;color:inherit;display:flex;
        align-items:baseline;gap:8px" title="Overview"><b>Titan</b><span
-       id="ver">console</span></a>
-    <!-- The way back out. Without it this host is a dead end: every link here
-         is relative, and "/" is the console itself, so a reader who arrives
-         from the marketing site has no route home except the back button. -->
-    <a href="https://zybuu.com/" style="text-decoration:none;font-size:12px;
-       color:var(--muted);margin-left:10px" title="Zybuu — the company">&#8599;
-       zybuu.com</a>
+       id="ver">console</span></a><!--HOME-->
   </div>
   <div class="stat"><span class="led" id="led"></span><span id="health">connecting</span></div>
   <div class="spacer"></div>

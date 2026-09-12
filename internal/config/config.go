@@ -247,6 +247,10 @@ type ServerConfig struct {
 	// a proxy you control is the sole route to the port: otherwise a client
 	// sets its own limiter key and rotates it at will.
 	TrustProxy bool `json:"trust_proxy,omitempty"`
+	// HomeURL is linked from the console and sign-in page as the way back to
+	// whoever runs this deployment. Empty renders no link at all, which is the
+	// right default: an air-gapped install cannot follow one.
+	HomeURL string `json:"home_url,omitempty"`
 }
 
 // RetrievalConfig controls the on-prem index. Retrieval is an accelerator over

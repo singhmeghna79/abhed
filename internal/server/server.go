@@ -49,6 +49,14 @@ type SessionRecorder interface {
 type Options struct {
 	Addr      string
 	Workspace string
+	// HomeURL, when set, is linked from the console and the sign-in page as
+	// the way back to whoever operates this deployment.
+	//
+	// Empty by default, and that default is the important part: an air-gapped
+	// install has no route to the internet, so a hardcoded link there is a
+	// dead end rather than a courtesy. A public deployment sets it; an
+	// enclave leaves it unset and the link does not render at all.
+	HomeURL string
 	Config    config.Config
 	Adapter   model.Adapter
 	Registry  *tools.Registry
@@ -1054,7 +1062,7 @@ func (s *Server) serveLanding(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-	w.Write([]byte(landingHTML))
+	w.Write([]byte(withHome(landingHTML, s.opts.HomeURL)))
 }
 
 // overviewResponse is what the landing page renders. Everything here is a fact
