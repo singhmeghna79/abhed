@@ -18,28 +18,28 @@ const landingHTML = `<!doctype html>
 <title>Titan</title>
 <style>
 :root{
-  --bg:#F5F7FA; --surface:#FFFFFF; --sunken:#EDF1F6;
+  --bg:#F4F6FA; --surface:#FFFFFF; --sunken:#E6EBF3;
   --line:#DCE3EC; --line-strong:#C4CFDD;
   --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
-  --accent:#1F6FB8; --accent-soft:#E3EEF8;
+  --accent:#0F63C4; --accent-soft:#E2EDFB;
   --ok:#1A7F4B; --ok-bg:#E3F3EA; --warn:#9A6A16; --warn-bg:#FAF0DC;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+    --bg:#070B12; --surface:#0E1521; --sunken:#0A101A;
     --line:#252D3A; --line-strong:#333D4D;
     --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-    --accent:#4C8FD6; --accent-soft:#16283C;
+    --accent:#3BA9FF; --accent-soft:#0B2540;
     --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+  --bg:#070B12; --surface:#0E1521; --sunken:#0A101A;
   --line:#252D3A; --line-strong:#333D4D;
   --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-  --accent:#4C8FD6; --accent-soft:#16283C;
+  --accent:#3BA9FF; --accent-soft:#0B2540;
   --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
 }
 

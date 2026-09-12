@@ -49,10 +49,10 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
 <title>Titan Console</title>
 <style>
 :root{
-  --bg:#F5F7FA; --surface:#FFFFFF; --raised:#FFFFFF; --sunken:#EDF1F6;
+  --bg:#F4F6FA; --surface:#FFFFFF; --raised:#FFFFFF; --sunken:#E6EBF3;
   --line:#DCE3EC; --line-strong:#C4CFDD;
   --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
-  --accent:#1F6FB8; --accent-soft:#E3EEF8; --accent-line:#1F6FB8;
+  --accent:#0F63C4; --accent-soft:#E2EDFB; --accent-line:#0F63C4;
   --running:#1F6FB8; --done:#1A7F4B; --waiting:#9A6A16; --error:#C0392F;
   --running-bg:#E3EEF8; --done-bg:#E3F3EA; --waiting-bg:#FAF0DC; --error-bg:#FBE9E7;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
@@ -61,19 +61,19 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#0B0E13; --surface:#141922; --raised:#1B212C; --sunken:#0F141C;
+    --bg:#070B12; --surface:#0E1521; --raised:#16202F; --sunken:#0A101A;
     --line:#252D3A; --line-strong:#333D4D;
     --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-    --accent:#4C8FD6; --accent-soft:#16283C; --accent-line:#4C8FD6;
+    --accent:#3BA9FF; --accent-soft:#0B2540; --accent-line:#3BA9FF;
     --running:#4C8FD6; --done:#3FAF6C; --waiting:#D4A03C; --error:#E05A52;
     --running-bg:#132436; --done-bg:#0F2419; --waiting-bg:#241C0C; --error-bg:#2A1412;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0B0E13; --surface:#141922; --raised:#1B212C; --sunken:#0F141C;
+  --bg:#070B12; --surface:#0E1521; --raised:#16202F; --sunken:#0A101A;
   --line:#252D3A; --line-strong:#333D4D;
   --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-  --accent:#4C8FD6; --accent-soft:#16283C; --accent-line:#4C8FD6;
+  --accent:#3BA9FF; --accent-soft:#0B2540; --accent-line:#3BA9FF;
   --running:#4C8FD6; --done:#3FAF6C; --waiting:#D4A03C; --error:#E05A52;
   --running-bg:#132436; --done-bg:#0F2419; --waiting-bg:#241C0C; --error-bg:#2A1412;
 }

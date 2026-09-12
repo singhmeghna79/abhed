@@ -3,9 +3,11 @@
  * The previous palette — near-black ground, blue accent, one radius on every
  * card — is the default an AI page arrives in, and a real reader said so. What
  * replaces it is drawn from the only material this product actually has: a
- * terminal. Phosphor green on a ground biased green rather than blue, amber
- * for the recorded-but-not-live register, and a baseline rhythm that behaves
- * like terminal rows.
+ * terminal. Neon blue on a ground biased blue, violet for the
+ * recorded-but-not-live register, and a baseline rhythm that behaves like
+ * terminal rows. The blue is a CRT/plasma blue rather than the flat corporate
+ * #2E9BE8 this started from — it is the accent because it was asked for, and
+ * it earns its place by being used only where something is live.
  *
  * The risk taken deliberately: a mono display face at large sizes against a
  * serif for prose. It reads like a paper about a system rather than a SaaS
@@ -16,21 +18,21 @@
    gets a complete palette. This design is dark-first in intent, so the dark
    values are the considered ones and light is the careful inverse. */
 :root {
-  --ground:      #F2F4EF;  /* paper, warm-neutral with a green bias */
+  --ground:      #F4F6FA;  /* paper, cool-neutral with a blue bias */
   --surface:     #FFFFFF;
-  --sunken:      #E7EBE3;
-  --line:        #D3D9CD;
-  --line-strong: #B6BFAD;
+  --sunken:      #E6EBF3;
+  --line:        #D2DAE6;
+  --line-strong: #B0BCCC;
 
-  --ink:         #11150F;
-  --ink-2:       #3D463A;
-  --muted:       #6B7565;
+  --ink:         #0D1218;
+  --ink-2:       #38424F;
+  --muted:       #66727F;
 
-  --live:        #1E7F4F;  /* phosphor, darkened to hold on paper */
+  --live:        #0F63C4;  /* neon blue, darkened to hold on paper */
   --btn-ink:     #FFFFFF;
-  --live-soft:   #E0F1E7;
-  --recorded:    #8A6510;  /* amber, the "captured not running" register */
-  --recorded-soft:#F7EEDA;
+  --live-soft:   #E2EDFB;
+  --recorded:    #7A5A9E;  /* violet, the "captured not running" register */
+  --recorded-soft:#F0EAF8;
 
   --warn:        #9A4B16;
   --warn-soft:   #F8E9DF;
@@ -48,21 +50,21 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground:      #0A0F0D;
-    --surface:     #101713;
-    --sunken:      #0C120F;
-    --line:        #1E2A23;
-    --line-strong: #2E3F35;
+    --ground:      #070B12;
+    --surface:     #0E1521;
+    --sunken:      #0A101A;
+    --line:        #1B2636;
+    --line-strong: #2B3B52;
 
-    --ink:         #E6EDE6;
-    --ink-2:       #B4C2B5;
-    --muted:       #7C8C7F;
+    --ink:         #E4ECF7;
+    --ink-2:       #AFBED2;
+    --muted:       #77879D;
 
-    --live:        #39D98A;
-    --btn-ink:     #06110B;
-    --live-soft:   #0F2A1E;
-    --recorded:    #E8B923;
-    --recorded-soft:#2A2310;
+    --live:        #3BA9FF;
+    --btn-ink:     #04121F;
+    --live-soft:   #0B2540;
+    --recorded:    #B98BFF;
+    --recorded-soft:#1E1733;
 
     --warn:        #E08A4C;
     --warn-soft:   #2A1A10;
@@ -70,21 +72,21 @@
 }
 
 :root[data-theme="dark"] {
-  --ground:      #0A0F0D;
-  --surface:     #101713;
-  --sunken:      #0C120F;
-  --line:        #1E2A23;
-  --line-strong: #2E3F35;
+  --ground:      #070B12;
+  --surface:     #0E1521;
+  --sunken:      #0A101A;
+  --line:        #1B2636;
+  --line-strong: #2B3B52;
 
-  --ink:         #E6EDE6;
-  --ink-2:       #B4C2B5;
-  --muted:       #7C8C7F;
+  --ink:         #E4ECF7;
+  --ink-2:       #AFBED2;
+  --muted:       #77879D;
 
-  --live:        #39D98A;
-  --btn-ink:     #06110B;
-  --live-soft:   #0F2A1E;
-  --recorded:    #E8B923;
-  --recorded-soft:#2A2310;
+  --live:        #3BA9FF;
+  --btn-ink:     #04121F;
+  --live-soft:   #0B2540;
+  --recorded:    #B98BFF;
+  --recorded-soft:#1E1733;
 
   --warn:        #E08A4C;
   --warn-soft:   #2A1A10;
@@ -186,10 +188,10 @@ code {
   gap: 8px;
   background: var(--live);
   /* Per theme, because the accent is a different colour in each. The
-     measured ratio was never the problem — near-black on #39D98A is 10.5:1
-     and still glared at small bold text, which a reader reported and the
-     metric did not. Dark ink on luminous phosphor, white on the darkened
-     paper accent: 10.5:1 and 5.9:1 respectively. */
+     measured ratio was never the problem — the previous accent measured
+     10.5:1 against near-black and still glared at small bold text, which a
+     reader reported and the metric did not. Deep navy on neon, white on the
+     darkened paper blue: 7.5:1 and 5.8:1 respectively. */
   color: var(--btn-ink);
   border: 1px solid var(--live);
   border-radius: 4px;
@@ -232,12 +234,16 @@ header {
 .logo:hover { text-decoration: none; }
 .logo svg { width: 26px; height: 26px; flex: none; }
 .nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-.nav a {
+/* :not(.btn) matters. Without it .nav a (0,1,1) beats .btn (0,1,0) on the
+   cascade, so the header's Open console button rendered muted grey text on
+   the bright accent and was unreadable — reported by a real user twice. The
+   button carries its own colour and the nav must not reach inside it. */
+.nav a:not(.btn) {
   color: var(--ink-2);
   font-family: var(--mono);
   font-size: 13px;
 }
-.nav a:hover { color: var(--live); text-decoration: none; }
+.nav a:not(.btn):hover { color: var(--live); text-decoration: none; }
 @media (max-width: 720px) { .nav a.hide-sm { display: none; } }
 
 /* ---------------------------------------------------------------- footer */
