@@ -519,3 +519,46 @@ func TestDurabilityClaimsNameTheDriver(t *testing.T) {
 		}
 	}
 }
+
+// TestPageDoesNotContradictItsOwnLimitations guards the claims the page itself
+// denies further down.
+//
+// The limitations table is the section a sceptical reader trusts most, and it
+// is load-bearing for everything above it: it says there is no SLA, no
+// horizontal scaling or failover, that prompt injection is contained rather
+// than solved, and that a human red-team engagement remains outstanding. A
+// marketing sentence asserting any of those elsewhere on the page does not
+// just overclaim — it makes the honest section read as boilerplate nobody
+// meant.
+//
+// These four were each verified to pass the rest of the suite before this
+// test existed.
+func TestPageDoesNotContradictItsOwnLimitations(t *testing.T) {
+	p := prose(t)
+	for _, c := range []struct{ pattern, why string }{
+		{`injection is (fully |completely )?(prevented|solved|eliminated|impossible)`,
+			"the page's own limitations say injection is contained, not solved"},
+		{`\b(guarantees?|provides?|offers?) [^.]{0,20}\b(uptime|sla)\b|` +
+			`\b99\.\d+%|\bthree nines\b|\bfour nines\b`,
+			"there is no SLA and no uptime commitment"},
+		{`(passed|completed|cleared) [^.]{0,40}red[- ]team`,
+			"a human red-team engagement remains outstanding"},
+		{`scales? horizontally|horizontal scaling (is|with)|automatic failover`,
+			"sessions live in one process; there is no scaling and no failover"},
+	} {
+		re := regexp.MustCompile(c.pattern)
+		for _, s := range sentences(p) {
+			m := re.FindString(s)
+			if m == "" {
+				continue
+			}
+			// The limitations table states these in order to deny them.
+			if regexp.MustCompile(`\bno\b|\bnot\b|\bnever\b|remains outstanding|` +
+				`contained, not|rather than|there is no`).MatchString(s) {
+				continue
+			}
+			t.Errorf("the page claims %q, contradicting its own limitations: %s "+
+				"(in: %q)", m, c.why, s)
+		}
+	}
+}
