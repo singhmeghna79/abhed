@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -37,18 +38,25 @@ func has(markers ...string) func(string) bool {
 	}
 }
 
-// page returns the published homepage.
-func page(t *testing.T) string {
+// raw returns the homepage source.
+//
+// Fatal, not Skip. Skipping turned this whole package into a silent no-op when
+// the page moved: every test reported ok with nothing checked, and
+// green-when-absent is the worst failure a guard can have. The page is in the
+// repository; its absence is the bug.
+func raw(t *testing.T) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "web", "zybuu", "index.html"))
 	if err != nil {
-		// Fatal, not Skip. Skipping turned this whole package into a silent
-		// no-op when the page moved: every test reported ok with nothing
-		// checked, and green-when-absent is the worst failure a guard can
-		// have. The page is in the repository; its absence is the bug.
 		t.Fatalf("homepage not readable, so nothing here was checked: %v", err)
 	}
-	return flat(string(b))
+	return string(b)
+}
+
+// page returns the homepage markup, whitespace collapsed.
+func page(t *testing.T) string {
+	t.Helper()
+	return flat(raw(t))
 }
 
 // prose returns the page's visible text: script and style bodies removed, tags
@@ -60,11 +68,7 @@ func page(t *testing.T) string {
 // sentences, and a sentence-scoped test silently matched nothing at all.
 func prose(t *testing.T) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "web", "zybuu", "index.html"))
-	if err != nil {
-		t.Fatalf("homepage not readable, so nothing here was checked: %v", err)
-	}
-	s := string(b)
+	s := raw(t)
 	// No backreference: Go's RE2 has none, so each element is named twice.
 	s = regexp.MustCompile(`(?is)<script\b.*?</script>`).ReplaceAllString(s, " ")
 	s = regexp.MustCompile(`(?is)<style\b.*?</style>`).ReplaceAllString(s, " ")
@@ -130,7 +134,7 @@ func TestAttackCountOnPageMatchesSuite(t *testing.T) {
 	if m[1] != m[2] {
 		t.Errorf("the page claims %s of %s blocked — say all or say which", m[1], m[2])
 	}
-	if m[2] != itoa(got) {
+	if m[2] != strconv.Itoa(got) {
 		t.Errorf("page says %s attacks, suite has %d — one of them is stale",
 			m[2], got)
 	}
@@ -150,7 +154,7 @@ func TestFunctionCountOnPageMatchesRepo(t *testing.T) {
 	}
 	// Exact, deliberately. A tolerance here is a licence to drift, and the
 	// page's whole argument is that the reader can check.
-	if m[1] != itoa(total) {
+	if m[1] != strconv.Itoa(total) {
 		t.Errorf("page says %s test functions, repo has %d", m[1], total)
 	}
 }
@@ -175,32 +179,55 @@ func TestPageClaimsNoInstallPathThatDoesNotExist(t *testing.T) {
 // A compliance claim is a legal commitment, not a marketing line. None of these
 // certifications is held.
 func TestPageClaimsNoCertification(t *testing.T) {
-	// The limitations section names these in order to DENY them, so only an
-	// affirmative claim counts. Matching on the regime plus ANY attainment
-	// verb, rather than on six fixed phrases: "SOC 2 audited" and "in scope
-	// for SOC 2" are the same false claim as "SOC 2 certified" and both walked
-	// past the literal list. This is the page's only legal exposure, so the
-	// check is deliberately broad and a legitimate mention has to be negated
-	// inside its own sentence.
+	// Structural, not semantic. Three earlier versions tried to decide from
+	// the words whether a sentence asserted or denied a certification: first
+	// six literal phrases (missed "SOC 2 audited"), then any attainment verb
+	// minus a list of negation words. The second let "Zybuu is SOC 2
+	// certified, and no exceptions were noted" through on the stray "no", and
+	// reddened "Zybuu has yet to pursue SOC 2 certification", which is both
+	// honest and true. Detecting English negation with a word list does not
+	// work, and a guard that cries wolf on truthful copy is worse than none —
+	// the writer learns to ignore it.
+	//
+	// The page's real discipline is structural: these regimes are named ONLY
+	// where the page disclaims them. So the rule is placement. Every mention
+	// must sit under a heading that declares the section a disclaimer; move a
+	// regime anywhere else and this fails, whatever the sentence says.
 	regime := regexp.MustCompile(`soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss`)
-	attained := regexp.MustCompile(
-		`\b(certified|certification|compliant|compliance|authori[sz]ed|audited|` +
-			`attested|accredited|approved|in scope for|undergoing|achieved|` +
-			`maintains?|holds?)\b`)
-	// Words that turn a mention into a denial.
-	denied := regexp.MustCompile(
-		`\bno\b|\bnot\b|\bnone\b|\bwithout\b|\bnever\b|\boutstanding\b|` +
-			`\bdoes not\b|\bdo not\b|\bcannot\b|\bunlike\b`)
-
-	for _, s := range sentences(prose(t)) {
-		if !regime.MatchString(s) || !attained.MatchString(s) {
+	p := prose(t)
+	if !regime.MatchString(p) {
+		return // Nothing to place.
+	}
+	disclaimers := regexp.MustCompile(
+		`what is not true yet|no certifications|what this is not|limitations`)
+	marks := disclaimers.FindAllStringIndex(p, -1)
+	if len(marks) == 0 {
+		t.Fatal("the page names a compliance regime but has no disclaiming " +
+			"section, so every mention reads as a claim")
+	}
+	// 900 characters is longer than any of these sections and far shorter
+	// than the page, so a mention cannot borrow a distant heading.
+	const span = 900
+	for _, m := range regime.FindAllStringIndex(p, -1) {
+		ok := false
+		for _, d := range marks {
+			if m[0] > d[0] && m[0]-d[0] < span {
+				ok = true
+				break
+			}
+		}
+		if ok {
 			continue
 		}
-		if denied.MatchString(s) {
-			continue // "Zybuu holds no SOC 2 … certification" — honest.
+		a, b := m[0]-120, m[1]+120
+		if a < 0 {
+			a = 0
 		}
-		t.Errorf("the page appears to claim a certification it does not hold, "+
-			"in: %q", s)
+		if b > len(p) {
+			b = len(p)
+		}
+		t.Errorf("a compliance regime is named outside any disclaiming "+
+			"section, so it reads as a claim: %q", p[a:b])
 	}
 }
 
@@ -319,18 +346,6 @@ func TestEventListMatchesItsOwnCount(t *testing.T) {
 	}
 }
 
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b []byte
-	for n > 0 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-		n /= 10
-	}
-	return string(b)
-}
-
 // The page must not claim a control that is declared and never executed.
 //
 // Two of these shipped: MCP digest pinning, carried through config and verified
@@ -346,7 +361,14 @@ func TestPageDoesNotClaimUnenforcedControls(t *testing.T) {
 	if err == nil {
 		enforced := regexp.MustCompile(`(?s)func \(g \*Gateway\) connectOne.*?\n}`).Find(gw)
 		if enforced != nil && !strings.Contains(string(enforced), "Digest") {
-			if strings.Contains(p, "digest") {
+			// Anchored to the pinning claim, not the English word. "A weekly
+			// digest of policy decisions" claims nothing about image pinning,
+			// and reddening the build for it teaches the writer to ignore
+			// this test — which costs more than the check is worth.
+			pinning := regexp.MustCompile(
+				`digest[^.]{0,40}\b(pin|pinned|pinning|verif|sha256|image)|` +
+					`\b(pin|pinned|pinning|sha256|image)[^.]{0,40}digest`)
+			if pinning.MatchString(p) {
 				t.Error("the page claims digest pinning; connectOne does not " +
 					"read Digest, so setting it protects nothing")
 			}
@@ -423,7 +445,7 @@ func TestProviderCountOnPageMatchesRegistry(t *testing.T) {
 		t.Errorf("the page says %s+ providers; exactly %d are registered, so "+
 			"the plus claims something that is not there", m[1], n)
 	}
-	if m[1] != itoa(n) {
+	if m[1] != strconv.Itoa(n) {
 		t.Errorf("page says %s providers, registry has %d", m[1], n)
 	}
 }
@@ -464,39 +486,36 @@ func TestDurabilityClaimsNameTheDriver(t *testing.T) {
 		t.Skip("the default storage driver is no longer memory; revisit this test")
 	}
 
-	// Scoped to durability ACROSS A RESTART, which is what the memory driver
-	// fails. Without the restart anchor this matched the compaction copy —
-	// "how many turns are kept" is about the context window, not the store,
-	// and flagging it would train the reader to ignore this test.
-	subject := regexp.MustCompile(`\b(transcript|session|history|conversation)s?\b`)
-	survives := regexp.MustCompile(
-		`\b(survives?|persists?|outlasts?|retained|durable|kept)\b`)
-	scoped := regexp.MustCompile(`restart|reboot|crash|process (ends|exits)|across runs`)
-	// Naming Postgres, or denying the claim, makes the sentence honest.
-	honest := regexp.MustCompile(
-		`postgres|\bno\b|\bnot\b|\bnever\b|\bdoes not\b|\bdo not\b|end with|` +
-			`\bends?\b|in-memory|\bmemory\b`)
+	// Structural, like the certification check above, and for the same reason:
+	// two attempts to read honesty out of the surrounding words both failed.
+	// Anchoring on "restart" within one sentence missed the real claim once
+	// the copy was split into three sentences, and a bag of negation words
+	// counted "no horizontal scaling and no failover" as a durability
+	// disclaimer while accepting "held safely in memory" as one too.
+	//
+	// The rule that actually holds: if the page says session data survives,
+	// the store must be named in the SAME clause. Not the sentence, not a
+	// window — the clause, because that is where a reader takes the
+	// qualification from. "Transcripts survive it on the Postgres store" is
+	// honest; "Transcripts survive it." is not, wherever "restart" sits.
+	claim := regexp.MustCompile(
+		`\b(transcript|session|history|conversation)s?\b[^,;.]{0,60}` +
+			`\b(survives?|persists?|outlasts?|durable|preserved|retained)\b`)
 
-	// The restart that scopes the claim is often in the PREVIOUS sentence —
-	// "a restart ends running turns. Transcripts survive it." — so the topic
-	// is read over a small window while the honesty check stays on the
-	// sentence that actually makes the claim.
-	all := sentences(prose(t))
-	for i, s := range all {
-		if !subject.MatchString(s) || !survives.MatchString(s) {
-			continue
+	for _, s := range sentences(prose(t)) {
+		for _, loc := range claim.FindAllStringIndex(s, -1) {
+			// The clause carrying the claim: to the next comma, semicolon or
+			// dash, which is where "on the Postgres store" attaches.
+			tail := s[loc[0]:]
+			if i := strings.IndexAny(tail, ",;—–"); i >= 0 {
+				tail = tail[:i]
+			}
+			if regexp.MustCompile(`postgres|\bnot\b|\bno\b`).MatchString(tail) {
+				continue
+			}
+			t.Errorf("the page claims durability without naming the store in "+
+				"the same clause: %q (in: %q) — the default driver is memory, "+
+				"where it is false", tail, s)
 		}
-		window := s
-		if i > 0 {
-			window = all[i-1] + ". " + s
-		}
-		if !scoped.MatchString(window) {
-			continue
-		}
-		if honest.MatchString(s) {
-			continue
-		}
-		t.Errorf("the page claims durability without naming the store, in: %q "+
-			"— the default driver is memory, where it is false", s)
 	}
 }
