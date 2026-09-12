@@ -598,7 +598,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>547</b><span>test functions across the engine</span></div>
+      <div><b>548</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
@@ -644,8 +644,9 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
           <tr>
             <td>Single node</td>
             <td>Sessions live in one process. There is no horizontal scaling
-              and no failover; a restart ends running turns, though transcripts
-              and accounts survive it.</td>
+              and no failover; a restart ends running turns. Accounts survive
+              it. Transcripts survive it on the <span class="req-pg">Postgres</span>
+              store — on the default in-memory store they do not.</td>
           </tr>
           <tr>
             <td>Postgres only</td>

@@ -23,6 +23,20 @@ import (
 // and two lines in the file.
 func flat(s string) string { return strings.Join(strings.Fields(s), " ") }
 
+// has reports whether the page contains any of the given markers, matched
+// case-insensitively so a reword of the surrounding prose cannot disarm it.
+func has(markers ...string) func(string) bool {
+	return func(p string) bool {
+		low := strings.ToLower(p)
+		for _, m := range markers {
+			if strings.Contains(low, strings.ToLower(m)) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 // page returns the published homepage.
 func page(t *testing.T) string {
 	t.Helper()
@@ -35,6 +49,44 @@ func page(t *testing.T) string {
 		t.Fatalf("homepage not readable, so nothing here was checked: %v", err)
 	}
 	return flat(string(b))
+}
+
+// prose returns the page's visible text: script and style bodies removed, tags
+// stripped, entities unwrapped, lowercased.
+//
+// Claims about wording have to be read against prose, not markup. Checking the
+// raw HTML meant attribute values ("0 0 256 256", "location.pathname") supplied
+// periods, so splitting on "." produced fragments like "<" instead of
+// sentences, and a sentence-scoped test silently matched nothing at all.
+func prose(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "web", "zybuu", "index.html"))
+	if err != nil {
+		t.Fatalf("homepage not readable, so nothing here was checked: %v", err)
+	}
+	s := string(b)
+	// No backreference: Go's RE2 has none, so each element is named twice.
+	s = regexp.MustCompile(`(?is)<script\b.*?</script>`).ReplaceAllString(s, " ")
+	s = regexp.MustCompile(`(?is)<style\b.*?</style>`).ReplaceAllString(s, " ")
+	s = regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(s, " ")
+	s = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(s, " ")
+	r := strings.NewReplacer(
+		"&mdash;", "—", "&ndash;", "–", "&amp;", "&", "&lt;", "<",
+		"&gt;", ">", "&quot;", `"`, "&#39;", "'", "&nbsp;", " ")
+	return strings.ToLower(flat(r.Replace(s)))
+}
+
+// sentences splits prose on terminators, so a claim can be judged in the
+// sentence that carries it rather than against the whole page.
+func sentences(p string) []string {
+	parts := regexp.MustCompile(`[.!?]+\s+|[.!?]+$`).Split(p, -1)
+	out := parts[:0]
+	for _, s := range parts {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // countFuncs counts functions matching a prefix across a package's test files.
@@ -123,16 +175,32 @@ func TestPageClaimsNoInstallPathThatDoesNotExist(t *testing.T) {
 // A compliance claim is a legal commitment, not a marketing line. None of these
 // certifications is held.
 func TestPageClaimsNoCertification(t *testing.T) {
-	p := page(t)
 	// The limitations section names these in order to DENY them, so only an
-	// affirmative claim counts.
-	for _, phrase := range []string{
-		"SOC 2 certified", "SOC2 certified", "ISO 27001 certified",
-		"HIPAA compliant", "FedRAMP authorized", "FedRAMP authorised",
-	} {
-		if strings.Contains(strings.ToLower(p), strings.ToLower(phrase)) {
-			t.Errorf("the page claims %q, which is not true", phrase)
+	// affirmative claim counts. Matching on the regime plus ANY attainment
+	// verb, rather than on six fixed phrases: "SOC 2 audited" and "in scope
+	// for SOC 2" are the same false claim as "SOC 2 certified" and both walked
+	// past the literal list. This is the page's only legal exposure, so the
+	// check is deliberately broad and a legitimate mention has to be negated
+	// inside its own sentence.
+	regime := regexp.MustCompile(`soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss`)
+	attained := regexp.MustCompile(
+		`\b(certified|certification|compliant|compliance|authori[sz]ed|audited|` +
+			`attested|accredited|approved|in scope for|undergoing|achieved|` +
+			`maintains?|holds?)\b`)
+	// Words that turn a mention into a denial.
+	denied := regexp.MustCompile(
+		`\bno\b|\bnot\b|\bnone\b|\bwithout\b|\bnever\b|\boutstanding\b|` +
+			`\bdoes not\b|\bdo not\b|\bcannot\b|\bunlike\b`)
+
+	for _, s := range sentences(prose(t)) {
+		if !regime.MatchString(s) || !attained.MatchString(s) {
+			continue
 		}
+		if denied.MatchString(s) {
+			continue // "Zybuu holds no SOC 2 … certification" — honest.
+		}
+		t.Errorf("the page appears to claim a certification it does not hold, "+
+			"in: %q", s)
 	}
 }
 
@@ -153,25 +221,38 @@ func TestFormActionAgreesWithCSP(t *testing.T) {
 	// while a missing script-src blocked the page's status script in exactly
 	// the same way. Under default-src 'none' every resource kind the page uses
 	// has to be named, so the check is per kind.
+	// Every resource kind the page can use, not the ones that have already
+	// broken. Two rounds running, this table listed exactly the directives
+	// that had bitten us — form-action, then script-src — and each time the
+	// NEXT directive was the one that shipped broken. Deleting style-src from
+	// the CSP left the whole page unstyled and this suite green.
 	kinds := []struct {
-		markup    string // what the page contains
-		directive string // what the CSP must therefore permit
+		present   func(string) bool // does the page use this kind?
+		directive string            // what the CSP must therefore permit
 		why       string
 	}{
-		{"<form", "form-action", "submissions are blocked before a request is made"},
-		{"<script", "script-src", "the script never runs and the page looks inert"},
-		{"<img", "img-src", "images do not load"},
+		{has(`<form`), "form-action", "submissions are blocked before a request is made"},
+		{has(`<script`), "script-src", "the script never runs and the page looks inert"},
+		{has(`<style`, `style="`), "style-src", "the page renders completely unstyled"},
+		{has(`<img`, `<link rel="icon"`, `<link rel='icon'`), "img-src", "images and the favicon do not load"},
+		{has(`<iframe`, `<frame`), "frame-src", "the embedded frame is blocked"},
+		{has(`<video`, `<audio`, `<source`), "media-src", "media does not play"},
+		{has(`@font-face`, `fonts.googleapis`, `.woff`), "font-src", "webfonts fall back silently"},
+		{has(`fetch(`, `XMLHttpRequest`, `new WebSocket`, `navigator.sendBeacon`), "connect-src", "the request is blocked and the failure is invisible"},
+		{has(`<link rel="stylesheet"`, `<link rel='stylesheet'`), "style-src", "the external stylesheet is blocked"},
 	}
 	strict := strings.Contains(csp, "default-src 'none'")
+	seen := map[string]bool{}
 	for _, k := range kinds {
-		if !strings.Contains(p, k.markup) {
+		if !k.present(p) || seen[k.directive] {
 			continue
 		}
 		named := strings.Contains(csp, k.directive+" ")
 		blocked := strings.Contains(csp, k.directive+" 'none'")
 		if blocked || (strict && !named) {
-			t.Errorf("the page contains %s but the CSP does not permit %s — %s",
-				k.markup, k.directive, k.why)
+			seen[k.directive] = true
+			t.Errorf("the page uses a resource needing %s but the CSP does not "+
+				"permit it — %s", k.directive, k.why)
 		}
 	}
 
@@ -189,30 +270,52 @@ func TestFormActionAgreesWithCSP(t *testing.T) {
 // A count and a list that disagree is how the last round's numbers were found
 // wrong. If the page says seven events, the sentence had better name seven.
 func TestEventListMatchesItsOwnCount(t *testing.T) {
-	m := regexp.MustCompile(`on (\w+) live events\s*&mdash;?\s*([^.<]*)`).
-		FindStringSubmatch(page(t))
-	if m == nil {
-		m = regexp.MustCompile(`on (\w+) live events[^.]*?—([^.<]*)`).
-			FindStringSubmatch(page(t))
+	// Loose on the wording, strict on the existence. The previous version
+	// matched one sentence shape and t.Skip'd otherwise, so rewording "on
+	// seven live events" to anything else turned the guard off and the package
+	// still reported ok. A guard that disarms on a reword is not a guard: if
+	// the page names a count of events, the list must be found and checked.
+	// Read from prose, not markup: periods inside attributes truncated the
+	// list before it started and tags supplied commas, so the item count was
+	// measured against a fragment.
+	p := prose(t)
+	loc := regexp.MustCompile(
+		`(six|seven|eight|nine)\s+(live\s+|streamed\s+|extension\s+|lifecycle\s+)*(events|hooks)`,
+	).FindStringSubmatchIndex(p)
+	if loc == nil {
+		if strings.Contains(p, "extension") &&
+			regexp.MustCompile(`\b(events|hooks)\b`).MatchString(p) {
+			t.Fatal("the page discusses extension events but no longer states " +
+				"a count this test can check against the list")
+		}
+		t.Fatal("the page no longer enumerates extension events — if that is " +
+			"deliberate, delete this test rather than letting it skip")
 	}
-	if m == nil {
-		t.Skip("the page no longer enumerates extension events")
-	}
+	word := p[loc[2]:loc[3]]
 	words := map[string]int{"six": 6, "seven": 7, "eight": 8, "nine": 9}
-	want, ok := words[strings.ToLower(m[1])]
+	want, ok := words[word]
 	if !ok {
-		t.Fatalf("unrecognised event count %q", m[1])
+		t.Fatalf("unrecognised event count %q", word)
 	}
-	// Items are comma-separated with a final "and".
-	list := strings.ReplaceAll(m[2], " and ", ", ")
+
+	// The enumeration follows the count, to the end of that sentence.
+	tail := p[loc[1]:]
+	if i := strings.IndexAny(tail, ".!?"); i >= 0 {
+		tail = tail[:i]
+	}
+	tail = strings.Trim(tail, " —–-:,")
+	if tail == "" {
+		t.Fatalf("the page says %s events but no longer names them — a count "+
+			"with no list is unverifiable", word)
+	}
 	got := 0
-	for _, item := range strings.Split(list, ",") {
+	for _, item := range strings.Split(strings.ReplaceAll(tail, " and ", ", "), ",") {
 		if strings.TrimSpace(item) != "" {
 			got++
 		}
 	}
 	if got != want {
-		t.Errorf("the page says %s events and names %d: %q", m[1], got, m[2])
+		t.Errorf("the page says %s events and names %d: %q", word, got, tail)
 	}
 }
 
@@ -253,25 +356,33 @@ func TestPageDoesNotClaimUnenforcedControls(t *testing.T) {
 	// The SDK's own tool registry decides this one.
 	sdk, err := os.ReadFile(filepath.Join("..", "..", "sdk", "titan.go"))
 	if err == nil && strings.Contains(string(sdk), "tools.Bash{}") {
-		// Any wording of "everything holds when embedded" is the overclaim,
-		// not just the one sentence that shipped. Keying on a literal meant a
-		// reword silently disarmed this.
-		for _, claim := range []string{
-			"guarantees do not weaken when embedded",
-			"guarantees hold when embedded",
-			"same guarantees when embedded",
-			"nothing is lost when embedded",
-		} {
-			if strings.Contains(p, claim) {
-				t.Errorf("the page claims %q while the SDK builds tools.Bash{} "+
-					"with no sandbox", claim)
+		// Anchored on the SUBJECT, not on the sentence. Two earlier versions
+		// of this test listed the phrasings that were wrong at the time, and
+		// both were disarmed by an ordinary reword: the page could drop the
+		// disclosure entirely and stay green. So the rule is now — if the page
+		// sells embedding at all, it must disclose who owns isolation, in
+		// whatever words.
+		sellsEmbedding := regexp.MustCompile(
+			`embed(s|ded|ding)?\b|in-process|inside your (own )?(go )?(service|program|binary)`,
+		).MatchString(p)
+		if sellsEmbedding {
+			discloses := regexp.MustCompile(
+				`builds no sandbox|no sandbox|sandbox is (the )?(caller|host)|` +
+					`(caller|host)('s)? (own )?sandbox|isolation is (the )?(caller|host)`,
+			).MatchString(p)
+			if !discloses {
+				t.Error("the page sells embedding without disclosing that the " +
+					"SDK builds no sandbox — the host owns isolation")
 			}
-		}
-		// And the page must say somewhere that the host owns isolation.
-		if strings.Contains(p, "when embedded") &&
-			!strings.Contains(p, "builds no sandbox") {
-			t.Error("the page discusses embedding without disclosing that the " +
-				"SDK builds no sandbox")
+			// A blanket "nothing weakens" is the overclaim in any wording.
+			blanket := regexp.MustCompile(
+				`(all|every|the) guarantees?[^.]{0,40}(hold|survive|do not weaken|unchanged)|` +
+					`nothing is lost when embed|every guarantee survives`,
+			)
+			if m := blanket.FindString(p); m != "" {
+				t.Errorf("the page claims %q while the SDK builds tools.Bash{} "+
+					"with no sandbox", strings.TrimSpace(m))
+			}
 		}
 	}
 }
@@ -331,5 +442,61 @@ func TestSDKDocDoesNotOverclaim(t *testing.T) {
 		strings.Contains(src, "guarantees do not weaken when embedded") {
 		t.Error("sdk/titan.go claims the guarantees do not weaken when " +
 			"embedded while building tools.Bash{} with no sandbox")
+	}
+}
+
+// TestDurabilityClaimsNameTheDriver keeps the page from promising persistence
+// the default store does not provide.
+//
+// This has now shipped twice: once in the governance section, and once in the
+// limitations table, which said "transcripts and accounts survive it" when
+// only accounts do. Titan's own status string is the authority — main.go
+// reports "memory (sessions do not survive restart)" — and the default driver
+// is memory, so any unqualified survives-a-restart claim about transcripts,
+// sessions or history is false for most readers.
+func TestDurabilityClaimsNameTheDriver(t *testing.T) {
+	// Confirm the premise against the code rather than trusting this comment.
+	cfg, err := os.ReadFile(filepath.Join("..", "..", "internal", "config", "config.go"))
+	if err != nil {
+		t.Fatalf("config not readable, so the default driver was not checked: %v", err)
+	}
+	if !regexp.MustCompile(`Driver:\s*"memory"`).Match(cfg) {
+		t.Skip("the default storage driver is no longer memory; revisit this test")
+	}
+
+	// Scoped to durability ACROSS A RESTART, which is what the memory driver
+	// fails. Without the restart anchor this matched the compaction copy —
+	// "how many turns are kept" is about the context window, not the store,
+	// and flagging it would train the reader to ignore this test.
+	subject := regexp.MustCompile(`\b(transcript|session|history|conversation)s?\b`)
+	survives := regexp.MustCompile(
+		`\b(survives?|persists?|outlasts?|retained|durable|kept)\b`)
+	scoped := regexp.MustCompile(`restart|reboot|crash|process (ends|exits)|across runs`)
+	// Naming Postgres, or denying the claim, makes the sentence honest.
+	honest := regexp.MustCompile(
+		`postgres|\bno\b|\bnot\b|\bnever\b|\bdoes not\b|\bdo not\b|end with|` +
+			`\bends?\b|in-memory|\bmemory\b`)
+
+	// The restart that scopes the claim is often in the PREVIOUS sentence —
+	// "a restart ends running turns. Transcripts survive it." — so the topic
+	// is read over a small window while the honesty check stays on the
+	// sentence that actually makes the claim.
+	all := sentences(prose(t))
+	for i, s := range all {
+		if !subject.MatchString(s) || !survives.MatchString(s) {
+			continue
+		}
+		window := s
+		if i > 0 {
+			window = all[i-1] + ". " + s
+		}
+		if !scoped.MatchString(window) {
+			continue
+		}
+		if honest.MatchString(s) {
+			continue
+		}
+		t.Errorf("the page claims durability without naming the store, in: %q "+
+			"— the default driver is memory, where it is false", s)
 	}
 }
