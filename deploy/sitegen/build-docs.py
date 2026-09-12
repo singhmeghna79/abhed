@@ -30,7 +30,10 @@ SECTIONS = [
 
 
 def slug(section, name):
-    return f"{section}/{re.sub(r'\.md$', '', name)}.html"
+    # No .html extension. Cloudflare Pages serves /a/b for /a/b.html and 308s
+    # the extension away, so linking to the extension costs every reader a
+    # redirect on every click. The files are still written as .html.
+    return f"{section}/{re.sub(r'\.md$', '', name)}"
 
 
 def title_of(text, fallback):
@@ -139,9 +142,9 @@ def inline(s, section):
     def link(m):
         text, href = m.group(1), m.group(2)
         if href.endswith(".md"):
-            href = re.sub(r"\.md$", ".html", href)
+            href = re.sub(r"\.md$", "", href)
         elif ".md#" in href:
-            href = href.replace(".md#", ".html#")
+            href = href.replace(".md#", "#")
         return '<a href="%s">%s</a>' % (href, text)
 
     s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, s)
