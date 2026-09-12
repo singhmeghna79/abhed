@@ -79,8 +79,11 @@ fi
 
 # --- mint ------------------------------------------------------------------
 echo "==> Minting an invite valid for ${HOURS}h"
+# The recipient goes with the request, so the grant is recorded and the
+# dashboard can account for the account that appears when they redeem it.
+BODY_JSON="$(python3 -c 'import json,sys; print(json.dumps({"hours": int(sys.argv[1]), "email": sys.argv[2], "name": sys.argv[3]}))' "$HOURS" "$EMAIL" "$NAME")"
 RESP="$(curl -sS -b "$COOKIE_JAR" -X POST "$BASE/v1/admin/invites" \
-    -H 'Content-Type: application/json' -d "{\"hours\":$HOURS}")"
+    -H 'Content-Type: application/json' -d "$BODY_JSON")"
 
 CODE="$(printf '%s' "$RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code",""))' 2>/dev/null || true)"
 EXPIRES="$(printf '%s' "$RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("expires_at",""))' 2>/dev/null || true)"

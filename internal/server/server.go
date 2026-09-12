@@ -1051,6 +1051,15 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	// Link the account to the grant it came from, after creation rather than
+	// before: a failure here must not leave a grant claiming an account that
+	// does not exist. An invite minted without a grant behind it — by the CLI,
+	// say — simply matches nothing, which is not an error.
+	if s.opts.Access != nil && req.Invite != "" {
+		if err := s.opts.Access.Redeemed(r.Context(), req.Invite, req.Username); err != nil {
+			s.log.Error("link account to grant", "user", req.Username, "err", err)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

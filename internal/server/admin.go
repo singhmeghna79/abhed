@@ -168,15 +168,50 @@ const (
 func (s *Server) createInvite(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Hours int `json:"hours,omitempty"`
+		// Who this invite is for. Optional, because an invite minted for
+		// somebody standing next to you needs no paperwork — but when it is
+		// given, the grant is recorded and the dashboard can account for the
+		// account that appears later.
+		Email   string `json:"email,omitempty"`
+		Name    string `json:"name,omitempty"`
+		Company string `json:"company,omitempty"`
+		Note    string `json:"note,omitempty"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	ttl := 48 * time.Hour
 	if req.Hours > 0 && req.Hours <= 24*30 {
 		ttl = time.Duration(req.Hours) * time.Hour
 	}
-	inv := s.invites.mint(userOf(r.Context()), ttl)
-	s.log.Info("invite created", "by", inv.CreatedBy, "expires", inv.ExpiresAt)
-	writeJSON(w, http.StatusCreated, inv)
+	by := userOf(r.Context())
+	inv := s.invites.mint(by, ttl)
+
+	// Record the grant, so an invite issued here is visible on the dashboard
+	// rather than only becoming an account that appears from nowhere. Without
+	// this the dashboard could revoke access it had no record of granting.
+	var grantID string
+	if s.opts.Access != nil && req.Email != "" {
+		g, err := s.opts.Access.RecordRequest(r.Context(), store.Grant{
+			Email: req.Email, Name: req.Name, Company: req.Company,
+			UseCase: req.Note, Status: store.StatusRequested,
+			ScreenNote: "issued directly by " + by,
+		})
+		if err != nil {
+			s.log.Error("record grant", "err", err)
+		} else if err := s.opts.Access.GrantAccess(
+			r.Context(), g.ID, by, inv.Code, inv.ExpiresAt); err != nil {
+			s.log.Error("mark granted", "err", err)
+		} else {
+			grantID = g.ID
+		}
+	}
+
+	s.log.Info("invite created", "by", inv.CreatedBy, "expires", inv.ExpiresAt,
+		"grant", grantID)
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"code": inv.Code, "created_by": inv.CreatedBy,
+		"created_at": inv.CreatedAt, "expires_at": inv.ExpiresAt,
+		"grant_id": grantID,
+	})
 }
 
 // listInvites shows outstanding invites, for an administrator.
