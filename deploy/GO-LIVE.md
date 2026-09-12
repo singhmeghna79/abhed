@@ -152,28 +152,34 @@ and your DMARC is `p=quarantine`, which tells them to act on that. Sending as
 the domain before the records exist is *worse* than the status quo — the mail
 gets quarantined instead of merely looking generic.
 
-In Resend: **Domains → Add Domain → `zybuu.com`**. It prints the records. Then
-at GoDaddy:
+In Resend: **Domains → Add Domain → `zybuu.com`**, then **Auto update**.
+Because Cloudflare runs this zone, Resend uses Domain Connect: it opens a
+Cloudflare authorization page listing the exact records and adds them for you.
+It is a one-time grant, not standing write access.
+
+The records it adds:
 
 | Type | Name | Value | Note |
 |---|---|---|---|
-| `TXT` | `resend._domainkey` | (the long key Resend shows) | DKIM signing key |
 | `MX` | `send` | `feedback-smtp.<region>.amazonses.com`, priority 10 | bounce handling |
+| `TXT` | `resend._domainkey` | (a long public key) | DKIM signing key |
 | `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | SPF for the sending subdomain |
 
-**The one that needs care.** Resend may also ask you to add `include:resend.com`
-to your *root* SPF. If it does, **edit the existing record — do not add a second
-one.** A domain with two `v=spf1` records fails SPF entirely. The merge is:
+All three sit on `send` or on a dedicated DKIM name, so nothing at the root is
+touched. That matters for two reasons:
 
-```
-before:  v=spf1 include:secureserver.net -all
-after:   v=spf1 include:secureserver.net include:resend.com -all
-```
+- The root `MX` (`smtp.secureserver.net`) is what *receives* your mail,
+  including the access requests this form sends. It stays as it is.
+- The root `SPF` stays a single record. Two `v=spf1` records at the same name
+  is a permerror under RFC 7208 and fails SPF for **all** mail from the domain
+  — the likeliest way to break working mail while adding a sender. The `send`
+  SPF is a different DNS name, so it is a separate scope and does not collide.
 
-And leave the root `MX` records alone. `smtp.secureserver.net` is what
-*receives* your mail — including the access requests this form sends. Deleting
-it would stop them arriving at the very mailbox you are wiring up. Resend's
-`MX` goes on the `send` subdomain and does not conflict.
+Check "DNS only" (grey cloud) on all three if you ever add them by hand. A
+proxied mail record does not work.
+
+If your DNS were not on Cloudflare, these would be added manually at the
+registrar, and the root-SPF warning above would be the thing to get right.
 
 **Then verify before switching**, because a wrong switch is a silent one:
 

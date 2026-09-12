@@ -39,19 +39,25 @@ if [ "$spfcount" -gt 1 ]; then
     say fail "one SPF record" "$spfcount found — two v=spf1 records fail SPF entirely; merge them into one"
 fi
 
-# SPF must list Resend, and must still list the existing provider.
+# The root SPF must survive untouched. Resend's Domain Connect flow puts its
+# SPF on the send subdomain, a separate scope, so the root should still read
+# exactly as it did before — anything else means something edited it.
 spf=$(dig +short TXT "$DOMAIN" | grep -i 'v=spf1' | head -1)
 if [ -z "$spf" ]; then
-    say fail "SPF" "no SPF record at all"
+    say fail "root SPF" "no SPF record at all"
+elif ! printf '%s' "$spf" | grep -qi secureserver; then
+    say fail "root SPF" "no longer lists secureserver — the inbound provider's own sending will now fail: $spf"
 else
-    case "$spf" in
-        *resend*)
-            case "$spf" in
-                *secureserver*) say pass "SPF lists both" "$spf" ;;
-                *) say fail "SPF" "lists Resend but DROPPED secureserver — inbound provider's sending will now fail" ;;
-            esac ;;
-        *) say fail "SPF lists Resend" "not listed: $spf" ;;
-    esac
+    say pass "root SPF intact" "$spf"
+fi
+
+# The sending scope: Resend signs as send.<domain>, so this is the SPF that
+# has to name Amazon SES (Resend sends through it).
+sendspf=$(dig +short TXT "send.$DOMAIN" | grep -i 'v=spf1' | head -1)
+if printf '%s' "$sendspf" | grep -qi 'amazonses\|resend'; then
+    say pass "send SPF" "$sendspf"
+else
+    say fail "send SPF" "missing at send.$DOMAIN — authorize the records in Resend"
 fi
 
 # 4. Bounce handling. Resend puts an MX on a subdomain; absence is not fatal
