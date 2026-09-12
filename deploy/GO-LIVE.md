@@ -81,14 +81,47 @@ while this Mac is awake, and the homepage must not be. To publish a change:
 ./deploy/publish-site.sh
 ```
 
-It uploads `web/zybuu/` — `index.html`, `_headers`, and the `functions/`
-directory that becomes `/api/access`. The publisher itself deliberately lives
-in `deploy/` rather than inside `web/zybuu/`: Pages serves every file it is
-handed, and `zybuu.com/deploy.sh` returned 200 for as long as the script sat in
-the published directory.
+It renders the documentation, checks the access Function, then uploads
+`web/zybuu/`:
+
+| Path | What it is |
+|---|---|
+| `/` | the company homepage — thesis, product verticals |
+| `/titan/` | Titan's product page — install, the session replay, limitations |
+| `/docs/` | 32 pages generated from `docs/` at publish time |
+| `functions/api/access.js` | the access-request endpoint |
+| `_headers` | CSP and the rest of the security headers |
+
+The publisher itself deliberately lives in `deploy/` rather than inside
+`web/zybuu/`: Pages serves every file it is handed, and `zybuu.com/deploy.sh`
+returned 200 for as long as the script sat in the published directory.
 
 Editing the page does not publish it. Until this runs, the repository and the
 live site disagree, and the live site is what a reader sees.
+
+### Documentation lives under the product
+
+Canonically `titan.zybuu.com/docs`, because documentation belongs with the
+thing it documents — and the same will hold for the next product. But
+`titan.zybuu.com` is the tunnel to this Mac, so the hostname is split at the
+edge: a Worker answers `/docs*` from Pages, everything else goes down the
+tunnel to the console. Docs survive the lid closing; the console does not.
+
+The Worker is deployed separately, and only when it changes:
+
+```bash
+cd deploy/docs-worker && npx wrangler@3 deploy
+```
+
+One trap worth knowing: the Worker fetches from `zybuu.pages.dev`, not from
+`zybuu.com`. A `_redirects` rule on `/docs/*` applies to the project origin as
+well as the apex, so pointing the Worker at either one while such a rule exists
+makes it fetch a redirect to its own route and loop. There is no `/docs` rule
+in `_redirects` for exactly that reason.
+
+The same generated HTML is embedded in the binary, so an air-gapped install
+serves its own docs at `/docs` with no route to Cloudflare. `titan serve`
+registers that route only when docs were generated before the build.
 
 ## The homepage form
 
@@ -103,6 +136,31 @@ Optionally `ACCESS_TO` to route requests somewhere other than
 Until it is set the form refuses honestly — "the form is not connected yet,
 email support@zybuu.com" — rather than accepting a request and dropping it.
 Nothing is lost either way, but nothing is emailed either.
+
+### Sending as zybuu.com
+
+Set up, mail goes out from Resend's shared `onboarding@resend.dev` sender.
+That works, and it has two costs: the message does not look like it came from
+Zybuu, and a shared sending address carries other people's reputation, so it is
+likelier to land in spam.
+
+Fixing it is DNS, once. In Resend, add the domain `zybuu.com`; it prints three
+records (a DKIM `TXT` at `resend._domainkey`, an SPF `TXT`, and a `MX` for
+bounce handling). Add them at GoDaddy — **alongside** the existing records, not
+replacing them. The existing `MX` for `smtp.secureserver.net` is what receives
+your mail; deleting it stops mail arriving. Resend's bounce `MX` goes on a
+subdomain and does not conflict.
+
+Then point the form at the verified address:
+
+```bash
+./deploy/set-access-email.sh        # answer the third prompt this time
+./deploy/publish-site.sh
+```
+
+Verify with `dig +short TXT resend._domainkey.zybuu.com` — an answer means
+verified. The form works either way; this only changes what the recipient sees
+and how reliably it arrives.
 
 ## Verify
 

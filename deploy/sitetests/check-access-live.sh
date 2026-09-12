@@ -33,8 +33,18 @@ case "$got" in
   access-ok)
     printf '  ok    %-34s %s\n' "delivered" "$got"
     echo
-    echo "  A real request was sent. Confirm it arrived in the destination"
-    echo "  mailbox — the redirect only proves Resend accepted it."
+    echo "  Resend accepted and queued the message. That is a real signal, not"
+    echo "  a guess: a sandbox restriction or an unverified sending domain"
+    echo "  comes back non-2xx and this would have said access-failed."
+    echo
+    echo "  What it still does not prove is arrival. Open the destination"
+    echo "  mailbox and look for:"
+    echo
+    echo "      Titan access request - Deployment check (Zybuu)"
+    echo
+    echo "  If it is not there within a minute or two, check the Resend"
+    echo "  dashboard's Emails tab — it shows delivered, bounced or blocked"
+    echo "  per message, which is the only place the truth is recorded."
     ;;
   access-unconfigured)
     printf '  FAIL  %-34s %s\n' "delivered" "$got"
