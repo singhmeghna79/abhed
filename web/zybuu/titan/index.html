@@ -11,237 +11,260 @@
 <meta property="og:url" content="https://zybuu.com/titan/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='12' y='12' width='232' height='232' rx='64' fill='%23080D18'/%3E%3Crect x='13.5' y='13.5' width='229' height='229' rx='62.5' fill='none' stroke='%232E9BE8' stroke-width='11'/%3E%3Cg fill='%232BF5C4'%3E%3Crect x='70' y='76' width='116' height='25' rx='6'/%3E%3Cpath d='M152 107 H186 L104 149 H70 Z'/%3E%3Crect x='70' y='155' width='116' height='25' rx='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <style>
-/* The same tokens the Titan console uses. A homepage and the product behind it
-   reading as one company is not decoration — it is the cheapest possible signal
-   that the thing is coherently built. */
-:root{
-  --bg:#F5F7FA; --surface:#FFFFFF; --sunken:#EDF1F6;
-  --line:#DCE3EC; --line-strong:#C4CFDD;
-  --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
-  --accent:#1F6FB8; --accent-2:#3FA9F5; --accent-deep:#123E6B;
-  --accent-soft:#E3EEF8;
-  --ok:#1A7F4B; --ok-bg:#E3F3EA; --warn:#9A6A16; --warn-bg:#FAF0DC;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
-  --maxw:1080px;
+/* Zybuu design tokens.
+ *
+ * The previous palette — near-black ground, blue accent, one radius on every
+ * card — is the default an AI page arrives in, and a real reader said so. What
+ * replaces it is drawn from the only material this product actually has: a
+ * terminal. Phosphor green on a ground biased green rather than blue, amber
+ * for the recorded-but-not-live register, and a baseline rhythm that behaves
+ * like terminal rows.
+ *
+ * The risk taken deliberately: a mono display face at large sizes against a
+ * serif for prose. It reads like a paper about a system rather than a SaaS
+ * landing page, which is the register this product argues in.
+ */
+
+/* Light is the default block, so a viewer with no preference stamped still
+   gets a complete palette. This design is dark-first in intent, so the dark
+   values are the considered ones and light is the careful inverse. */
+:root {
+  --ground:      #F2F4EF;  /* paper, warm-neutral with a green bias */
+  --surface:     #FFFFFF;
+  --sunken:      #E7EBE3;
+  --line:        #D3D9CD;
+  --line-strong: #B6BFAD;
+
+  --ink:         #11150F;
+  --ink-2:       #3D463A;
+  --muted:       #6B7565;
+
+  --live:        #1E7F4F;  /* phosphor, darkened to hold on paper */
+  --live-soft:   #E0F1E7;
+  --recorded:    #8A6510;  /* amber, the "captured not running" register */
+  --recorded-soft:#F7EEDA;
+
+  --warn:        #9A4B16;
+  --warn-soft:   #F8E9DF;
+
+  --mono:  "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif: "Source Serif 4", Iowan Old Style, Georgia, serif;
+  --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* One rhythm, used everywhere. Terminal rows, not arbitrary spacing. */
+  --row: 26px;
+  --maxw: 1120px;
+
+  color-scheme: light dark;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
-    --line:#252D3A; --line-strong:#333D4D;
-    --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-    --accent:#4C8FD6; --accent-soft:#16283C;
-    --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0A0F0D;
+    --surface:     #101713;
+    --sunken:      #0C120F;
+    --line:        #1E2A23;
+    --line-strong: #2E3F35;
+
+    --ink:         #E6EDE6;
+    --ink-2:       #B4C2B5;
+    --muted:       #7C8C7F;
+
+    --live:        #39D98A;
+    --live-soft:   #0F2A1E;
+    --recorded:    #E8B923;
+    --recorded-soft:#2A2310;
+
+    --warn:        #E08A4C;
+    --warn-soft:   #2A1A10;
   }
 }
-:root[data-theme="dark"]{
-  --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
-  --line:#252D3A; --line-strong:#333D4D;
-  --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-  --accent:#4C8FD6; --accent-soft:#16283C;
-  --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+
+:root[data-theme="dark"] {
+  --ground:      #0A0F0D;
+  --surface:     #101713;
+  --sunken:      #0C120F;
+  --line:        #1E2A23;
+  --line-strong: #2E3F35;
+
+  --ink:         #E6EDE6;
+  --ink-2:       #B4C2B5;
+  --muted:       #7C8C7F;
+
+  --live:        #39D98A;
+  --live-soft:   #0F2A1E;
+  --recorded:    #E8B923;
+  --recorded-soft:#2A2310;
+
+  --warn:        #E08A4C;
+  --warn-soft:   #2A1A10;
 }
 
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
-  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
-img,svg{max-width:100%}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
-.wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
-
-/* ------------------------------------------------------------------ header */
-header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
-  backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
-.bar{display:flex;align-items:center;gap:12px;height:58px}
-.logo{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:660;
-  font-size:16px;letter-spacing:-.015em}
-.logo:hover{text-decoration:none}
-.logo svg{width:29px;height:29px;flex:none}
-.nav{margin-left:auto;display:flex;align-items:center;gap:22px}
-.nav a{color:var(--ink-2);font-size:14px;font-weight:500}
-.nav a:hover{color:var(--ink);text-decoration:none}
-@media (max-width:720px){.nav a.hide-sm{display:none}}
-
-.btn{display:inline-flex;align-items:center;gap:7px;background:var(--accent);
-  color:#fff;border:1px solid var(--accent);border-radius:8px;padding:9px 17px;
-  font-size:14px;font-weight:600;cursor:pointer;
-  transition:filter .14s,transform .14s}
-.btn:hover{filter:brightness(1.08);transform:translateY(-1px);text-decoration:none;color:#fff}
-.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
-.btn.ghost:hover{border-color:var(--accent);filter:none;color:var(--ink)}
-.btn.lg{padding:12px 22px;font-size:15px}
-
-/* -------------------------------------------------------------------- hero */
-.hero{padding:78px 0 62px;position:relative;overflow:hidden}
-/* min() rather than a fixed 900px: a decorative glow must never be the thing
-   that makes the page scroll sideways, and capping it here means the rule holds
-   at every width instead of only below a breakpoint. */
-.hero::before{content:'';position:absolute;top:-180px;left:50%;
-  width:min(900px,100%);height:520px;
-  transform:translateX(-50%);pointer-events:none;
-  background:radial-gradient(ellipse at center,var(--accent-soft),transparent 68%);
-  opacity:.75}
-.hero .inner{position:relative}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
-  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);
-  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
-  border-radius:999px;padding:5px 13px;margin-bottom:20px}
-h1{margin:0 0 18px;font-size:clamp(30px,5.2vw,52px);line-height:1.08;
-  letter-spacing:-.032em;font-weight:680;max-width:19ch;text-wrap:balance}
-.lede{margin:0 0 28px;font-size:clamp(16px,2.1vw,19px);color:var(--ink-2);
-  max-width:62ch;line-height:1.58}
-.hero-cta{display:flex;gap:11px;flex-wrap:wrap;align-items:center}
-.hero-note{margin-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-
-/* ------------------------------------------------------------------ thesis */
-section{padding:58px 0}
-.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.13em;
-  text-transform:uppercase;color:var(--muted);margin:0 0 12px}
-h2{margin:0 0 16px;font-size:clamp(22px,3.2vw,31px);line-height:1.2;
-  letter-spacing:-.022em;font-weight:660;max-width:24ch;text-wrap:balance}
-.body{color:var(--ink-2);max-width:66ch;margin:0 0 14px}
-.body:last-child{margin-bottom:0}
-
-.thesis{background:var(--surface);border:1px solid var(--line);border-radius:16px;
-  padding:34px 34px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:34px;
-  align-items:start}
-.bignum{text-align:center;padding-right:32px;border-right:1px solid var(--line);min-width:150px}
-.bignum b{display:block;font-size:clamp(38px,6vw,54px);font-weight:700;
-  letter-spacing:-.04em;line-height:1;
-  background:linear-gradient(135deg,var(--accent-2),var(--accent) 55%,var(--accent-deep));
-  -webkit-background-clip:text;background-clip:text;color:transparent}
-.bignum span{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);line-height:1.5}
-@media (max-width:740px){
-  .thesis{grid-template-columns:1fr;gap:20px;padding:26px 22px}
-  .bignum{text-align:left;padding:0 0 18px;border-right:0;border-bottom:1px solid var(--line)}
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: var(--row);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ---------------------------------------------------------------- products */
-/* auto-fit packs four cards as 3 + 1, leaving the fourth alone on a row and
-   reading as an accident. Both grids on this page hold four, so pair them. */
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
-@media (max-width:680px){.grid{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
-  padding:22px;display:flex;flex-direction:column;gap:9px;
-  transition:border-color .16s,transform .16s}
-.card h3{margin:0;font-size:16.5px;font-weight:640;letter-spacing:-.012em;
-  display:flex;align-items:center;gap:9px}
-.card p{margin:0;font-size:14px;color:var(--ink-2);line-height:1.55}
+a { color: var(--live); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--live); outline-offset: 3px; border-radius: 2px; }
+img, svg { max-width: 100%; }
 
-/* ---------------------------------------------------------------- evidence */
-.ev{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;
-  margin-bottom:20px}
-.ev div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:19px}
-.ev b{display:block;font-size:26px;font-weight:700;letter-spacing:-.03em;
-  color:var(--accent);line-height:1.1}
-.ev span{display:block;margin-top:6px;font-size:12.5px;color:var(--muted);line-height:1.45}
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
 
-/* The limitations table. Plainly set on purpose — this is the section a
-   sceptical reader goes to first, and dressing it up would undercut it. */
-/* A card whose guarantee depends on the durable store says so on its face.
-   The alternative is a reader assuming it applies to the default install. */
-.req-pg{font-family:var(--mono);font-size:9px;letter-spacing:.06em;
-  text-transform:uppercase;font-weight:600;padding:2px 6px;border-radius:4px;
-  background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+/* ------------------------------------------------------------------ type */
+/* Mono for anything the machine says; serif for anything a person wrote. That
+   split is the whole typographic idea and it is applied without exception. */
+h1, h2, h3, h4, .kicker, .btn, code, pre, .mono { font-family: var(--mono); }
 
-.lim{width:100%;border-collapse:collapse;font-size:14px}
-.lim th,.lim td{text-align:left;padding:11px 14px;vertical-align:top;
-  border-bottom:1px solid var(--line)}
-.lim th{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
-  text-transform:uppercase;color:var(--muted);font-weight:600;
-  border-bottom:1px solid var(--line-strong)}
-.lim td:first-child{font-weight:600;white-space:nowrap;padding-right:24px}
-.lim td:last-child{color:var(--ink-2);max-width:60ch}
-.lim tr:last-child td{border-bottom:0}
-.scroll{overflow-x:auto}
+h1 {
+  margin: 0 0 18px;
+  font-size: clamp(29px, 4.6vw, 46px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+h2 {
+  margin: 0 0 14px;
+  font-size: clamp(21px, 2.7vw, 28px);
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  max-width: 26ch;
+  text-wrap: balance;
+}
+h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
 
-/* Code. This page is read by people who will check the claims, so the sample
-   is real — it compiles against the SDK's actual signatures. */
-.code{background:var(--sunken);border:1px solid var(--line);border-radius:10px;
-  padding:18px 20px;margin:0;overflow-x:auto;
-  font-family:var(--mono);font-size:12.5px;line-height:1.62;color:var(--ink-2)}
-.code code{font-family:inherit}
-code{font-family:var(--mono);font-size:.92em;background:var(--sunken);
-  border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink)}
-.lim td code,.code code{background:none;border:0;padding:0}
-@media (max-width:640px){
-  .lim td:first-child{white-space:normal}
-  .lim th,.lim td{padding:9px 10px}
+/* A section label is a shell prompt, because that is true of the subject —
+   numbered markers would imply a sequence these sections do not have. */
+.kicker {
+  display: block;
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.kicker::before { content: "$ "; color: var(--live); }
+
+.body { color: var(--ink-2); max-width: 64ch; margin: 0 0 var(--row); }
+.body:last-child { margin-bottom: 0; }
+.lede { font-size: clamp(17px, 2vw, 19.5px); color: var(--ink-2); max-width: 58ch; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 
-.honest{background:var(--sunken);border:1px solid var(--line);border-left:3px solid var(--accent);
-  border-radius:0 12px 12px 0;padding:18px 22px;margin-top:22px}
-.honest p{margin:0;font-size:14px;color:var(--ink-2);max-width:70ch}
-.honest strong{color:var(--ink)}
-
-/* ----------------------------------------------------------------- contact */
-.cta-band{background:var(--surface);border:1px solid var(--line);border-radius:16px;
-  padding:38px 34px;text-align:center}
-.cta-band h2{margin:0 auto 12px;max-width:22ch}
-.cta-band .body{margin:0 auto 22px}
-
-/* The access form. Left-aligned inside a centred band: centred labels above
-   centred inputs is harder to fill in than it looks. */
-.req{max-width:520px;margin:0 auto;text-align:left;display:grid;gap:13px}
-.req label{display:block;font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.req input,.req textarea{width:100%;margin-top:6px;background:var(--bg);
-  border:1px solid var(--line-strong);border-radius:8px;padding:10px 12px;
-  font-size:15px;font-family:var(--sans);color:var(--ink);resize:vertical}
-.req input:focus,.req textarea:focus{outline:none;border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft)}
-.req .btn{justify-content:center;width:100%}
-.req .note{text-align:center;margin:0}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
-/* A field no person sees. Bots fill every input they find, so one that should
-   always be empty is the cheapest filter available — and it costs a real
-   visitor nothing, unlike a puzzle. */
-.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.req .msg{text-align:center;margin:0;padding:9px 12px;border-radius:7px;
-  font-size:13.5px}
-.req .msg.ok{background:var(--ok-bg);color:var(--ok)}
-.req .msg.bad{background:var(--warn-bg);color:var(--warn)}
-@media (max-width:560px){.row2{grid-template-columns:1fr}}
-
-footer{border-top:1px solid var(--line);padding:26px 0 40px;margin-top:34px}
-.foot{display:flex;gap:16px;flex-wrap:wrap;align-items:center;
-  font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.foot .spacer{flex:1}
-
-/* Nothing may exceed the viewport width. A single overflowing element makes the
-   whole page scroll sideways, which on a phone reads as broken rather than as
-   one wide element — and this is the page an investor opens on their phone. */
-html,body{max-width:100%;overflow-x:hidden}
-h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
-
-@media (max-width:640px){
-  .wrap{padding:0 18px}
-  .hero{padding:46px 0 40px}
-  section{padding:40px 0}
-  .thesis,.cta-band{padding:24px 20px}
-  .ev b{font-size:22px}
-  /* The radial glow is 900px wide and would itself force a sideways scroll. */
-  .hero::before{width:100%;left:0;transform:none}
-  /* Full-width buttons: a 44px tap target that spans the column is easier to
-     hit than two half-width ones, and it stops the pair wrapping awkwardly. */
-  .hero-cta{flex-direction:column;align-items:stretch}
-  .hero-cta .btn{justify-content:center}
-  .bar{height:54px;gap:9px}
-  .nav{gap:14px}
-  /* The lockup name is redundant next to the mark at this width. */
-  .logo{font-size:15px}
-  .foot{flex-direction:column;align-items:flex-start;gap:6px}
-  .foot .spacer{display:none}
+/* --------------------------------------------------------------- surfaces */
+/* Radius is spent by role, not stamped on everything: panels that represent a
+   screen get 10px, everything else is square. A uniform radius on every block
+   is one of the tells. */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
+
+/* A rule that reads as a terminal divider rather than a hairline box. */
+.rule {
+  height: 1px;
+  background: repeating-linear-gradient(90deg,
+    var(--line) 0 6px, transparent 6px 12px);
+  border: 0;
+  margin: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--live);
+  color: var(--ground);
+  border: 1px solid var(--live);
+  border-radius: 4px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: filter .14s, transform .14s;
+}
+.btn:hover { filter: brightness(1.1); transform: translateY(-1px); text-decoration: none; }
+.btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.btn.ghost:hover { border-color: var(--live); color: var(--live); filter: none; }
+.btn.lg { padding: 12px 22px; font-size: 14.5px; }
+
+/* ---------------------------------------------------------------- header */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--ground) 90%, transparent);
+  backdrop-filter: saturate(160%) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.bar { display: flex; align-items: center; gap: 12px; height: 56px; }
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+.logo:hover { text-decoration: none; }
+.logo svg { width: 26px; height: 26px; flex: none; }
+.nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+.nav a {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.nav a:hover { color: var(--live); text-decoration: none; }
+@media (max-width: 720px) { .nav a.hide-sm { display: none; } }
+
+/* ---------------------------------------------------------------- footer */
+footer { border-top: 1px solid var(--line); padding: 22px 0; margin-top: 8px; }
+.foot {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.foot a { color: var(--muted); }
+.foot a:hover { color: var(--live); }
+
+section { padding: calc(var(--row) * 2) 0; }
+
 </style>
-
 <style>
 /* ---- the replay ------------------------------------------------------ */
 /* The terminal is the evidence, so it gets the larger half and a height that
@@ -325,8 +348,45 @@ pre.code .g{color:#2BF5C4}
   padding:13px 16px;border-radius:0 9px 9px 0;margin:14px 0;
   font-size:14px;color:var(--ink-2)}
 .callout strong{color:var(--ink)}
-</style>
 
+.hero{padding:calc(var(--row)*2.4) 0 calc(var(--row)*1.6);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.28;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 55%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 55%,transparent);
+  background:repeating-linear-gradient(180deg,
+    color-mix(in srgb,var(--live) 6%,transparent) 0 1px,
+    transparent 1px calc(var(--row)/2))}
+.hero .inner{position:relative}
+.eyebrow{display:inline-block;font-family:var(--mono);font-size:11.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--live);margin-bottom:14px}
+.hero-cta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:calc(var(--row)*0.9)}
+.hero-note{margin-top:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.ev{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ev>div{background:var(--surface);padding:18px 20px}
+.ev b{display:block;font-family:var(--mono);font-size:25px;font-weight:700;color:var(--ink);
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.ev span{display:block;margin-top:6px;font-size:13.2px;color:var(--muted);line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:680px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:20px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0 0 2px}
+.card p{margin:0;color:var(--ink-2);font-size:14.2px;line-height:1.6}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);
+  vertical-align:top;color:var(--ink-2)}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:400}
+tr:last-child td{border-bottom:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.req-pg{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--recorded-soft);color:var(--recorded);padding:2px 7px;border-radius:3px;
+  border:1px solid color-mix(in srgb,var(--recorded) 30%,transparent);white-space:nowrap}
+.honest{border-left:2px solid var(--recorded);background:var(--recorded-soft);
+  padding:16px 18px;border-radius:0 8px 8px 0}
+.honest p{margin:0;color:var(--ink-2)}
+</style>
 </head>
 
 <header>
@@ -726,7 +786,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>554</b><span>test functions across the engine</span></div>
+      <div><b>555</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>

@@ -205,6 +205,9 @@ def main():
 <title>{html.escape(title)} — Titan documentation</title>
 <meta name="description" content="{html.escape(desc)}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='12' y='12' width='232' height='232' rx='64' fill='%23080D18'/%3E%3Crect x='13.5' y='13.5' width='229' height='229' rx='62.5' fill='none' stroke='%232E9BE8' stroke-width='11'/%3E%3Cg fill='%232BF5C4'%3E%3Crect x='70' y='76' width='116' height='25' rx='6'/%3E%3Cpath d='M152 107 H186 L104 149 H70 Z'/%3E%3Crect x='70' y='155' width='116' height='25' rx='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <style>{style}</style>
 </head>
 <header>
