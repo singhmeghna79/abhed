@@ -33,6 +33,24 @@ USAGE
     exit 2
 fi
 
+# --- check the address before anything is spent ----------------------------
+# An invite is single use: minting one against a typo burns it, and the person
+# waiting never hears back. "singhyuvraj79@gmail" (no TLD) is the exact shape
+# that prompted this check.
+case "$EMAIL" in
+    *@*.*) : ;;
+    *)
+        echo "!!  '$EMAIL' is not a usable email address — it has no domain suffix." >&2
+        echo "    Did you mean '$EMAIL.com'?" >&2
+        echo "    Nothing was minted or sent." >&2
+        exit 2 ;;
+esac
+case "$EMAIL" in
+    *" "*|*,*)
+        echo "!!  '$EMAIL' contains a space or comma; pass one address." >&2
+        exit 2 ;;
+esac
+
 # --- the admin session -----------------------------------------------------
 COOKIE_JAR="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR"' EXIT
