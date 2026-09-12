@@ -483,6 +483,12 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     <a href="/" style="text-decoration:none;color:inherit;display:flex;
        align-items:baseline;gap:8px" title="Overview"><b>Titan</b><span
        id="ver">console</span></a>
+    <!-- The way back out. Without it this host is a dead end: every link here
+         is relative, and "/" is the console itself, so a reader who arrives
+         from the marketing site has no route home except the back button. -->
+    <a href="https://zybuu.com/" style="text-decoration:none;font-size:12px;
+       color:var(--muted);margin-left:10px" title="Zybuu — the company">&#8599;
+       zybuu.com</a>
   </div>
   <div class="stat"><span class="led" id="led"></span><span id="health">connecting</span></div>
   <div class="spacer"></div>

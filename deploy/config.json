@@ -23,21 +23,34 @@
       "bash(*reboot*)",
       "write(/etc/**)",
       "write(/usr/**)",
-      "read(/proc/self/environ)"
+      "read(/proc/self/environ)",
+      "read(/Users/**/.ssh/**)",
+      "read(/home/**/.ssh/**)",
+      "read(**/.ssh/**)",
+      "read(/Users/**/.aws/**)",
+      "read(**/.aws/**)",
+      "read(**/.config/gcloud/**)",
+      "read(**/.kube/**)",
+      "read(**/.env)",
+      "read(**/.env.*)",
+      "read(**/id_rsa*)",
+      "read(**/id_ed25519*)",
+      "read(**/*.pem)",
+      "read(**/.git-credentials)",
+      "read(**/.netrc)",
+      "read(/Users/**/Library/Keychains/**)",
+      "read(**/.titan/**)"
     ],
     "ask": [],
     "allow": [
       "bash(ls*)",
-      "bash(cat *)",
       "bash(git status*)",
       "bash(git diff*)",
-      "bash(git log*)",
-      "bash(python3 /workspace/*)",
-      "bash(python3 -c *)"
+      "bash(git log*)"
     ]
   },
   "sandbox": {
-    "min_tier": "none",
+    "min_tier": "container",
     "allow_network": false,
     "max_memory_mb": 1024,
     "max_procs": 256

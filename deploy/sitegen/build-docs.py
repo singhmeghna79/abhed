@@ -211,8 +211,8 @@ def main():
   <div class="dwrap bar">
     {logo}
     <nav class="nav">
-      <a href="/" class="hide-sm">Zybuu</a>
-      <a href="/titan/">Titan</a>
+      <a href="https://zybuu.com/" class="hide-sm">Zybuu</a>
+      <a href="https://zybuu.com/titan/">Titan</a>
       <a href="/docs/">Docs</a>
       <a class="btn" href="https://titan.zybuu.com">Open console</a>
     </nav>
@@ -225,7 +225,7 @@ def main():
 </main>
 </div>
 <footer><div class="dwrap foot">
-  <span><a href="/">Zybuu</a></span><span><a href="/titan/">Titan</a></span>
+  <span><a href="https://zybuu.com/">Zybuu</a></span><span><a href="https://zybuu.com/titan/">Titan</a></span>
   <span>Documentation is generated from docs/ in the repository</span>
 </div></footer>
 </html>

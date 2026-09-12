@@ -302,6 +302,12 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
 
 <footer class="wrap">
   <span id="ver">titan</span>
+  <!-- This page is where someone lands when they are not signed in, so it is
+       the most likely place to be stuck. Absolute, because "/" on this host is
+       this page. -->
+  <span><a href="https://zybuu.com/">zybuu.com</a></span>
+  <span><a href="https://zybuu.com/titan/">about titan</a></span>
+  <span><a href="/docs/">docs</a></span>
   <span>every action is recorded and replayable</span>
   <span>tool output is treated as data, never instructions</span>
 </footer>
