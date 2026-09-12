@@ -27,6 +27,7 @@
   --muted:       #6B7565;
 
   --live:        #1E7F4F;  /* phosphor, darkened to hold on paper */
+  --btn-ink:     #FFFFFF;
   --live-soft:   #E0F1E7;
   --recorded:    #8A6510;  /* amber, the "captured not running" register */
   --recorded-soft:#F7EEDA;
@@ -58,6 +59,7 @@
     --muted:       #7C8C7F;
 
     --live:        #39D98A;
+    --btn-ink:     #06110B;
     --live-soft:   #0F2A1E;
     --recorded:    #E8B923;
     --recorded-soft:#2A2310;
@@ -79,6 +81,7 @@
   --muted:       #7C8C7F;
 
   --live:        #39D98A;
+  --btn-ink:     #06110B;
   --live-soft:   #0F2A1E;
   --recorded:    #E8B923;
   --recorded-soft:#2A2310;
@@ -182,7 +185,12 @@ code {
   align-items: center;
   gap: 8px;
   background: var(--live);
-  color: var(--ground);
+  /* Per theme, because the accent is a different colour in each. The
+     measured ratio was never the problem — near-black on #39D98A is 10.5:1
+     and still glared at small bold text, which a reader reported and the
+     metric did not. Dark ink on luminous phosphor, white on the darkened
+     paper accent: 10.5:1 and 5.9:1 respectively. */
+  color: var(--btn-ink);
   border: 1px solid var(--live);
   border-radius: 4px;
   padding: 9px 18px;
@@ -246,6 +254,81 @@ footer { border-top: 1px solid var(--line); padding: 22px 0; margin-top: 8px; }
 .foot a:hover { color: var(--live); }
 
 section { padding: calc(var(--row) * 2) 0; }
+
+
+/* ---- neon ------------------------------------------------------------ */
+/* The earlier design had a glow and the user liked it. It returns, but spent
+   only where something is actually live or actionable, rather than laid over
+   the whole page. */
+:root { --neon: 0 0 0 transparent; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --neon: 0 0 18px color-mix(in srgb, var(--live) 34%, transparent);
+  }
+}
+:root[data-theme="dark"] {
+  --neon: 0 0 18px color-mix(in srgb, var(--live) 34%, transparent);
+}
+.btn:not(.ghost) { box-shadow: var(--neon); }
+.btn:not(.ghost):hover { box-shadow: 0 0 26px color-mix(in srgb, var(--live) 48%, transparent); }
+.logo svg { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--live) 26%, transparent)); }
+
+/* ---- forms ----------------------------------------------------------- */
+/* Restored: replacing the stylesheet dropped these and the access form
+   rendered as bare inline controls, with the honeypot visible as a real
+   "Website" field — which a person would fill in and be silently rejected as
+   a bot. That is the worst kind of broken, because it fails quietly. */
+.req { display: flex; flex-direction: column; gap: 14px; max-width: 620px; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+
+.req label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.req input,
+.req textarea {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.req textarea { resize: vertical; min-height: 92px; }
+.req input::placeholder,
+.req textarea::placeholder { color: var(--muted); opacity: 1; }
+.req input:focus,
+.req textarea:focus {
+  outline: none;
+  border-color: var(--live);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 18%, transparent);
+}
+
+/* The honeypot. Off-canvas rather than display:none, because some bots skip
+   fields that are not rendered at all. */
+.req label.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.req .go { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.req .note { font-size: 14px; color: var(--muted); margin: 0; }
 
 /* ---- documentation layout ------------------------------------------- */
 .dwrap{max-width:1240px;margin:0 auto;padding:0 28px}
