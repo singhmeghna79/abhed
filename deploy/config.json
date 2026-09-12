@@ -51,7 +51,7 @@
     ]
   },
   "sandbox": {
-    "min_tier": "container",
+    "min_tier": "process",
     "allow_network": false,
     "max_memory_mb": 1024,
     "max_procs": 256

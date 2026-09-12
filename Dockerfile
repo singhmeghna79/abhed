@@ -54,6 +54,12 @@ RUN apt-get update \
       zip \
       unzip \
       graphviz \
+      `# bubblewrap gives the agent's shell a second boundary INSIDE this` \
+      `# container. The container itself is the first — read-only rootfs, all` \
+      `# capabilities dropped, no host paths — but a console strangers can` \
+      `# sign in to is worth two. Without it Titan can only offer tier "none",` \
+      `# which runs commands as the container's own process.` \
+      bubblewrap \
  && rm -rf /var/lib/apt/lists/*
 
 # Document generation.
