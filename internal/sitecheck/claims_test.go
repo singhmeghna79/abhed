@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -179,56 +180,80 @@ func TestPageClaimsNoInstallPathThatDoesNotExist(t *testing.T) {
 // A compliance claim is a legal commitment, not a marketing line. None of these
 // certifications is held.
 func TestPageClaimsNoCertification(t *testing.T) {
-	// Structural, not semantic. Three earlier versions tried to decide from
-	// the words whether a sentence asserted or denied a certification: first
-	// six literal phrases (missed "SOC 2 audited"), then any attainment verb
-	// minus a list of negation words. The second let "Zybuu is SOC 2
-	// certified, and no exceptions were noted" through on the stray "no", and
-	// reddened "Zybuu has yet to pursue SOC 2 certification", which is both
-	// honest and true. Detecting English negation with a word list does not
-	// work, and a guard that cries wolf on truthful copy is worse than none —
-	// the writer learns to ignore it.
+	// Anchored to the document's own sections, not to words in flattened text.
 	//
-	// The page's real discipline is structural: these regimes are named ONLY
-	// where the page disclaims them. So the rule is placement. Every mention
-	// must sit under a heading that declares the section a disclaimer; move a
-	// regime anywhere else and this fails, whatever the sentence says.
-	regime := regexp.MustCompile(`soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss`)
-	p := prose(t)
-	if !regime.MatchString(p) {
-		return // Nothing to place.
+	// The previous version looked for heading-ish phrases ("limitations", "no
+	// certifications") in prose and granted a 900-character amnesty after each.
+	// But prose() flattens the nav bar too, and the nav contains a link reading
+	// "Limitations" at offset 66 — so every regime named in the first ~970
+	// characters was blessed by a link, and "Zybuu is SOC 2 Type II certified"
+	// shipped green from the hero, the most prominent position on the page. The
+	// same fuzziness reddened an honest mid-page sentence that denied a
+	// certification in its own words.
+	//
+	// A <section id> is structure the document asserts and a nav link cannot
+	// forge. These regimes are named only where the page disclaims them, so the
+	// rule is exact: a compliance regime may appear in these sections and
+	// nowhere else. No character spans, no proximity, nothing to borrow.
+	allowed := map[string]bool{"evidence": true, "limitations": true}
+
+	src := raw(t)
+	// Section boundaries, in document order.
+	type sec struct {
+		at int
+		id string
 	}
-	disclaimers := regexp.MustCompile(
-		`what is not true yet|no certifications|what this is not|limitations`)
-	marks := disclaimers.FindAllStringIndex(p, -1)
-	if len(marks) == 0 {
-		t.Fatal("the page names a compliance regime but has no disclaiming " +
-			"section, so every mention reads as a claim")
+	var secs []sec
+	for _, m := range regexp.MustCompile(`<section id="([^"]+)"`).
+		FindAllStringSubmatchIndex(src, -1) {
+		secs = append(secs, sec{m[0], src[m[2]:m[3]]})
 	}
-	// 900 characters is longer than any of these sections and far shorter
-	// than the page, so a mention cannot borrow a distant heading.
-	const span = 900
-	for _, m := range regime.FindAllStringIndex(p, -1) {
-		ok := false
-		for _, d := range marks {
-			if m[0] > d[0] && m[0]-d[0] < span {
-				ok = true
+	owner := func(off int) string {
+		id := "(no section — before the first one)"
+		for _, s := range secs {
+			if s.at > off {
 				break
 			}
+			id = s.id
 		}
-		if ok {
+		return id
+	}
+
+	regime := regexp.MustCompile(`(?i)soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss`)
+	hits := 0
+	for _, m := range regime.FindAllStringIndex(src, -1) {
+		// Skip the nav: a link to a section is not a claim inside it.
+		hits++
+		id := owner(m[0])
+		if allowed[id] {
 			continue
 		}
-		a, b := m[0]-120, m[1]+120
+		a := m[0] - 100
 		if a < 0 {
 			a = 0
 		}
-		if b > len(p) {
-			b = len(p)
+		b := m[1] + 100
+		if b > len(src) {
+			b = len(src)
 		}
-		t.Errorf("a compliance regime is named outside any disclaiming "+
-			"section, so it reads as a claim: %q", p[a:b])
+		t.Errorf("%q appears in section %q, which is not a disclaiming "+
+			"section — outside %v it reads as a claim: %q",
+			src[m[0]:m[1]], id, keys(allowed), flat(src[a:b]))
 	}
+	if hits == 0 {
+		t.Fatal("the page no longer names any compliance regime — the honest " +
+			"disclosure that we hold none appears to have been deleted")
+	}
+}
+
+// keys returns a map's keys, sorted, for a stable error message.
+func keys(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // The form's action and the CSP that governs it live in two files and have to
@@ -486,36 +511,37 @@ func TestDurabilityClaimsNameTheDriver(t *testing.T) {
 		t.Skip("the default storage driver is no longer memory; revisit this test")
 	}
 
-	// Structural, like the certification check above, and for the same reason:
-	// two attempts to read honesty out of the surrounding words both failed.
-	// Anchoring on "restart" within one sentence missed the real claim once
-	// the copy was split into three sentences, and a bag of negation words
-	// counted "no horizontal scaling and no failover" as a durability
-	// disclaimer while accepting "held safely in memory" as one too.
+	// Four attempts to RECOGNISE a durability overclaim in arbitrary prose all
+	// failed the same way: an open-ended claim cannot be matched by closed word
+	// lists. "Chat logs survive a restart", "Transcripts are stored
+	// permanently" and "Your history is safe across restarts" are the same lie
+	// in words no list anticipated, while "Transcripts are preserved — on
+	// Postgres, not in memory" is honest and was being failed.
 	//
-	// The rule that actually holds: if the page says session data survives,
-	// the store must be named in the SAME clause. Not the sentence, not a
-	// window — the clause, because that is where a reader takes the
-	// qualification from. "Transcripts survive it on the Postgres store" is
-	// honest; "Transcripts survive it." is not, wherever "restart" sits.
-	claim := regexp.MustCompile(
-		`\b(transcript|session|history|conversation)s?\b[^,;.]{0,60}` +
-			`\b(survives?|persists?|outlasts?|durable|preserved|retained)\b`)
-
-	for _, s := range sentences(prose(t)) {
-		for _, loc := range claim.FindAllStringIndex(s, -1) {
-			// The clause carrying the claim: to the next comma, semicolon or
-			// dash, which is where "on the Postgres store" attaches.
-			tail := s[loc[0]:]
-			if i := strings.IndexAny(tail, ",;—–"); i >= 0 {
-				tail = tail[:i]
-			}
-			if regexp.MustCompile(`postgres|\bnot\b|\bno\b`).MatchString(tail) {
-				continue
-			}
-			t.Errorf("the page claims durability without naming the store in "+
-				"the same clause: %q (in: %q) — the default driver is memory, "+
-				"where it is false", tail, s)
+	// So this does not scan for claims. The page makes exactly one durability
+	// statement, in the Single node row of the limitations table, and that row
+	// is what a reader checks. This pins THAT sentence: it must say what
+	// survives a restart, and it must name Postgres while doing so. Rewriting
+	// the row fails the test and demands a fresh reading; deleting it fails
+	// too. Prose elsewhere on the page is caught by the section it lives in —
+	// a durability promise in the hero is a claim the limitations table then
+	// contradicts, which is TestPageDoesNotContradictItsOwnLimitations's job.
+	p := prose(t)
+	row := regexp.MustCompile(
+		`a restart ends running turns[^.]*\.[^.]*\.[^.]*\.`).FindString(p)
+	if row == "" {
+		t.Fatal("the limitations table no longer says what a restart does — " +
+			"that row is the page's only statement about durability, and the " +
+			"default store loses transcripts, so it cannot simply be dropped")
+	}
+	for _, must := range []struct{ word, why string }{
+		{"postgres", "transcripts survive only on the Postgres store"},
+		{"accounts survive", "accounts DO survive: file-backed users.json"},
+		{"they do not", "the in-memory default must be stated as losing them"},
+	} {
+		if !strings.Contains(row, must.word) {
+			t.Errorf("the durability row no longer says %q — %s. Row reads: %q",
+				must.word, must.why, row)
 		}
 	}
 }
@@ -545,6 +571,14 @@ func TestPageDoesNotContradictItsOwnLimitations(t *testing.T) {
 			"a human red-team engagement remains outstanding"},
 		{`scales? horizontally|horizontal scaling (is|with)|automatic failover`,
 			"sessions live in one process; there is no scaling and no failover"},
+		// Durability in free prose. The limitations row is pinned exactly by
+		// TestDurabilityClaimsNameTheDriver; this catches the same promise made
+		// anywhere else, where the default in-memory store makes it false.
+		{`\b(transcript|session|history|chat log|conversation)s?\b[^.]{0,50}` +
+			`\b(survives?|persists?|durable|stored permanently|safe across|` +
+			`kept across|retained across)\b|` +
+			`\b(survives?|persists?)\b[^.]{0,30}\brestarts?\b`,
+			"the default store is in-memory; only Postgres survives a restart"},
 	} {
 		re := regexp.MustCompile(c.pattern)
 		for _, s := range sentences(p) {
@@ -552,9 +586,34 @@ func TestPageDoesNotContradictItsOwnLimitations(t *testing.T) {
 			if m == "" {
 				continue
 			}
-			// The limitations table states these in order to deny them.
-			if regexp.MustCompile(`\bno\b|\bnot\b|\bnever\b|remains outstanding|` +
-				`contained, not|rather than|there is no`).MatchString(s) {
+			// The limitations table states these in order to deny them. The
+			// negation has to govern the CLAIM, though: "Sessions persist with
+			// no extra configuration" is a false durability promise wearing an
+			// unrelated "no", which is the bug that survived three rewrites of
+			// the old durability guard. So the exemption is checked against the
+			// matched claim plus the few words before it, not the sentence.
+			// Both directions: a denial usually precedes the claim ("nothing
+			// is retained") while the store usually follows it ("survive it on
+			// the Postgres store"). Bounded either way so an unrelated
+			// negation elsewhere in a long sentence cannot excuse the claim.
+			at := strings.Index(s, m)
+			from, to := at-30, at+len(m)+40
+			if from < 0 {
+				from = 0
+			}
+			if to > len(s) {
+				to = len(s)
+			}
+			near := s[from:to]
+			// Bare "no" is NOT a denial marker. "Sessions persist with no
+			// extra configuration" defeated three earlier versions of this
+			// check on that word alone — it negates the configuration, not the
+			// claim. The markers below each negate a claim directly, or name
+			// the store that makes the claim true.
+			if regexp.MustCompile(`\bnot\b|\bnever\b|\bnothing\b|\bno longer\b|` +
+				`\bdo(es)? not\b|\bcannot\b|\bwithout\b|there is no|holds no|` +
+				`remains outstanding|contained, not|rather than|postgres`).
+				MatchString(near) {
 				continue
 			}
 			t.Errorf("the page claims %q, contradicting its own limitations: %s "+
