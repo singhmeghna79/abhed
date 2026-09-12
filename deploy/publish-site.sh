@@ -37,9 +37,27 @@ echo
 # the version here beats depending on whatever wrangler a machine happens to
 # have. The first run opens a browser to authorise — that step cannot be
 # automated, and should not be.
-npm_config_cache="${TMPDIR:-/tmp}/zybuu-npm" npx --yes wrangler@3 pages deploy "$DIR" \
+# cd into the site directory first. wrangler resolves functions/ relative to
+# the CURRENT WORKING DIRECTORY, not the directory being deployed, so running
+# this from the repo root uploaded the page and silently skipped the Function:
+# the deploy reported success, and POST /api/access returned 405 in production
+# with the form pointing straight at it. From inside the directory the output
+# reads "Compiled Worker successfully" and "Uploading Functions bundle" — if
+# those two lines are missing, the form is not deployed.
+cd "$DIR"
+out=$(npm_config_cache="${TMPDIR:-/tmp}/zybuu-npm" npx --yes wrangler@3 pages deploy . \
     --project-name "$PROJECT" \
-    --commit-dirty=true
+    --commit-dirty=true 2>&1 | tee /dev/stderr)
+
+# Verified, not assumed. A deploy that skips the Function still reports
+# "Deployment complete", so success here is not the same as the form working.
+if ! grep -q "Functions bundle" <<<"$out"; then
+    echo
+    echo "!!  The Functions bundle was NOT uploaded — /api/access will 405 and"
+    echo "!!  the access form is broken in production. Nothing else is wrong;"
+    echo "!!  re-run this script rather than deploying by hand."
+    exit 1
+fi
 
 cat <<'TEXT'
 
