@@ -1,0 +1,142 @@
+
+/* The same tokens the Titan console uses. A homepage and the product behind it
+   reading as one company is not decoration — it is the cheapest possible signal
+   that the thing is coherently built. */
+:root{
+  --bg:#F5F7FA; --surface:#FFFFFF; --sunken:#EDF1F6;
+  --line:#DCE3EC; --line-strong:#C4CFDD;
+  --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
+  --accent:#1F6FB8; --accent-2:#3FA9F5; --accent-deep:#123E6B;
+  --accent-soft:#E3EEF8;
+  --ok:#1A7F4B; --ok-bg:#E3F3EA; --warn:#9A6A16; --warn-bg:#FAF0DC;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
+  --maxw:1080px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+    --line:#252D3A; --line-strong:#333D4D;
+    --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
+    --accent:#4C8FD6; --accent-soft:#16283C;
+    --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+  --line:#252D3A; --line-strong:#333D4D;
+  --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
+  --accent:#4C8FD6; --accent-soft:#16283C;
+  --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
+img,svg{max-width:100%}
+.bar{display:flex;align-items:center;gap:12px;height:58px}
+.logo{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:660;
+  font-size:16px;letter-spacing:-.015em}
+.logo:hover{text-decoration:none}
+.logo svg{width:29px;height:29px;flex:none}
+.nav{margin-left:auto;display:flex;align-items:center;gap:22px}
+.nav a{color:var(--ink-2);font-size:14px;font-weight:500}
+.nav a:hover{color:var(--ink);text-decoration:none}
+@media (max-width:720px){.nav a.hide-sm{display:none}}
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--accent);
+  color:#fff;border:1px solid var(--accent);border-radius:8px;padding:9px 17px;
+  font-size:14px;font-weight:600;cursor:pointer;
+  transition:filter .14s,transform .14s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px);text-decoration:none;color:#fff}
+.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+.btn.ghost:hover{border-color:var(--accent);filter:none;color:var(--ink)}
+.btn.lg{padding:12px 22px;font-size:15px}
+
+/* -------------------------------------------------------------------- hero */
+.hero{padding:78px 0 62px;position:relative;overflow:hidden}
+/* min() rather than a fixed 900px: a decorative glow must never be the thing
+   that makes the page scroll sideways, and capping it here means the rule holds
+   at every width instead of only below a breakpoint. */
+.hero::before{content:'';position:absolute;top:-180px;left:50%;
+  width:min(900px,100%);height:520px;
+  transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(ellipse at center,var(--accent-soft),transparent 68%);
+  opacity:.75}
+.bar{height:54px;gap:9px}
+.nav{gap:14px}
+  /* The lockup name is redundant next to the mark at this width. */
+  .logo{font-size:15px}
+/* ---- documentation layout ------------------------------------------- */
+.dwrap{max-width:1240px;margin:0 auto;padding:0 28px}
+.layout{display:grid;grid-template-columns:246px minmax(0,1fr);gap:44px;
+  align-items:start;padding-top:30px;padding-bottom:64px}
+@media (max-width:860px){.layout{grid-template-columns:1fr;gap:22px}}
+
+.side{position:sticky;top:78px;max-height:calc(100vh - 104px);overflow-y:auto;
+  padding-right:8px}
+@media (max-width:860px){.side{position:static;max-height:none;
+  border-bottom:1px solid var(--line);padding-bottom:18px}}
+.side-home{display:block;font-weight:650;font-size:14px;color:var(--ink);
+  margin-bottom:16px;letter-spacing:-.01em}
+.side-home:hover{text-decoration:none;color:var(--accent)}
+.sgrp{margin-bottom:20px}
+.slabel{margin:0 0 7px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.side ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.side li a{display:block;padding:5px 10px;border-radius:7px;font-size:13.6px;
+  color:var(--ink-2);line-height:1.45;border-left:2px solid transparent}
+.side li a:hover{background:var(--sunken);color:var(--ink);text-decoration:none}
+.side li a.on{background:var(--accent-soft);color:var(--accent);font-weight:600;
+  border-left-color:var(--accent)}
+
+.doc{min-width:0;max-width:74ch}
+.doc h1{margin:0 0 18px;font-size:clamp(26px,3.6vw,36px);line-height:1.14;
+  letter-spacing:-.028em;font-weight:680;text-wrap:balance}
+.doc h2{margin:38px 0 13px;font-size:22px;letter-spacing:-.018em;font-weight:660;
+  padding-bottom:8px;border-bottom:1px solid var(--line);text-wrap:balance}
+.doc h3{margin:28px 0 10px;font-size:17px;letter-spacing:-.012em;font-weight:640}
+.doc h4{margin:22px 0 8px;font-size:15px;font-weight:640;color:var(--ink-2)}
+.doc p{margin:0 0 14px;color:var(--ink-2);line-height:1.68}
+.doc .lede{font-size:17px;color:var(--ink-2);line-height:1.6;margin-bottom:26px}
+.doc ul,.doc ol{margin:0 0 15px;padding-left:22px;color:var(--ink-2);line-height:1.68}
+.doc li{margin-bottom:5px}
+.doc li::marker{color:var(--muted)}
+.doc hr{border:0;border-top:1px solid var(--line);margin:30px 0}
+.doc blockquote{margin:0 0 15px;padding:12px 17px;border-left:3px solid var(--accent);
+  background:var(--accent-soft);border-radius:0 9px 9px 0;color:var(--ink-2)}
+.doc blockquote p:last-child{margin-bottom:0}
+.doc code{font-family:var(--mono);font-size:12.9px;background:var(--sunken);
+  border:1px solid var(--line);padding:1px 5px;border-radius:5px;
+  word-break:break-word}
+.doc pre.code{background:#0B0E13;border:1px solid #252D3A;border-radius:11px;
+  padding:15px 17px;overflow-x:auto;margin:0 0 16px}
+.doc pre.code code{background:none;border:0;padding:0;color:#C9D4E2;
+  font-size:12.7px;line-height:1.66;white-space:pre;word-break:normal}
+.doc a{text-decoration:underline;text-underline-offset:2px;
+  text-decoration-color:color-mix(in srgb,var(--accent) 42%,transparent)}
+
+.tw{overflow-x:auto;margin:0 0 17px;border:1px solid var(--line);border-radius:11px}
+.doc table{border-collapse:collapse;width:100%;font-size:13.8px}
+.doc th,.doc td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);
+  vertical-align:top;color:var(--ink-2)}
+.doc th{background:var(--sunken);color:var(--ink);font-weight:620;white-space:nowrap}
+.doc tbody tr:last-child td{border-bottom:0}
+.doc td code{white-space:nowrap}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));
+  gap:12px;margin:0 0 30px}
+.dcard{display:flex;flex-direction:column;gap:6px;padding:16px 18px;
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  text-decoration:none;transition:border-color .16s,transform .16s}
+.dcard:hover{border-color:var(--accent);transform:translateY(-2px);text-decoration:none}
+.dcard b{font-size:14.6px;color:var(--ink);letter-spacing:-.01em}
+.dcard span{font-size:13px;color:var(--muted);line-height:1.55}
+
+footer{border-top:1px solid var(--line);padding:22px 0;margin-top:10px}
+.foot{display:flex;gap:20px;flex-wrap:wrap;font-family:var(--mono);
+  font-size:11.5px;color:var(--muted)}
+.foot a{color:var(--muted)}
+.foot a:hover{color:var(--accent)}

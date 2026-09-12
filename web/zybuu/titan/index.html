@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Titan — the agent harness that runs on your hardware</title>
+<meta name="description" content="Titan is a deep agent harness: five run surfaces, twenty model providers behind one abstraction, a tiered execution sandbox and a replayable audit trail. It runs on your own hardware against a model you host.">
+<meta property="og:title" content="Titan — an agent harness that runs where your data cannot leave">
+<meta property="og:description" content="Five run surfaces, twenty providers, policy and audit that hold when embedded.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://zybuu.com/titan/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='12' y='12' width='232' height='232' rx='64' fill='%23080D18'/%3E%3Crect x='13.5' y='13.5' width='229' height='229' rx='62.5' fill='none' stroke='%232E9BE8' stroke-width='11'/%3E%3Cg fill='%232BF5C4'%3E%3Crect x='70' y='76' width='116' height='25' rx='6'/%3E%3Cpath d='M152 107 H186 L104 149 H70 Z'/%3E%3Crect x='70' y='155' width='116' height='25' rx='6'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+/* The same tokens the Titan console uses. A homepage and the product behind it
+   reading as one company is not decoration — it is the cheapest possible signal
+   that the thing is coherently built. */
+:root{
+  --bg:#F5F7FA; --surface:#FFFFFF; --sunken:#EDF1F6;
+  --line:#DCE3EC; --line-strong:#C4CFDD;
+  --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
+  --accent:#1F6FB8; --accent-2:#3FA9F5; --accent-deep:#123E6B;
+  --accent-soft:#E3EEF8;
+  --ok:#1A7F4B; --ok-bg:#E3F3EA; --warn:#9A6A16; --warn-bg:#FAF0DC;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
+  --maxw:1080px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+    --line:#252D3A; --line-strong:#333D4D;
+    --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
+    --accent:#4C8FD6; --accent-soft:#16283C;
+    --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0E13; --surface:#141922; --sunken:#0F141C;
+  --line:#252D3A; --line-strong:#333D4D;
+  --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
+  --accent:#4C8FD6; --accent-soft:#16283C;
+  --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
+img,svg{max-width:100%}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+
+/* ------------------------------------------------------------------ header */
+header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:12px;height:58px}
+.logo{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:660;
+  font-size:16px;letter-spacing:-.015em}
+.logo:hover{text-decoration:none}
+.logo svg{width:29px;height:29px;flex:none}
+.nav{margin-left:auto;display:flex;align-items:center;gap:22px}
+.nav a{color:var(--ink-2);font-size:14px;font-weight:500}
+.nav a:hover{color:var(--ink);text-decoration:none}
+@media (max-width:720px){.nav a.hide-sm{display:none}}
+
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--accent);
+  color:#fff;border:1px solid var(--accent);border-radius:8px;padding:9px 17px;
+  font-size:14px;font-weight:600;cursor:pointer;
+  transition:filter .14s,transform .14s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px);text-decoration:none;color:#fff}
+.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+.btn.ghost:hover{border-color:var(--accent);filter:none;color:var(--ink)}
+.btn.lg{padding:12px 22px;font-size:15px}
+
+/* -------------------------------------------------------------------- hero */
+.hero{padding:78px 0 62px;position:relative;overflow:hidden}
+/* min() rather than a fixed 900px: a decorative glow must never be the thing
+   that makes the page scroll sideways, and capping it here means the rule holds
+   at every width instead of only below a breakpoint. */
+.hero::before{content:'';position:absolute;top:-180px;left:50%;
+  width:min(900px,100%);height:520px;
+  transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(ellipse at center,var(--accent-soft),transparent 68%);
+  opacity:.75}
+.hero .inner{position:relative}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);
+  background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
+  border-radius:999px;padding:5px 13px;margin-bottom:20px}
+h1{margin:0 0 18px;font-size:clamp(30px,5.2vw,52px);line-height:1.08;
+  letter-spacing:-.032em;font-weight:680;max-width:19ch;text-wrap:balance}
+.lede{margin:0 0 28px;font-size:clamp(16px,2.1vw,19px);color:var(--ink-2);
+  max-width:62ch;line-height:1.58}
+.hero-cta{display:flex;gap:11px;flex-wrap:wrap;align-items:center}
+.hero-note{margin-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+/* ------------------------------------------------------------------ thesis */
+section{padding:58px 0}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+h2{margin:0 0 16px;font-size:clamp(22px,3.2vw,31px);line-height:1.2;
+  letter-spacing:-.022em;font-weight:660;max-width:24ch;text-wrap:balance}
+.body{color:var(--ink-2);max-width:66ch;margin:0 0 14px}
+.body:last-child{margin-bottom:0}
+
+.thesis{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  padding:34px 34px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:34px;
+  align-items:start}
+.bignum{text-align:center;padding-right:32px;border-right:1px solid var(--line);min-width:150px}
+.bignum b{display:block;font-size:clamp(38px,6vw,54px);font-weight:700;
+  letter-spacing:-.04em;line-height:1;
+  background:linear-gradient(135deg,var(--accent-2),var(--accent) 55%,var(--accent-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.bignum span{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);line-height:1.5}
+@media (max-width:740px){
+  .thesis{grid-template-columns:1fr;gap:20px;padding:26px 22px}
+  .bignum{text-align:left;padding:0 0 18px;border-right:0;border-bottom:1px solid var(--line)}
+}
+
+/* ---------------------------------------------------------------- products */
+/* auto-fit packs four cards as 3 + 1, leaving the fourth alone on a row and
+   reading as an accident. Both grids on this page hold four, so pair them. */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+@media (max-width:680px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:22px;display:flex;flex-direction:column;gap:9px;
+  transition:border-color .16s,transform .16s}
+.card h3{margin:0;font-size:16.5px;font-weight:640;letter-spacing:-.012em;
+  display:flex;align-items:center;gap:9px}
+.card p{margin:0;font-size:14px;color:var(--ink-2);line-height:1.55}
+
+/* ---------------------------------------------------------------- evidence */
+.ev{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;
+  margin-bottom:20px}
+.ev div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:19px}
+.ev b{display:block;font-size:26px;font-weight:700;letter-spacing:-.03em;
+  color:var(--accent);line-height:1.1}
+.ev span{display:block;margin-top:6px;font-size:12.5px;color:var(--muted);line-height:1.45}
+
+/* The limitations table. Plainly set on purpose — this is the section a
+   sceptical reader goes to first, and dressing it up would undercut it. */
+/* A card whose guarantee depends on the durable store says so on its face.
+   The alternative is a reader assuming it applies to the default install. */
+.req-pg{font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;font-weight:600;padding:2px 6px;border-radius:4px;
+  background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+
+.lim{width:100%;border-collapse:collapse;font-size:14px}
+.lim th,.lim td{text-align:left;padding:11px 14px;vertical-align:top;
+  border-bottom:1px solid var(--line)}
+.lim th{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;
+  border-bottom:1px solid var(--line-strong)}
+.lim td:first-child{font-weight:600;white-space:nowrap;padding-right:24px}
+.lim td:last-child{color:var(--ink-2);max-width:60ch}
+.lim tr:last-child td{border-bottom:0}
+.scroll{overflow-x:auto}
+
+/* Code. This page is read by people who will check the claims, so the sample
+   is real — it compiles against the SDK's actual signatures. */
+.code{background:var(--sunken);border:1px solid var(--line);border-radius:10px;
+  padding:18px 20px;margin:0;overflow-x:auto;
+  font-family:var(--mono);font-size:12.5px;line-height:1.62;color:var(--ink-2)}
+.code code{font-family:inherit}
+code{font-family:var(--mono);font-size:.92em;background:var(--sunken);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink)}
+.lim td code,.code code{background:none;border:0;padding:0}
+@media (max-width:640px){
+  .lim td:first-child{white-space:normal}
+  .lim th,.lim td{padding:9px 10px}
+}
+
+.honest{background:var(--sunken);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:0 12px 12px 0;padding:18px 22px;margin-top:22px}
+.honest p{margin:0;font-size:14px;color:var(--ink-2);max-width:70ch}
+.honest strong{color:var(--ink)}
+
+/* ----------------------------------------------------------------- contact */
+.cta-band{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  padding:38px 34px;text-align:center}
+.cta-band h2{margin:0 auto 12px;max-width:22ch}
+.cta-band .body{margin:0 auto 22px}
+
+/* The access form. Left-aligned inside a centred band: centred labels above
+   centred inputs is harder to fill in than it looks. */
+.req{max-width:520px;margin:0 auto;text-align:left;display:grid;gap:13px}
+.req label{display:block;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.req input,.req textarea{width:100%;margin-top:6px;background:var(--bg);
+  border:1px solid var(--line-strong);border-radius:8px;padding:10px 12px;
+  font-size:15px;font-family:var(--sans);color:var(--ink);resize:vertical}
+.req input:focus,.req textarea:focus{outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft)}
+.req .btn{justify-content:center;width:100%}
+.req .note{text-align:center;margin:0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+/* A field no person sees. Bots fill every input they find, so one that should
+   always be empty is the cheapest filter available — and it costs a real
+   visitor nothing, unlike a puzzle. */
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.req .msg{text-align:center;margin:0;padding:9px 12px;border-radius:7px;
+  font-size:13.5px}
+.req .msg.ok{background:var(--ok-bg);color:var(--ok)}
+.req .msg.bad{background:var(--warn-bg);color:var(--warn)}
+@media (max-width:560px){.row2{grid-template-columns:1fr}}
+
+footer{border-top:1px solid var(--line);padding:26px 0 40px;margin-top:34px}
+.foot{display:flex;gap:16px;flex-wrap:wrap;align-items:center;
+  font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.foot .spacer{flex:1}
+
+/* Nothing may exceed the viewport width. A single overflowing element makes the
+   whole page scroll sideways, which on a phone reads as broken rather than as
+   one wide element — and this is the page an investor opens on their phone. */
+html,body{max-width:100%;overflow-x:hidden}
+h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
+
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .hero{padding:46px 0 40px}
+  section{padding:40px 0}
+  .thesis,.cta-band{padding:24px 20px}
+  .ev b{font-size:22px}
+  /* The radial glow is 900px wide and would itself force a sideways scroll. */
+  .hero::before{width:100%;left:0;transform:none}
+  /* Full-width buttons: a 44px tap target that spans the column is easier to
+     hit than two half-width ones, and it stops the pair wrapping awkwardly. */
+  .hero-cta{flex-direction:column;align-items:stretch}
+  .hero-cta .btn{justify-content:center}
+  .bar{height:54px;gap:9px}
+  .nav{gap:14px}
+  /* The lockup name is redundant next to the mark at this width. */
+  .logo{font-size:15px}
+  .foot{flex-direction:column;align-items:flex-start;gap:6px}
+  .foot .spacer{display:none}
+}
+</style>
+
+<style>
+/* ---- the replay ------------------------------------------------------ */
+.replay{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
+  gap:22px;align-items:start}
+@media (max-width:900px){.replay{grid-template-columns:1fr}}
+.term{background:#0B0E13;border:1px solid #252D3A;border-radius:13px;
+  overflow:hidden;position:sticky;top:74px}
+@media (max-width:900px){.term{position:static}}
+.term-bar{display:flex;align-items:center;gap:7px;padding:10px 14px;
+  border-bottom:1px solid #252D3A;background:#0F141C}
+.dot{width:10px;height:10px;border-radius:50%}
+.term-bar .t{margin-left:8px;font-family:var(--mono);font-size:11px;color:#8A96A8}
+.term-body{padding:15px 16px;font-family:var(--mono);font-size:12.4px;
+  line-height:1.62;min-height:332px;max-height:332px;overflow-y:auto;
+  color:#C9D4E2;white-space:pre-wrap;word-break:break-word}
+.term-body .p{color:#2BF5C4}
+.term-body .cmd{color:#E8EDF4}
+.term-body .tool{color:#6FB3EE}
+.term-body .res{color:#8A96A8}
+.term-body .ok{color:#3FAF6C}
+.term-body .warn{color:#D4A03C}
+.term-body .dim{color:#77839A}
+.cursor{display:inline-block;width:7px;height:14px;background:#2BF5C4;
+  vertical-align:-2px;animation:bl 1.05s steps(2) infinite}
+@keyframes bl{0%,50%{opacity:1}51%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cursor{animation:none}}
+
+.steps{display:flex;flex-direction:column;gap:9px}
+.step{border:1px solid var(--line);border-radius:11px;padding:15px 17px;
+  background:var(--surface);cursor:pointer;text-align:left;font:inherit;
+  color:inherit;transition:border-color .16s,background .16s}
+.step:hover{border-color:var(--line-strong)}
+.step[aria-current="true"]{border-color:var(--accent);
+  background:linear-gradient(180deg,var(--accent-soft),var(--surface) 70%)}
+.step h4{margin:0 0 6px;font-size:14.5px;letter-spacing:-.01em;
+  display:flex;align-items:center;gap:9px}
+.step .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);
+  border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none}
+.step[aria-current="true"] .n{color:var(--accent);
+  border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.step p{margin:0;font-size:13.6px;color:var(--ink-2);line-height:1.6}
+.step p code{font-family:var(--mono);font-size:12.4px;background:var(--sunken);
+  padding:1px 5px;border-radius:4px}
+.replay-ctl{display:flex;gap:9px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.replay-ctl .note{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* ---- install --------------------------------------------------------- */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{font:inherit;font-size:13.2px;font-weight:560;padding:7px 14px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
+  border-radius:8px;cursor:pointer;transition:border-color .14s,color .14s}
+.tab:hover{border-color:var(--line-strong);color:var(--ink)}
+.tab[aria-selected="true"]{border-color:var(--accent);color:var(--accent);
+  background:var(--accent-soft)}
+pre.code{background:#0B0E13;border:1px solid #252D3A;border-radius:11px;
+  padding:15px 17px;overflow-x:auto;margin:0 0 12px;
+  font-family:var(--mono);font-size:12.6px;line-height:1.66;color:#C9D4E2}
+pre.code .c{color:#77839A}
+pre.code .g{color:#2BF5C4}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);
+  padding:13px 16px;border-radius:0 9px 9px 0;margin:14px 0;
+  font-size:14px;color:var(--ink-2)}
+.callout strong{color:var(--ink)}
+</style>
+
+</head>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="/">
+      <svg viewBox="0 0 256 256" aria-hidden="true">
+        <defs>
+          <linearGradient id="zg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#2BF5C4"/>
+            <stop offset="48%" stop-color="#2E9BE8"/>
+            <stop offset="100%" stop-color="#1B4FA8"/>
+          </linearGradient>
+          <radialGradient id="zg-core" cx="50%" cy="42%" r="70%">
+            <stop offset="0%" stop-color="#132A47"/>
+            <stop offset="100%" stop-color="#080D18"/>
+          </radialGradient>
+        </defs>
+        <!-- A dark tile with a lit edge, where Titan uses a solid hexagon. The
+             hexagon means "a component in a system"; Zybuu is what components
+             are built on, so the parent gets a substrate shape. -->
+        <rect x="12" y="12" width="232" height="232" rx="64" fill="url(#zg-core)"/>
+        <rect x="13.5" y="13.5" width="229" height="229" rx="62.5"
+              fill="none" stroke="url(#zg)" stroke-width="9"/>
+        <g fill="url(#zg)">
+          <rect x="70" y="76" width="116" height="25" rx="6"/>
+          <path d="M152 107 H186 L104 149 H70 Z"/>
+          <rect x="70" y="155" width="116" height="25" rx="6"/>
+        </g>
+      </svg>
+      Zybuu
+    </a>
+    <nav class="nav">
+      <a href="/" class="hide-sm">Zybuu</a>
+      <a href="#install">Install</a>
+      <a href="#harness" class="hide-sm">Harness</a>
+      <a href="/docs/">Docs</a>
+      <a class="btn" href="https://titan.zybuu.com">Open console</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap inner">
+    <span class="eyebrow">Titan · a Zybuu product</span>
+    <h1>Many agent harnesses. This one runs where your data cannot leave.</h1>
+    <p class="lede">
+      Titan is a deep agent harness: the loop, the tool contracts, the
+      permission engine and the sandbox. It runs on your own hardware, against
+      a model you host. Policy, audit and deny rules hold when you embed it in
+      something else.
+    </p>
+    <div class="hero-cta">
+      <a class="btn lg" href="#install">Install it</a>
+      <a class="btn ghost lg" href="#replay">Watch a real run</a>
+    </div>
+    <p class="hero-note">Single static binary · 20 providers · no egress by default</p>
+  </div>
+</section>
+
+<!-- The replay. Every line is captured from a real session; see
+     deploy/sitetests/ for the capture and the checks that keep the page's
+     numbers honest. -->
+<section id="replay">
+  <div class="wrap">
+    <p class="kicker">A real session</p>
+    <h2>Ninety seconds, captured — not a mock-up.</h2>
+    <p class="body" style="margin-bottom:24px">
+      A 26B model running locally, asked to add a function, write a
+      table-driven test for it, and run the suite. Step through it; the
+      explanation on the right follows the terminal.
+    </p>
+
+    <div class="replay">
+      <div class="term">
+        <div class="term-bar">
+          <span class="dot" style="background:#FF5F57"></span>
+          <span class="dot" style="background:#FEBC2E"></span>
+          <span class="dot" style="background:#28C840"></span>
+          <span class="t">~/demo — titan</span>
+        </div>
+        <div class="term-body" id="tb" role="img" aria-label="Terminal replay of a real Titan session"></div>
+      </div>
+
+      <div>
+        <div class="steps" id="steps">
+      <button class="step" type="button" data-i="0" aria-current="true"><h4><span class="n">1</span>Check the model before you trust it</h4><p>A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back — ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open.</p></button>
+      <button class="step" type="button" data-i="1" aria-current="false"><h4><span class="n">2</span>One prompt, no terminal to sit in front of</h4><p><code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace.</p></button>
+      <button class="step" type="button" data-i="2" aria-current="false"><h4><span class="n">3</span>It recovers, then it reads</h4><p>The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate — and that you can replay afterwards from the event log, in order, with their arguments.</p></button>
+      <button class="step" type="button" data-i="3" aria-current="false"><h4><span class="n">4</span>Writes are a permission, not a default</h4><p>Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse — never assume yes.</p></button>
+      <button class="step" type="button" data-i="4" aria-current="false"><h4><span class="n">5</span>And it checks its own work</h4><p><code>go test</code> passes. The whole task — read, edit, write, verify — took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost.</p></button>
+        </div>
+        <div class="replay-ctl">
+          <button class="btn ghost" type="button" id="rp">Replay</button>
+          <span class="note" id="pos">step 1 of 5</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <p class="kicker">Install</p>
+    <h2>One static binary. No runtime to install.</h2>
+
+    <div class="tabs" id="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"  data-t="src">From source</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="air">Air-gapped bundle</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="run">First run</button>
+    </div>
+
+    <div id="pane-src">
+      <pre class="code"><span class="c"># Go 1.26 or newer. Titan is a single binary with no runtime dependencies.</span>
+git clone https://github.com/yuvrajsingh/titan
+cd titan
+go build -o ~/.local/bin/titan ./cmd/titan
+
+titan -version</pre>
+      <div class="callout">
+        <strong>The repository is not public yet.</strong> There is no
+        <code>go install</code> path and no piped-shell installer,
+        because neither would work today and both are easy to check. Access is
+        by request — the form is at the bottom of this page.
+      </div>
+    </div>
+
+    <div id="pane-air" hidden>
+      <pre class="code"><span class="c"># Build a signed bundle on a connected machine:</span>
+./scripts/build-bundle.sh          <span class="c"># -&gt; titan-bundle.tar.gz + .sha256 + .sig</span>
+
+<span class="c"># Carry it in. On the target, with no internet route:</span>
+./scripts/verify-bundle.sh titan-bundle.tar.gz
+tar xzf titan-bundle.tar.gz &amp;&amp; ./install.sh</pre>
+      <div class="callout">
+        Verification is separate from install on purpose: a bundle that fails
+        its signature check should never reach the installer. This is the path
+        the air-gapped deployments actually use.
+      </div>
+    </div>
+
+    <div id="pane-run" hidden>
+      <pre class="code"><span class="c"># Titan does not ship a model. Point it at one you host:</span>
+ollama serve
+ollama pull qwen3-coder:30b
+
+<span class="c"># Then, in the directory you want the agent to work in:</span>
+titan init      <span class="c"># writes .titan/config.json, detects a local endpoint</span>
+titan doctor    <span class="c"># check the endpoint before you rely on it</span>
+
+<span class="g">Ready.</span></pre>
+      <div class="callout">
+        <code>titan doctor</code> is worth the ten seconds. It checks the
+        endpoint answers <strong>and</strong> that the model can emit a
+        structured tool call — a model that describes one in prose cannot drive
+        an agent, and finding that out mid-task wastes the run.
+      </div>
+    </div>
+
+    <p class="body" style="margin-top:20px">
+      Full instructions, configuration and every tool contract are in the
+      <a href="/docs/">documentation</a>.
+    </p>
+  </div>
+</section>
+
+<section id="harness">
+  <div class="wrap">
+    <p class="kicker">The harness</p>
+    <h2>Five ways to run it. One set of rules.</h2>
+    <p class="body" style="margin-bottom:24px">
+      The same agent loop, the same policy engine, the same audit trail, whether
+      you drive it from a terminal, a pipeline, another language, or your own
+      Go service. A guarantee that held in the CLI and not in the server would
+      not be a guarantee.
+    </p>
+
+    <div class="scroll">
+      <table class="lim">
+        <thead><tr><th>Surface</th><th>What it is for</th></tr></thead>
+        <tbody>
+          <tr><td><code>titan</code></td>
+              <td>Interactive. Line editor, slash commands, steer a run mid-flight.</td></tr>
+          <tr><td><code>titan -p "…"</code></td>
+              <td>Headless. One prompt, typed exit code, for CI and scripts.</td></tr>
+          <tr><td><code>-output-format json</code></td>
+              <td>One JSON event per line on stdout, streamed as it happens.</td></tr>
+          <tr><td><code>titan rpc</code></td>
+              <td>JSONL over stdio. Drive it as a subprocess from any language.</td></tr>
+          <tr><td><code>titan serve</code></td>
+              <td>REST, SSE and a web console. Multi-user, tenant-scoped.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section id="embed">
+  <div class="wrap">
+    <p class="kicker">Embed it</p>
+    <h2>Policy, audit and deny rules hold when embedded.</h2>
+    <p class="body">
+      Your application supplies the approver and consumes the event stream —
+      because a host usually has better ideas than a terminal prompt about how
+      to ask a user for permission. Policy still decides what runs, every action
+      is still recorded, and an extension still cannot permit what a deny rule
+      forbids. No approver means refuse, never assume yes.
+    </p>
+    <p class="body">
+      One guarantee that does <em>not</em> come with it: the SDK builds no
+      sandbox. An embedded agent runs commands with the privileges of the
+      process that embedded it, so the host is responsible for isolation — a
+      container, a jail, a separate user — exactly as it would be for any other
+      library that shells out.
+    </p>
+
+    <div class="scroll">
+      <pre class="code"><code>a, err := titan.New(ctx, titan.Options{
+    Workspace: "/srv/work",
+    Provider:  &amp;titan.Provider{Type: "anthropic", Model: "claude-opus-4-5"},
+    Mode:      "auto",
+    Deny:      []string{"bash(rm -rf *)"},
+
+    // Your app decides. No approver means refuse — never assume yes.
+    Approve: func(ctx context.Context, tool string,
+        args json.RawMessage, d titan.Decision) (bool, error) {
+        return askYourUser(tool, args, d.Reason)
+    },
+
+    // Every action, as it happens.
+    OnEvent: func(ev titan.Event) { log.Println(ev.Type) },
+})
+defer a.Close()
+
+answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
+    </div>
+
+    <p class="body" style="margin-top:16px">
+      <code>Run</code> &middot; <code>Continue</code> &middot;
+      <code>Steer</code> (from another goroutine, mid-run) &middot;
+      <code>Fork</code> &middot; <code>Events</code> &middot;
+      <code>Usage</code> &middot; <code>ExportHTML</code> &middot;
+      <code>SetModel</code>. For anything not written in Go,
+      <code>titan rpc</code> is the same agent over JSONL.
+    </p>
+  </div>
+</section>
+<section id="primitives">
+  <div class="wrap">
+    <p class="kicker">Primitives</p>
+    <h2>Extend it without forking it.</h2>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Extensions</h3>
+        <p>Separate processes speaking JSONL, in any language, on seven live events —
+          tool calls, results, context, compaction, agent start, tool listing
+          and invocation. They may <strong>veto,
+          never permit</strong>: an extension that could grant permission could
+          also remove the proof of what was permitted.</p>
+      </div>
+      <div class="card">
+        <h3>Skills</h3>
+        <p>A directory with a procedure in it. Only the name and description
+          reach the prompt — about fifteen tokens each — and the body is fetched
+          when the agent decides it applies. A skill may also declare a pipeline
+          the harness executes rather than asks the model to follow.</p>
+      </div>
+      <div class="card">
+        <h3>MCP</h3>
+        <p>Registered servers only, disabled until explicitly enabled, with an
+          optional tool allowlist, and credentials read from the environment
+          rather than a config file. Discovery does not imply trust.</p>
+      </div>
+      <div class="card">
+        <h3>Providers</h3>
+        <p>Twenty of them over three wire formats, added from config without a
+          rebuild. A sampling parameter the provider cannot honour fails at
+          startup rather than being silently ignored.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="governance">
+  <div class="wrap">
+    <p class="kicker">Governance</p>
+    <h2>What the agent did, provable afterwards.</h2>
+    <p class="body" style="margin-bottom:24px">
+      Most of what an agent harness offers can be added later as an extension.
+      Two things cannot: a log you can replay, and an isolation boundary the
+      database enforces. Both have to be in the core, which is where these are.
+    </p>
+    <p class="body" style="margin-bottom:24px">
+      <strong>They are not on by default.</strong> Titan ships with an
+      in-memory store, which keeps a single-machine trial simple and gives you
+      none of what follows. The triggers and the row-level security are
+      properties of the Postgres store — one config line — and a deployment
+      that needs to prove anything to an auditor has to be running it.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>The log is the session</h3>
+        <p>Every action is an event in the store, and the
+          conversation is <em>derived</em> from those events rather than
+          described by them. That is what makes replay exact and forking from
+          any earlier step cheap — nothing extra had to be stored to make
+          either work.</p>
+      </div>
+      <div class="card">
+        <h3>Immutable by trigger <span class="req-pg">Postgres</span></h3>
+        <p>Recorded events cannot be updated or deleted. Not by convention and
+          not in application code — by database triggers that reject the
+          statement, so an audit trail cannot be quietly rewritten by whatever
+          is holding the connection.</p>
+      </div>
+      <div class="card">
+        <h3>Tenants isolated in the database <span class="req-pg">Postgres</span></h3>
+        <p>Row-level security scopes every query, with <code>FORCE</code>
+          because a table's owner bypasses ordinary RLS — and the application
+          role usually owns the tables it created, which leaves the policy
+          silently inert. A test read another tenant's rows until
+          <code>FORCE</code> was added.</p>
+      </div>
+      <div class="card">
+        <h3>Deny is absolute</h3>
+        <p>A deny rule holds in every permission mode, including bypass. An
+          extension may veto a call and can never permit one, so no plugin,
+          profile or mode can widen what an operator forbade.</p>
+      </div>
+    </div>
+
+    <div class="honest" style="margin-top:22px">
+      <p>
+        <strong>What this is not.</strong> None of it is a compliance
+        certification, and none of it substitutes for one. It is the mechanism
+        an auditor would ask to see — who did what, under whose authority, and
+        can it be shown afterwards — built where it cannot be turned off rather
+        than asserted in a policy document.
+      </p>
+    </div>
+  </div>
+</section>
+<section id="context">
+  <div class="wrap">
+    <p class="kicker">Context engineering</p>
+    <h2>Compaction is a capacity decision, not a quality knob.</h2>
+    <p class="body">
+      The threshold is applied to used tokens <em>plus headroom for the turn
+      that is coming</em>, not to what has already happened. Without that
+      margin the check passes at 24,809 of a 32,768 window, the next tool
+      result adds 8,000, and the call fails — having been told, correctly, that
+      there was no need to compact.
+    </p>
+    <p class="body">
+      What survives is chosen rather than truncated: the system prompt and
+      memory file are re-injected whole, recent turns are kept verbatim and
+      split at a tool-call boundary so the model never sees a result answering
+      a call it cannot see. How many turns are kept is a preference rather than
+      a promise — exchanges are dropped from the front until what remains
+      actually fits, and compaction returns to half the window rather than to
+      the threshold, because stopping at the threshold leaves the session one
+      turn away from compacting again.
+    </p>
+    <p class="body">
+      Subagents get a fresh context and a narrower tool set, and return a
+      bounded summary — so the orchestrator grows by the summary rather than the
+      transcript. Isolation is a compression ratio, not free: each spawn
+      re-prefills its own prefix, and that spend counts against the parent's
+      budget rather than multiplying invisibly.
+    </p>
+  </div>
+</section>
+<section id="chat">
+  <div class="wrap">
+    <p class="kicker">Reference application</p>
+    <h2>Titan Chat is one thing built on it.</h2>
+    <p class="body">
+      A multi-user console — documents in and out, diagrams, live Kubernetes
+      debugging, SSH to declared hosts, every write behind a human approval
+      gate. It is a demonstration of the harness, not the product, and it is
+      built on the same SDK anyone else would use.
+    </p>
+    <p class="body">
+      It is running now at
+      <a href="https://titan.zybuu.com">titan.zybuu.com</a> — the sign-in page
+      is public, and access is by invitation while it runs on our own
+      infrastructure. <a href="#access">Request one</a> and we will get back to
+      you.
+    </p>
+  </div>
+</section>
+<section id="titan-evidence">
+  <div class="wrap">
+    <p class="kicker">Evidence</p>
+    <h2>Numbers that survive a technical diligence call.</h2>
+
+    <div class="ev">
+      <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
+      <div><b>550</b><span>test functions across the engine</span></div>
+      <div><b>20</b><span>model providers behind one abstraction</span></div>
+      <div><b>0</b><span>bytes leaving the network by default</span></div>
+    </div>
+
+    <div class="honest">
+      <p>
+        <strong>What is not true yet.</strong> Zybuu holds no SOC 2, ISO 27001 or
+        HIPAA certification. There is no support SLA. A human red-team engagement
+        remains outstanding and is not substitutable by the adversarial suite.
+        Those are stated here rather than discovered later, because the buyers
+        this is built for will ask — and an honest answer is worth more than a
+        careful one.
+      </p>
+    </div>
+  </div>
+</section>
+<section id="limitations">
+  <div class="wrap">
+    <p class="kicker">Limitations</p>
+    <h2>What Titan does not do.</h2>
+    <p class="body" style="margin-bottom:22px">
+      Every row below is a constraint we would rather you knew before a trial
+      than after one. Where there is a path forward it is stated; where the
+      honest answer is "not yet", it says that.
+    </p>
+
+    <div class="scroll">
+      <table class="lim">
+        <thead>
+          <tr><th>Constraint</th><th>What it means in practice</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Vision needs a vision model</td>
+            <td>Titan reads images, but only on a model that can see. A local
+              text-only model refuses the attachment by name rather than
+              guessing at it.</td>
+          </tr>
+          <tr>
+            <td>Single node</td>
+            <td>Sessions live in one process. There is no horizontal scaling
+              and no failover; a restart ends running turns. Accounts survive
+              it. Transcripts survive it on the <span class="req-pg">Postgres</span>
+              store — on the default in-memory store they do not.</td>
+          </tr>
+          <tr>
+            <td>Postgres only</td>
+            <td>The durable store is Postgres. Other databases are reachable
+              through SSH and their own CLI, not a native driver.</td>
+          </tr>
+          <tr>
+            <td>Auth mode is restart-only</td>
+            <td>Switching between local accounts and an identity provider
+              rebuilds the routing table, so it needs a restart. Everything
+              else in settings applies live.</td>
+          </tr>
+          <tr>
+            <td>Prompt injection is contained, not solved</td>
+            <td>There is no complete defence, and we do not claim one. The
+              architecture assumes injection sometimes succeeds and limits what
+              it can reach: absolute deny rules, no egress by default, and every
+              observation tagged untrusted at ingest.</td>
+          </tr>
+          <tr>
+            <td>No certifications</td>
+            <td>No SOC 2, ISO 27001, HIPAA or FedRAMP. Air-gap deployment, a
+              full audit trail and row-level security are what we have instead —
+              and they are not the same thing as an audit.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section id="access">
+  <div class="wrap">
+    <div class="cta-band">
+      <h2>Request access.</h2>
+      <p class="body">
+        Titan is not publicly downloadable yet. Tell us what you would point it
+        at and we will get back to you — with an invite to the hosted console,
+        or a conversation about running it on your own infrastructure.
+      </p>
+
+      <form class="req" id="req" method="POST" action="/api/access">
+        <div class="row2">
+          <label>Name
+            <input name="name" type="text" autocomplete="name" required>
+          </label>
+          <label>Work email
+            <input name="email" type="email" autocomplete="email" required>
+          </label>
+        </div>
+        <label>Company or team
+          <input name="company" type="text" autocomplete="organization">
+        </label>
+        <label class="hp" aria-hidden="true">Website
+          <input name="website" type="text" tabindex="-1" autocomplete="off">
+        </label>
+        <label>What would you use it for?
+          <textarea name="use" rows="3"
+            placeholder="The workload, and whether it has to stay on your own infrastructure."></textarea>
+        </label>
+        <button class="btn lg" type="submit">Request access</button>
+        <p class="note" id="reqnote">
+          Goes to a person, not a list. No newsletter, no tracking.
+          Or email <a href="mailto:support@zybuu.com">support@zybuu.com</a>.
+        </p>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span><a href="/">Zybuu</a></span>
+    <span><a href="/docs/">Documentation</a></span>
+    <span>On-prem by default</span>
+    <span>Tool output is data, never instructions</span>
+  </div>
+</footer>
+
+<script>
+// The replay. Data is the real captured transcript; this only schedules it.
+var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["dim", "provider    local (openai-compatible)"], ["dim", "endpoint    http://localhost:11434/v1"], ["dim", "model       gemma4:26b"], ["dim", "sandbox     process \u2014 workspace-scoped writes \u00b7 no network"], ["dim", "storage     memory (sessions do not survive restart)"], ["", ""], ["ok", "checking endpoint... ok"], ["ok", "checking tool calling... ok"], ["dim", "  called glob with {\"pattern\":\"*.go\"}"], ["", ""], ["ok", "Ready."]], "title": "Check the model before you trust it", "body": "A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back \u2014 ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open."}, {"cmd": "titan -p \"Add a FToC function converting Fahrenheit to Celsius to tempconv.go, and a table-driven test for both in tempconv_test.go. Then run go test.\"", "out": [["tool", "\u25cf glob tempconv*"], ["res", "  \u2514 1 line(s)"], ["tool", "\u25cf read tempconv.go"], ["warn", "  \u2502 path must be absolute. Did you mean ~/demo/tempconv.go?"]], "title": "One prompt, no terminal to sit in front of", "body": "<code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace."}, {"cmd": null, "out": [["tool", "\u25cf bash Check current working directory"], ["res", "  \u2514 exit 0"], ["tool", "\u25cf read ~/demo/tempconv.go"], ["res", "  \u2514 12 line(s)"], ["tool", "\u25cf glob tempconv_test.go"], ["res", "  \u2514 no results"]], "title": "It recovers, then it reads", "body": "The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate \u2014 and that you can replay afterwards from the event log, in order, with their arguments."}, {"cmd": null, "out": [["tool", "\u25cf edit ~/demo/tempconv.go"], ["res", "  \u2514 Edited tempconv.go."], ["tool", "\u25cf write ~/demo/tempconv_test.go"], ["res", "  \u2514 Created tempconv_test.go (629 bytes, 39 lines)."]], "title": "Writes are a permission, not a default", "body": "Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse \u2014 never assume yes."}, {"cmd": null, "out": [["tool", "\u25cf bash Run tests"], ["ok", "  \u2514 exit 0"], ["", ""], ["dim", "9 turns \u00b7 30,193 in / 1,825 out tokens"]], "title": "And it checks its own work", "body": "<code>go test</code> passes. The whole task \u2014 read, edit, write, verify \u2014 took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost."}];
+(function () {
+  var tb = document.getElementById('tb'),
+      steps = [].slice.call(document.querySelectorAll('.step')),
+      pos = document.getElementById('pos'),
+      rp = document.getElementById('rp'),
+      timers = [], cur = -1,
+      reduce = window.matchMedia &&
+               window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function clear() { timers.forEach(clearTimeout); timers = []; }
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function line(cls, text) {
+    var d = document.createElement('div');
+    if (cls) d.className = cls;
+    d.innerHTML = esc(text) || '&nbsp;';
+    tb.appendChild(d); tb.scrollTop = tb.scrollHeight;
+  }
+
+  // Render every step up to and including n, instantly.
+  function upTo(n) {
+    tb.innerHTML = '';
+    for (var i = 0; i <= n; i++) {
+      var st = STEPS[i];
+      if (st.cmd) line('cmd', '$ ' + st.cmd);
+      st.out.forEach(function (o) { line(o[0], o[1]); });
+    }
+  }
+
+  function mark(n) {
+    steps.forEach(function (b, i) {
+      b.setAttribute('aria-current', i === n ? 'true' : 'false');
+    });
+    pos.textContent = 'step ' + (n + 1) + ' of ' + STEPS.length;
+    cur = n;
+  }
+
+  // Show step n, typing its output if motion is allowed.
+  function show(n, animate) {
+    clear();
+    if (n > 0) upTo(n - 1); else tb.innerHTML = '';
+    var st = STEPS[n];
+    mark(n);
+    if (!animate || reduce) {
+      if (st.cmd) line('cmd', '$ ' + st.cmd);
+      st.out.forEach(function (o) { line(o[0], o[1]); });
+      return;
+    }
+    var t = 0;
+    if (st.cmd) { line('cmd', '$ ' + st.cmd); t = 260; }
+    st.out.forEach(function (o, i) {
+      timers.push(setTimeout(function () { line(o[0], o[1]); }, t + i * 115));
+    });
+  }
+
+  steps.forEach(function (b, i) {
+    b.addEventListener('click', function () { show(i, true); });
+  });
+  rp.addEventListener('click', function () { show(0, true); });
+
+  show(0, false);
+})();
+
+// Install tabs.
+(function () {
+  var tabs = [].slice.call(document.querySelectorAll('.tab'));
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (o) {
+        var on = o === t;
+        o.setAttribute('aria-selected', on ? 'true' : 'false');
+        document.getElementById('pane-' + o.dataset.t).hidden = !on;
+      });
+    });
+  });
+})();
+</script>
+</html>

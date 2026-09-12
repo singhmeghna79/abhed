@@ -3,17 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zybuu — Own your intelligence.</title>
-<meta name="description" content="Titan is a deep agent harness that runs on your own hardware, against a model you host. Five run surfaces, twenty providers, and an SDK that keeps policy, audit and deny rules intact when embedded.">
-
-<meta property="og:title" content="Zybuu — Own your intelligence">
-<meta property="og:description" content="Many agent harnesses. This one runs where your data cannot leave.">
+<title>Zybuu — Infrastructure for private AI</title>
+<meta name="description" content="Zybuu builds AI infrastructure for data that cannot leave the building. Titan, our deep agent harness, is shipped and running; the platform underneath it extends to benchmarking, agent security, observability and inference.">
+<meta property="og:title" content="Zybuu — Infrastructure for private AI">
+<meta property="og:description" content="AI infrastructure for data that cannot leave the building.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://zybuu.com">
 <meta name="twitter:card" content="summary_large_image">
-
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect x='12' y='12' width='232' height='232' rx='64' fill='%23080D18'/%3E%3Crect x='13.5' y='13.5' width='229' height='229' rx='62.5' fill='none' stroke='%232E9BE8' stroke-width='11'/%3E%3Cg fill='%232BF5C4'%3E%3Crect x='70' y='76' width='116' height='25' rx='6'/%3E%3Cpath d='M152 107 H186 L104 149 H70 Z'/%3E%3Crect x='70' y='155' width='116' height='25' rx='6'/%3E%3C/g%3E%3C/svg%3E">
-
 <style>
 /* The same tokens the Titan console uses. A homepage and the product behind it
    reading as one company is not decoration — it is the cheapest possible signal
@@ -244,8 +241,29 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
   .foot .spacer{display:none}
 }
 </style>
+
+<style>
+/* ---- company page additions ---------------------------------------- */
+.verticals{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:15px}
+.vert{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:22px;display:flex;flex-direction:column;gap:10px;
+  transition:border-color .16s,transform .16s}
+.vert:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+.vert h3{margin:0;font-size:15.4px;letter-spacing:-.012em;display:flex;
+  align-items:baseline;gap:8px;flex-wrap:wrap;line-height:1.35}
+.vert p{margin:0;color:var(--ink-2);font-size:14.2px;line-height:1.6}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.tag.live{background:var(--ok-bg);color:var(--ok);
+  border:1px solid color-mix(in srgb,var(--ok) 30%,transparent)}
+.tag.planned{background:var(--sunken);color:var(--muted);border:1px solid var(--line)}
+.vert.shipped{border-color:color-mix(in srgb,var(--accent) 34%,transparent);
+  background:linear-gradient(180deg,var(--accent-soft),var(--surface) 62%)}
+.vert .go{margin-top:auto;padding-top:4px;font-size:13.5px;font-weight:600}
+.thesis-num{font-variant-numeric:tabular-nums}
+</style>
+
 </head>
-<body>
 
 <header>
   <div class="wrap bar">
@@ -277,493 +295,179 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
       Zybuu
     </a>
     <nav class="nav">
-      <a href="#harness" class="hide-sm">The harness</a>
-      <a href="#embed" class="hide-sm">Embed</a>
-      <a href="#governance" class="hide-sm">Governance</a>
-      <a href="#limitations" class="hide-sm">Limitations</a>
-      <a href="#access">Access</a>
-      <a class="btn ghost hide-sm" href="https://titan.zybuu.com">Open console</a>
-      <a class="btn" href="#access">Request access</a>
+      <a href="#products" class="hide-sm">Products</a>
+      <a href="/titan/">Titan</a>
+      <a href="/docs/" class="hide-sm">Docs</a>
+      <a href="#contact" class="hide-sm">Contact</a>
+      <a class="btn" href="https://titan.zybuu.com">Open Titan</a>
     </nav>
   </div>
 </header>
 
 <main>
-
-<!-- Hero. The product is the HARNESS. Titan Chat is one application built on
-     it, and leading with the chat was how the story drifted: a console is what
-     a visitor can see, so a console is what they assume the product is. -->
-<div class="hero">
+<section class="hero">
   <div class="wrap inner">
-    <div class="eyebrow">Deep agent harness</div>
-    <h1>Many agent harnesses. This one runs where your data cannot leave.</h1>
+    <span class="eyebrow">Zybuu</span>
+    <h1>Infrastructure for private AI.</h1>
     <p class="lede">
-      Titan is the scaffold around the model — the agent loop, the tool
-      contracts, the permission engine, the sandbox. It runs on your hardware
-      against a model you host, and its policy, audit and deny rules stay
-      intact when you embed it in something else.
+      AI infrastructure for data that cannot leave the building. The teams with
+      the most to gain from AI are often the least able to send their data to
+      someone else's API. Zybuu builds the layer that runs where the data
+      already lives — on your hardware, against models you host, with every
+      action recorded.
     </p>
     <div class="hero-cta">
-      <a class="btn lg" href="#access">Request access</a>
-      <a class="btn ghost lg" href="#embed">See the SDK</a>
+      <a class="btn lg" href="/titan/">Titan, our agent harness</a>
+      <a class="btn ghost lg" href="#thesis">Read the thesis</a>
     </div>
-    <p class="hero-note">
-      single static binary &middot; no runtime to install &middot; air-gap capable
-    </p>
+    <p class="hero-note">One product shipped and running · on-prem · air-gap capable</p>
   </div>
-</div>
+</section>
 
-<!-- The thesis. This is the actual investment case, and it leads with a number
-     because a number is checkable and an adjective is not. -->
 <section id="thesis">
   <div class="wrap">
     <p class="kicker">The thesis</p>
     <div class="thesis">
       <div class="bignum">
-        <b>7.80&times;</b>
-        <span>harness &gt; model<br>variance</span>
+        <b class="thesis-num">7.80&times;</b>
+        <span>harness &gt; model variance</span>
       </div>
       <div>
-        <h2>The scaffold around the model decides more than the model does.</h2>
         <p class="body">
-          A controlled study on SWE-bench Verified found harness-induced variance
-          exceeds model-induced variance by <strong>7.80&times;</strong>, reversing
-          the ranking in 6 of 9 model-pair comparisons. Change the scaffold — the
-          context management, the tool contracts, the permission model — and the
-          same model becomes a different product.
+          The scaffold around the model decides more than the model does. A
+          controlled study on SWE-bench Verified found harness-induced variance
+          exceeds model-induced variance by <strong>7.80&times;</strong>,
+          reversing the ranking in 6 of 9 model-pair comparisons.
         </p>
         <p class="body">
+          Change the scaffold — the context management, the tool contracts, the
+          permission model — and the same model becomes a different product.
           Most of the industry treats that layer as glue code around someone
           else's API. Zybuu treats it as the product: engineered separately,
-          evaluated separately, behind a provider abstraction. Better model,
-          better system. Better harness, better system. Both compound.
+          evaluated separately, behind a provider abstraction.
+        </p>
+        <p class="body">
+          Better model, better system. Better harness, better system. Both
+          compound.
         </p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- The harness. Every claim here is verifiable in the source, which is the
-     point: this page is read by people who will check. -->
-<section id="harness">
+<section id="products">
   <div class="wrap">
-    <p class="kicker">The harness</p>
-    <h2>Five ways to run it. One set of rules.</h2>
-    <p class="body" style="margin-bottom:24px">
-      The same agent loop, the same policy engine, the same audit trail, whether
-      you drive it from a terminal, a pipeline, another language, or your own
-      Go service. A guarantee that held in the CLI and not in the server would
-      not be a guarantee.
+    <p class="kicker">Products</p>
+    <h2>One product shipped. A platform underneath it.</h2>
+    <p class="body" style="margin-bottom:26px">
+      Titan is live and in use today. The verticals below share its
+      foundations — the same execution sandbox, policy engine and audit
+      layer — and are stated as what they are: planned, not shipped.
     </p>
+    <div class="verticals">
 
-    <div class="scroll">
-      <table class="lim">
-        <thead><tr><th>Surface</th><th>What it is for</th></tr></thead>
-        <tbody>
-          <tr><td><code>titan</code></td>
-              <td>Interactive. Line editor, slash commands, steer a run mid-flight.</td></tr>
-          <tr><td><code>titan -p "…"</code></td>
-              <td>Headless. One prompt, typed exit code, for CI and scripts.</td></tr>
-          <tr><td><code>-output-format json</code></td>
-              <td>One JSON event per line on stdout, streamed as it happens.</td></tr>
-          <tr><td><code>titan rpc</code></td>
-              <td>JSONL over stdio. Drive it as a subprocess from any language.</td></tr>
-          <tr><td><code>titan serve</code></td>
-              <td>REST, SSE and a web console. Multi-user, tenant-scoped.</td></tr>
-        </tbody>
-      </table>
+      <div class="vert shipped">
+        <h3>Titan <span class="tag live">Live</span></h3>
+        <p>
+          A deep agent harness that runs on your own hardware, against a model
+          you host. Twenty model providers behind one abstraction, a tiered
+          execution sandbox, absolute deny rules, and a replayable audit trail
+          for every action.
+        </p>
+        <a class="go" href="/titan/">How the harness works &rarr;</a>
+      </div>
+
+      <div class="vert">
+        <h3>GPU &amp; Workload Benchmarking <span class="tag planned">Planned</span></h3>
+        <p>
+          Reproducible evaluation for inference workloads: what a model actually
+          costs on your hardware, and which scaffold configuration wins on your
+          tasks rather than on a public leaderboard.
+        </p>
+      </div>
+
+      <div class="vert">
+        <h3>AI Security &amp; Red Team <span class="tag planned">Planned</span></h3>
+        <p>
+          Adversarial testing for agent deployments — prompt injection, tool
+          abuse, sandbox escape and exfiltration paths, run continuously against
+          your own configuration.
+        </p>
+      </div>
+
+      <div class="vert">
+        <h3>Observability for Agents <span class="tag planned">Planned</span></h3>
+        <p>
+          Traces built for non-deterministic systems: which tool call changed
+          the outcome, where context was lost, what a run cost, and why two
+          identical prompts diverged.
+        </p>
+      </div>
+
+      <div class="vert">
+        <h3>Inference Infrastructure <span class="tag planned">Planned</span></h3>
+        <p>
+          Serving and scheduling for self-hosted models, sized for teams running
+          their own GPUs rather than renting capacity by the token.
+        </p>
+      </div>
+
+      <div class="vert">
+        <h3>Private Cloud Deployment <span class="tag planned">Planned</span></h3>
+        <p>
+          Signed, verifiable bundles for enclaves with no internet route — the
+          install path Titan already ships, generalised across the platform.
+        </p>
+      </div>
+
     </div>
   </div>
 </section>
 
-<!-- Embed. The SDK is the actual platform surface and it appeared nowhere
-     public until now, which is most of why the product read as a chat app. -->
-<section id="embed">
-  <div class="wrap">
-    <p class="kicker">Embed it</p>
-    <h2>Policy, audit and deny rules hold when embedded.</h2>
-    <p class="body">
-      Your application supplies the approver and consumes the event stream —
-      because a host usually has better ideas than a terminal prompt about how
-      to ask a user for permission. Policy still decides what runs, every action
-      is still recorded, and an extension still cannot permit what a deny rule
-      forbids. No approver means refuse, never assume yes.
-    </p>
-    <p class="body">
-      One guarantee that does <em>not</em> come with it: the SDK builds no
-      sandbox. An embedded agent runs commands with the privileges of the
-      process that embedded it, so the host is responsible for isolation — a
-      container, a jail, a separate user — exactly as it would be for any other
-      library that shells out.
-    </p>
-
-    <div class="scroll">
-      <pre class="code"><code>a, err := titan.New(ctx, titan.Options{
-    Workspace: "/srv/work",
-    Provider:  &amp;titan.Provider{Type: "anthropic", Model: "claude-opus-4-5"},
-    Mode:      "auto",
-    Deny:      []string{"bash(rm -rf *)"},
-
-    // Your app decides. No approver means refuse — never assume yes.
-    Approve: func(ctx context.Context, tool string,
-        args json.RawMessage, d titan.Decision) (bool, error) {
-        return askYourUser(tool, args, d.Reason)
-    },
-
-    // Every action, as it happens.
-    OnEvent: func(ev titan.Event) { log.Println(ev.Type) },
-})
-defer a.Close()
-
-answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
-    </div>
-
-    <p class="body" style="margin-top:16px">
-      <code>Run</code> &middot; <code>Continue</code> &middot;
-      <code>Steer</code> (from another goroutine, mid-run) &middot;
-      <code>Fork</code> &middot; <code>Events</code> &middot;
-      <code>Usage</code> &middot; <code>ExportHTML</code> &middot;
-      <code>SetModel</code>. For anything not written in Go,
-      <code>titan rpc</code> is the same agent over JSONL.
-    </p>
-  </div>
-</section>
-
-<!-- Primitives. pi.dev's framing, and the right one — but ours is narrower in
-     exactly one direction and saying so is more credible than claiming parity. -->
-<section id="primitives">
-  <div class="wrap">
-    <p class="kicker">Primitives</p>
-    <h2>Extend it without forking it.</h2>
-
-    <div class="grid">
-      <div class="card">
-        <h3>Extensions</h3>
-        <p>Separate processes speaking JSONL, in any language, on seven live events —
-          tool calls, results, context, compaction, agent start, tool listing
-          and invocation. They may <strong>veto,
-          never permit</strong>: an extension that could grant permission could
-          also remove the proof of what was permitted.</p>
-      </div>
-      <div class="card">
-        <h3>Skills</h3>
-        <p>A directory with a procedure in it. Only the name and description
-          reach the prompt — about fifteen tokens each — and the body is fetched
-          when the agent decides it applies. A skill may also declare a pipeline
-          the harness executes rather than asks the model to follow.</p>
-      </div>
-      <div class="card">
-        <h3>MCP</h3>
-        <p>Registered servers only, disabled until explicitly enabled, with an
-          optional tool allowlist, and credentials read from the environment
-          rather than a config file. Discovery does not imply trust.</p>
-      </div>
-      <div class="card">
-        <h3>Providers</h3>
-        <p>Twenty of them over three wire formats, added from config without a
-          rebuild. A sampling parameter the provider cannot honour fails at
-          startup rather than being silently ignored.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Governance. The section aimed at the buyer we can actually win.
-     Our own competitive doc concludes that a developer who wants to reshape
-     the harness should use Pi — and names the two things a Pi user cannot
-     build as an extension: an event store with deterministic replay, and
-     tenant isolation enforced in the database. Both have to be in the core or
-     they are not guarantees, and both are what an auditor asks about. -->
-<section id="governance">
-  <div class="wrap">
-    <p class="kicker">Governance</p>
-    <h2>What the agent did, provable afterwards.</h2>
-    <p class="body" style="margin-bottom:24px">
-      Most of what an agent harness offers can be added later as an extension.
-      Two things cannot: a log you can replay, and an isolation boundary the
-      database enforces. Both have to be in the core, which is where these are.
-    </p>
-    <p class="body" style="margin-bottom:24px">
-      <strong>They are not on by default.</strong> Titan ships with an
-      in-memory store, which keeps a single-machine trial simple and gives you
-      none of what follows. The triggers and the row-level security are
-      properties of the Postgres store — one config line — and a deployment
-      that needs to prove anything to an auditor has to be running it.
-    </p>
-
-    <div class="grid">
-      <div class="card">
-        <h3>The log is the session</h3>
-        <p>Every action is an event in the store, and the
-          conversation is <em>derived</em> from those events rather than
-          described by them. That is what makes replay exact and forking from
-          any earlier step cheap — nothing extra had to be stored to make
-          either work.</p>
-      </div>
-      <div class="card">
-        <h3>Immutable by trigger <span class="req-pg">Postgres</span></h3>
-        <p>Recorded events cannot be updated or deleted. Not by convention and
-          not in application code — by database triggers that reject the
-          statement, so an audit trail cannot be quietly rewritten by whatever
-          is holding the connection.</p>
-      </div>
-      <div class="card">
-        <h3>Tenants isolated in the database <span class="req-pg">Postgres</span></h3>
-        <p>Row-level security scopes every query, with <code>FORCE</code>
-          because a table's owner bypasses ordinary RLS — and the application
-          role usually owns the tables it created, which leaves the policy
-          silently inert. A test read another tenant's rows until
-          <code>FORCE</code> was added.</p>
-      </div>
-      <div class="card">
-        <h3>Deny is absolute</h3>
-        <p>A deny rule holds in every permission mode, including bypass. An
-          extension may veto a call and can never permit one, so no plugin,
-          profile or mode can widen what an operator forbade.</p>
-      </div>
-    </div>
-
-    <div class="honest" style="margin-top:22px">
-      <p>
-        <strong>What this is not.</strong> None of it is a compliance
-        certification, and none of it substitutes for one. It is the mechanism
-        an auditor would ask to see — who did what, under whose authority, and
-        can it be shown afterwards — built where it cannot be turned off rather
-        than asserted in a policy document.
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- Context. The mechanism with the best story, and a measured number. -->
-<section id="context">
-  <div class="wrap">
-    <p class="kicker">Context engineering</p>
-    <h2>Compaction is a capacity decision, not a quality knob.</h2>
-    <p class="body">
-      The threshold is applied to used tokens <em>plus headroom for the turn
-      that is coming</em>, not to what has already happened. Without that
-      margin the check passes at 24,809 of a 32,768 window, the next tool
-      result adds 8,000, and the call fails — having been told, correctly, that
-      there was no need to compact.
-    </p>
-    <p class="body">
-      What survives is chosen rather than truncated: the system prompt and
-      memory file are re-injected whole, recent turns are kept verbatim and
-      split at a tool-call boundary so the model never sees a result answering
-      a call it cannot see. How many turns are kept is a preference rather than
-      a promise — exchanges are dropped from the front until what remains
-      actually fits, and compaction returns to half the window rather than to
-      the threshold, because stopping at the threshold leaves the session one
-      turn away from compacting again.
-    </p>
-    <p class="body">
-      Subagents get a fresh context and a narrower tool set, and return a
-      bounded summary — so the orchestrator grows by the summary rather than the
-      transcript. Isolation is a compression ratio, not free: each spawn
-      re-prefills its own prefix, and that spend counts against the parent's
-      budget rather than multiplying invisibly.
-    </p>
-  </div>
-</section>
-
-<!-- Titan Chat, in its correct place: a reference application, not the product.
-     It is the last thing on the page rather than the first, deliberately. -->
-<section id="chat">
-  <div class="wrap">
-    <p class="kicker">Reference application</p>
-    <h2>Titan Chat is one thing built on it.</h2>
-    <p class="body">
-      A multi-user console — documents in and out, diagrams, live Kubernetes
-      debugging, SSH to declared hosts, every write behind a human approval
-      gate. It is a demonstration of the harness, not the product, and it is
-      built on the same SDK anyone else would use.
-    </p>
-    <p class="body">
-      It is running now at
-      <a href="https://titan.zybuu.com">titan.zybuu.com</a> — the sign-in page
-      is public, and access is by invitation while it runs on our own
-      infrastructure. <a href="#access">Request one</a> and we will get back to
-      you.
-    </p>
-  </div>
-</section>
-
-<!-- Evidence. Every number here is checkable in the repository, which is the
-     point: a technical diligence call should find these true, not generous. -->
 <section id="evidence">
   <div class="wrap">
     <p class="kicker">Evidence</p>
     <h2>Numbers that survive a technical diligence call.</h2>
-
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
       <div><b>550</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
-
-    <div class="honest">
-      <p>
-        <strong>What is not true yet.</strong> Zybuu holds no SOC 2, ISO 27001 or
-        HIPAA certification. There is no support SLA. A human red-team engagement
-        remains outstanding and is not substitutable by the adversarial suite.
-        Those are stated here rather than discovered later, because the buyers
-        this is built for will ask — and an honest answer is worth more than a
-        careful one.
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- Limitations. Published because a buyer who matters will find these anyway,
-     and finding them here is worth more than a polished evasion. Each row is a
-     real constraint in the current build, not a hedge. -->
-<section id="limitations">
-  <div class="wrap">
-    <p class="kicker">Limitations</p>
-    <h2>What Titan does not do.</h2>
-    <p class="body" style="margin-bottom:22px">
-      Every row below is a constraint we would rather you knew before a trial
-      than after one. Where there is a path forward it is stated; where the
-      honest answer is "not yet", it says that.
+    <p class="body" style="margin-top:22px">
+      <strong>What is not true yet.</strong> Zybuu holds no SOC 2, ISO 27001 or
+      HIPAA certification. There is no support SLA. A human red-team engagement
+      remains outstanding and is not substitutable by the adversarial suite.
+      Those are stated here rather than discovered later, because the buyers
+      this is built for will ask — and an honest answer is worth more than a
+      careful one.
     </p>
-
-    <div class="scroll">
-      <table class="lim">
-        <thead>
-          <tr><th>Constraint</th><th>What it means in practice</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Vision needs a vision model</td>
-            <td>Titan reads images, but only on a model that can see. A local
-              text-only model refuses the attachment by name rather than
-              guessing at it.</td>
-          </tr>
-          <tr>
-            <td>Single node</td>
-            <td>Sessions live in one process. There is no horizontal scaling
-              and no failover; a restart ends running turns. Accounts survive
-              it. Transcripts survive it on the <span class="req-pg">Postgres</span>
-              store — on the default in-memory store they do not.</td>
-          </tr>
-          <tr>
-            <td>Postgres only</td>
-            <td>The durable store is Postgres. Other databases are reachable
-              through SSH and their own CLI, not a native driver.</td>
-          </tr>
-          <tr>
-            <td>Auth mode is restart-only</td>
-            <td>Switching between local accounts and an identity provider
-              rebuilds the routing table, so it needs a restart. Everything
-              else in settings applies live.</td>
-          </tr>
-          <tr>
-            <td>Prompt injection is contained, not solved</td>
-            <td>There is no complete defence, and we do not claim one. The
-              architecture assumes injection sometimes succeeds and limits what
-              it can reach: absolute deny rules, no egress by default, and every
-              observation tagged untrusted at ingest.</td>
-          </tr>
-          <tr>
-            <td>No certifications</td>
-            <td>No SOC 2, ISO 27001, HIPAA or FedRAMP. Air-gap deployment, a
-              full audit trail and row-level security are what we have instead —
-              and they are not the same thing as an audit.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   </div>
 </section>
 
-<!-- Access. A form rather than an address because almost nobody composes an
-     email from a landing page — and a form rather than an endpoint on Titan
-     because that machine runs an agent with a shell, and it does not need a
-     new unauthenticated write path to collect a name. -->
-<section id="access">
+<section id="contact">
   <div class="wrap">
-    <div class="cta-band">
-      <h2>Request access.</h2>
-      <p class="body">
-        Titan is not publicly downloadable yet. Tell us what you would point it
-        at and we will get back to you — with an invite to the hosted console,
-        or a conversation about running it on your own infrastructure.
-      </p>
-
-      <form class="req" id="req" method="POST" action="/api/access">
-        <div class="row2">
-          <label>Name
-            <input name="name" type="text" autocomplete="name" required>
-          </label>
-          <label>Work email
-            <input name="email" type="email" autocomplete="email" required>
-          </label>
-        </div>
-        <label>Company or team
-          <input name="company" type="text" autocomplete="organization">
-        </label>
-        <label class="hp" aria-hidden="true">Website
-          <input name="website" type="text" tabindex="-1" autocomplete="off">
-        </label>
-        <label>What would you use it for?
-          <textarea name="use" rows="3"
-            placeholder="The workload, and whether it has to stay on your own infrastructure."></textarea>
-        </label>
-        <button class="btn lg" type="submit">Request access</button>
-        <p class="note" id="reqnote">
-          Goes to a person, not a list. No newsletter, no tracking.
-          Or email <a href="mailto:support@zybuu.com">support@zybuu.com</a>.
-        </p>
-      </form>
+    <p class="kicker">Contact</p>
+    <h2>Building this in the open.</h2>
+    <p class="body">
+      Zybuu is early and founder-led. If you are an investor, a team with data
+      that cannot leave your network, or an engineer who finds the thesis
+      interesting — the fastest way to judge it is to use the product.
+    </p>
+    <div class="hero-cta" style="margin-top:22px">
+      <a class="btn lg" href="https://titan.zybuu.com">Open Titan</a>
+      <a class="btn ghost lg" href="/titan/#access">Request access</a>
     </div>
   </div>
 </section>
-
 </main>
-
-<script>
-// The access form posts to a Pages Function which redirects back with the
-// outcome in the fragment. Read it, say what happened, and clear it so a
-// refresh does not repeat the message.
-(function () {
-  var m = /^#access-(\w+)$/.exec(location.hash);
-  if (!m) return;
-  var note = document.getElementById("reqnote");
-  var form = document.getElementById("req");
-  if (!note || !form) return;
-
-  var say = {
-    ok: ["ok", "Thank you \u2014 that reached a person. We will reply to the address you gave."],
-    missing: ["bad", "A name and an email address are needed to reply to you."],
-    email: ["bad", "That email address looks wrong \u2014 check it and try again."],
-    invalid: ["bad", "That submission could not be read. Try again?"],
-    failed: ["bad", "Something broke on our side. Email support@zybuu.com instead."],
-    unconfigured: ["bad", "The form is not connected yet. Email support@zybuu.com."]
-  }[m[1]];
-  if (!say) return;
-
-  var el = document.createElement("p");
-  el.className = "note msg " + say[0];
-  el.textContent = say[1];
-  note.replaceWith(el);
-  if (say[0] === "ok") form.querySelectorAll("input,textarea,button")
-    .forEach(function (i) { i.disabled = true; });
-
-  history.replaceState(null, "", location.pathname + "#access");
-})();
-</script>
 
 <footer>
   <div class="wrap foot">
     <span>Zybuu</span>
-    <span class="spacer"></span>
-    <span>Own your intelligence</span>
+    <span>On-prem by default</span>
     <span>Every action recorded</span>
     <span>Tool output is data, never instructions</span>
   </div>
 </footer>
-
-</body>
 </html>

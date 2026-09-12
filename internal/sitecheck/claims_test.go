@@ -46,13 +46,33 @@ func has(markers ...string) func(string) bool {
 // the page moved: every test reported ok with nothing checked, and
 // green-when-absent is the worst failure a guard can have. The page is in the
 // repository; its absence is the bug.
+// The site is three surfaces: the company homepage, Titan's product page, and
+// generated documentation. The product claims these guards exist for live on
+// the Titan page; the company page carries the same evidence numbers and the
+// same honest disclosure. Both are checked, concatenated, because a claim is
+// no less published for being on the second page.
+//
+// Docs are excluded: they are generated from docs/ at publish time, so a claim
+// there is a claim in the markdown, and guarding the artifact would report the
+// error in a file nobody edits.
+func pagePaths() []string {
+	return []string{
+		filepath.Join("..", "..", "web", "zybuu", "index.html"),
+		filepath.Join("..", "..", "web", "zybuu", "titan", "index.html"),
+	}
+}
+
 func raw(t *testing.T) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "web", "zybuu", "index.html"))
-	if err != nil {
-		t.Fatalf("homepage not readable, so nothing here was checked: %v", err)
+	var all []string
+	for _, p := range pagePaths() {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("%s not readable, so nothing here was checked: %v", p, err)
+		}
+		all = append(all, string(b))
 	}
-	return string(b)
+	return strings.Join(all, "\n")
 }
 
 // page returns the homepage markup, whitespace collapsed.
@@ -200,7 +220,11 @@ func TestPageClaimsNoCertification(t *testing.T) {
 	// claim. When a new section genuinely needs to discuss compliance in order
 	// to deny it, add its id here — deliberately, so that the decision is
 	// visible in the diff rather than made by moving a paragraph.
-	allowed := map[string]bool{"evidence": true, "limitations": true}
+	allowed := map[string]bool{
+		"evidence":       true, // the company homepage's honest-disclosure block
+		"titan-evidence": true, // the same block on Titan's product page
+		"limitations":    true, // "What Titan does not do"
+	}
 
 	src := raw(t)
 

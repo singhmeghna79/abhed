@@ -21,6 +21,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../web/zybuu" && pwd)"
 # behaviours are invisible in a browser: refusing honestly when RESEND_API_KEY
 # is unset, and reporting an upstream failure instead of claiming success.
 # Checked here so a broken form cannot be published.
+# Docs are generated from docs/ at publish time, so the markdown in the repo
+# stays the single source and the site cannot drift from it.
+echo "==> Rendering documentation"
+python3 "$(dirname "${BASH_SOURCE[0]}")/sitegen/build-docs.py"
+echo
+
 if command -v node >/dev/null 2>&1; then
     echo "==> Checking the access Function"
     node "$(dirname "${BASH_SOURCE[0]}")/sitetests/access.test.mjs"
