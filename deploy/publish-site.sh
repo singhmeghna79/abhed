@@ -12,7 +12,10 @@
 set -euo pipefail
 
 PROJECT="${ZYBUU_PAGES_PROJECT:-zybuu}"
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The site lives in web/zybuu; this script lives in deploy/. Keeping the
+# publisher OUT of the published directory is deliberate: Pages serves every
+# file it is handed, and zybuu.com/deploy.sh returned 200 when it sat inside.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../web/zybuu" && pwd)"
 
 echo "==> Publishing $DIR to Cloudflare Pages project '$PROJECT'"
 echo

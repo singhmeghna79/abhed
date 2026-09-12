@@ -72,6 +72,24 @@ Create your account — there is no public signup:
 podman exec -it titan titan user add yuvraj
 ```
 
+## Publishing the homepage
+
+`zybuu.com` is a Cloudflare Pages site, separate from Titan: Titan is up only
+while this Mac is awake, and the homepage must not be. To publish a change:
+
+```bash
+./deploy/publish-site.sh
+```
+
+It uploads `web/zybuu/` — `index.html`, `_headers`, and the `functions/`
+directory that becomes `/api/access`. The publisher itself deliberately lives
+in `deploy/` rather than inside `web/zybuu/`: Pages serves every file it is
+handed, and `zybuu.com/deploy.sh` returned 200 for as long as the script sat in
+the published directory.
+
+Editing the page does not publish it. Until this runs, the repository and the
+live site disagree, and the live site is what a reader sees.
+
 ## The homepage form
 
 `zybuu.com` carries an access-request form backed by a Cloudflare Pages
