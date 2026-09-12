@@ -1,6 +1,11 @@
 package server
 
 import (
+	"bytes"
+	"context"
+	"github.com/yuvrajsingh/titan/internal/store"
+	"os"
+
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/json"
@@ -256,4 +261,214 @@ func (s *Server) setUserAdmin(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("admin rights changed", "user", req.Username,
 		"admin", req.Admin, "by", userOf(r.Context()))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ------------------------------------------------------------------ access
+
+// accessGuard answers 501 when the deployment has no access store, rather
+// than pretending. The memory driver cannot answer "who had access last
+// week", and a dashboard that silently shows an empty list is worse than one
+// that says why it is empty.
+func (s *Server) accessGuard(w http.ResponseWriter) bool {
+	if s.opts.Access == nil {
+		writeJSON(w, http.StatusNotImplemented, map[string]string{
+			"error": "access records need the postgres storage driver; " +
+				"this deployment runs on the memory driver",
+		})
+		return false
+	}
+	return true
+}
+
+// listAccess returns every grant: requested, granted, revoked and expired.
+func (s *Server) listAccess(w http.ResponseWriter, r *http.Request) {
+	if !s.accessGuard(w) {
+		return
+	}
+	gs, err := s.opts.Access.Grants(r.Context())
+	if err != nil {
+		s.log.Error("list access", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "cannot read access records"})
+		return
+	}
+	// Counted here rather than in the browser, so the numbers on the dashboard
+	// and the numbers in the API cannot disagree.
+	sum := map[string]int{"total": len(gs)}
+	for _, g := range gs {
+		switch {
+		case g.Active():
+			sum["active"]++
+		case g.Status == store.StatusRevoked:
+			sum["revoked"]++
+		case g.Status == store.StatusRequested:
+			sum["pending"]++
+		default:
+			sum["expired"]++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"grants": gs, "summary": sum})
+}
+
+// accessHistory returns the append-only trail behind one grant.
+func (s *Server) accessHistory(w http.ResponseWriter, r *http.Request) {
+	if !s.accessGuard(w) {
+		return
+	}
+	evs, err := s.opts.Access.AccessHistory(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such grant"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": evs})
+}
+
+// revokeAccess ends someone's access, records why, and tells them.
+func (s *Server) revokeAccess(w http.ResponseWriter, r *http.Request) {
+	if !s.accessGuard(w) {
+		return
+	}
+	var req struct {
+		Clause string `json:"clause"`
+		Note   string `json:"note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		return
+	}
+	// A clause is required. "Revoked for a reason nobody wrote down" is how an
+	// access log stops being useful, and the clause is what the person is told.
+	if !validClause(req.Clause) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "clause must be one of P1..P7 — see docs/access-policy.md",
+		})
+		return
+	}
+
+	by := userOf(r.Context())
+	g, err := s.opts.Access.Revoke(r.Context(), r.PathValue("id"), by, req.Clause, req.Note)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such grant"})
+		return
+	}
+
+	// Cut the session before anything else can fail. Revocation that leaves a
+	// live session working is not revocation.
+	if g.Username != "" && s.local != nil {
+		n := s.local.RevokeUser(g.Username)
+		s.log.Info("access revoked", "user", g.Username, "by", by,
+			"clause", req.Clause, "sessions_ended", n)
+	}
+
+	// Then tell them. Best-effort: a bounced notice must not leave the account
+	// still working because the handler returned an error.
+	go s.mailRevocation(g)
+
+	writeJSON(w, http.StatusOK, g)
+}
+
+func validClause(c string) bool {
+	switch c {
+	case "P1", "P2", "P3", "P4", "P5", "P6", "P7":
+		return true
+	}
+	return false
+}
+
+// clauseText is what the person is told. The policy document is the long
+// form; this is the sentence that goes in the email, so it has to stand alone.
+var clauseText = map[string]string{
+	"P1": "attempting to attack the service itself — sandbox escape, privilege escalation, or reaching another account's data",
+	"P2": "using the service to attack others",
+	"P3": "illegal content or purpose",
+	"P4": "automated or resource abuse, including sharing one account across a team",
+	"P5": "obtaining access under a false name, employer or purpose",
+	"P6": "capacity — this is not about anything you did",
+	"P7": "you asked us to close the account",
+}
+
+// mailRevocation tells someone their access has ended, and why.
+//
+// Best-effort and asynchronous: the account is already disabled and the
+// session already cut by the time this runs. A revocation that failed to send
+// mail is still a revocation, and blocking the handler on an SMTP round trip
+// would make the security action depend on a third party being up.
+func (s *Server) mailRevocation(g store.Grant) {
+	key := os.Getenv("RESEND_API_KEY")
+	if key == "" || g.Email == "" {
+		return
+	}
+	from := os.Getenv("ACCESS_FROM")
+	if from == "" {
+		from = "Zybuu <support@zybuu.com>"
+	}
+	reply := os.Getenv("ACCESS_TO")
+	if reply == "" {
+		reply = "support@zybuu.com"
+	}
+
+	first := g.Name
+	if i := strings.IndexByte(first, ' '); i > 0 {
+		first = first[:i]
+	}
+	if first == "" {
+		first = "there"
+	}
+
+	why := clauseText[g.RevokedCode]
+	if why == "" {
+		why = "a policy matter"
+	}
+
+	body := strings.Join([]string{
+		"Hi " + first + ",",
+		"",
+		"Your access to the Titan console has ended.",
+		"",
+		"Reason (" + g.RevokedCode + "): " + why + ".",
+		"",
+		"The account is disabled rather than deleted, so the record of what",
+		"happened stays intact. Your transcripts are no longer reachable by you;",
+		"they are not destroyed, and you can ask for an export.",
+		"",
+		"The policy is at https://zybuu.com/titan/access-policy — the clause",
+		"above is quoted from the version in force today.",
+		"",
+		"If you think this is wrong, reply. It reaches a person, and we would",
+		"rather be wrong briefly than unfair permanently.",
+		"",
+		"Titan itself is not affected by this. It runs on your own hardware",
+		"under your own rules, and that conversation is still open.",
+		"",
+		"— Zybuu",
+	}, "\n")
+
+	payload, err := json.Marshal(map[string]any{
+		"from": from, "to": []string{g.Email}, "reply_to": reply,
+		"subject": "Your Titan console access has ended",
+		"text":    body,
+	})
+	if err != nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		"https://api.resend.com/emails", bytes.NewReader(payload))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		s.log.Warn("revocation notice not sent", "email", g.Email, "err", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		s.log.Warn("revocation notice refused", "email", g.Email, "status", resp.StatusCode)
+		return
+	}
+	s.log.Info("revocation notice sent", "email", g.Email, "clause", g.RevokedCode)
 }

@@ -390,3 +390,29 @@ func (l *LocalAuth) SetGroups(ctx context.Context, username, group string, membe
 	u.Groups = out
 	return l.Store.Put(ctx, u)
 }
+
+// RevokeUser drops every live session belonging to a username.
+//
+// Revocation that leaves an existing session working is not revocation: the
+// person keeps their agent, their shell and their transcript until the cookie
+// happens to expire. Disabling the account stops the next SIGN-IN; this stops
+// the current one, and both are needed.
+//
+// Returns how many sessions were ended, which the audit entry records — "we
+// revoked them and they had three sessions open" is a materially different
+// fact from "they were not signed in".
+func (l *LocalAuth) RevokeUser(username string) int {
+	if username == "" {
+		return 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	n := 0
+	for sid, s := range l.sessions {
+		if s.Identity != nil && s.Identity.Subject == username {
+			delete(l.sessions, sid)
+			n++
+		}
+	}
+	return n
+}

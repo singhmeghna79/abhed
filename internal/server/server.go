@@ -30,6 +30,19 @@ import (
 	"github.com/yuvrajsingh/titan/internal/tools"
 )
 
+// AccessStore is what the admin console needs to answer "who has access, who
+// asked, and who used to". Implemented by the Postgres store only.
+type AccessStore interface {
+	RecordRequest(ctx context.Context, g store.Grant) (store.Grant, error)
+	GrantAccess(ctx context.Context, id, by, code string, expires time.Time) error
+	Revoke(ctx context.Context, id, by, clause, note string) (store.Grant, error)
+	GrantByID(ctx context.Context, id string) (store.Grant, error)
+	GrantByUsername(ctx context.Context, username string) (store.Grant, error)
+	Grants(ctx context.Context) ([]store.Grant, error)
+	AccessHistory(ctx context.Context, id string) ([]store.AccessEvent, error)
+	Redeemed(ctx context.Context, code, username string) error
+}
+
 // EventStore is what the server needs from a store: durable append plus live
 // subscription. Both the in-memory and Postgres stores satisfy it, so server
 // code never branches on the backend.
@@ -56,10 +69,10 @@ type Options struct {
 	// install has no route to the internet, so a hardcoded link there is a
 	// dead end rather than a courtesy. A public deployment sets it; an
 	// enclave leaves it unset and the link does not render at all.
-	HomeURL string
-	Config    config.Config
-	Adapter   model.Adapter
-	Registry  *tools.Registry
+	HomeURL  string
+	Config   config.Config
+	Adapter  model.Adapter
+	Registry *tools.Registry
 	// SkillListing is the rendered skill index for the system prompt. The
 	// server takes the rendered string rather than the registry, because the
 	// registry's only other use is the tool, which is already in Registry.
@@ -70,6 +83,11 @@ type Options struct {
 	Logger    *slog.Logger
 	// Store defaults to an in-memory store when nil.
 	Store EventStore
+	// Access records who asked for the console and who has it. Optional: the
+	// memory driver does not implement it, and the admin routes that need it
+	// answer 501 rather than existing in a broken state. An access decision
+	// has to outlive a restart, so it is Postgres or it is nothing.
+	Access AccessStore
 	// Auth verifies callers. Nil means the mode from Config is used.
 	Auth *auth.Middleware
 	// SkillRoots are the directories skills are looked FOR in — distinct from
@@ -92,6 +110,7 @@ type Server struct {
 	opts     Options
 	store    EventStore
 	sessions SessionRecorder // nil when the store is not durable
+	local    *auth.LocalAuth // nil unless auth mode is "local"
 	log      *slog.Logger
 	mu       sync.RWMutex
 	running  map[string]*liveSession
@@ -190,6 +209,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /v1/admin/invites", s.admin(s.createInvite))
 	mux.Handle("GET /v1/admin/invites", s.admin(s.listInvites))
 	mux.Handle("GET /v1/admin/users", s.admin(s.listUsers))
+	mux.Handle("GET /v1/admin/access", s.admin(s.listAccess))
+	mux.Handle("GET /v1/admin/access/{id}/history", s.admin(s.accessHistory))
+	mux.Handle("POST /v1/admin/access/{id}/revoke", s.admin(s.revokeAccess))
 	mux.Handle("POST /v1/admin/users/admin", s.admin(s.setUserAdmin))
 	mux.Handle("GET /v1/admin/settings", s.admin(s.getSettings))
 	mux.Handle("POST /v1/admin/skills/reload", s.admin(s.reloadSkills))
@@ -206,6 +228,9 @@ func (s *Server) Handler() http.Handler {
 	// deployment that wants "sign in with a password OR with Google" runs
 	// both, so each registers only the routes it owns.
 	local := s.localAuth()
+	// Held so revoking access can end sessions that already exist, not merely
+	// stop the next sign-in.
+	s.local = local
 	oidc := (*auth.Login)(nil)
 	if s.opts.Auth != nil {
 		oidc = s.opts.Auth.Login
@@ -250,6 +275,7 @@ func (s *Server) Handler() http.Handler {
 	}
 	mux.HandleFunc("GET /", s.serveLanding)
 	mux.HandleFunc("GET /console", s.serveConsole)
+	mux.HandleFunc("GET /admin", s.serveAdmin)
 
 	// Documentation, when it was embedded at build time. An air-gapped
 	// install has no route to the public copy, so the binary carries its own;

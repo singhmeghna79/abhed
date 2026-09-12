@@ -467,8 +467,18 @@ func TestAdminRoutesRequireTheAdminGroup(t *testing.T) {
 		{"GET", "/v1/admin/users"},
 		{"GET", "/v1/admin/invites"},
 		{"POST", "/v1/admin/invites"},
+		// Access records name every person who ever asked, and revoke ends
+		// somebody's account. An ordinary user reaching either would be a
+		// disclosure and a denial-of-service respectively.
+		{"GET", "/v1/admin/access"},
+		{"GET", "/v1/admin/access/g-x/history"},
+		{"POST", "/v1/admin/access/g-x/revoke"},
 	}
 	for _, rt := range routes {
+		// Forbidden, specifically. A route that answers 501 to a non-admin
+		// because its backing store is absent has not been authorised — it has
+		// merely failed earlier, and would let the request through the moment
+		// the store exists. This caught exactly that ordering bug.
 		if code := call("bob", "", rt.method, rt.path); code != http.StatusForbidden {
 			t.Errorf("%s %s: non-admin got %d, want 403 — admin surface is open",
 				rt.method, rt.path, code)

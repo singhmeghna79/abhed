@@ -1014,7 +1014,11 @@ func serveCmd(workspace, addr string) int {
 		SkillListing: skillListing,
 		SkillDirs:    skillDirs(cfg),
 		Store:        eventStore,
-		Auth:         authMW,
+		// Access records need durable storage, so this is set only on
+		// Postgres. Nil elsewhere, and the admin routes say so plainly rather
+		// than showing an empty list that looks like "nobody has asked".
+		Access: accessStore(eventStore),
+		Auth:   authMW,
 		// The live objects behind the settings surface. Passing the registries
 		// rather than only their rendered output is what lets a change reach
 		// the next session without a restart.
@@ -2274,4 +2278,17 @@ func attachExtensionSummarizer(c *agent.Compactor, h *extension.Host, sessionID 
 		}
 		return h.OnBeforeCompact(context.Background(), sessionID, out)
 	}
+}
+
+// accessStore exposes the access-records capability when the store has it.
+//
+// A type assertion rather than a config check: the question is whether this
+// store can keep an access decision across a restart, and the store itself is
+// the authority on that. The memory driver cannot, so it returns nil and the
+// dashboard explains why instead of appearing empty.
+func accessStore(s server.EventStore) server.AccessStore {
+	if a, ok := s.(server.AccessStore); ok {
+		return a
+	}
+	return nil
 }
