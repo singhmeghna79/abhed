@@ -47,10 +47,29 @@ printf '%s' "$TO" | npm_config_cache="$CACHE" npx --yes wrangler@3 \
     pages secret put ACCESS_TO --project-name "$PROJECT"
 
 # --- the From: address -----------------------------------------------------
+# Checked rather than asked blindly. Sending as the domain before Resend's
+# records resolve is worse than not doing it: the SPF record ends in -all and
+# DMARC is p=quarantine, so an unverified send gets quarantined instead of
+# merely looking generic.
 echo
-echo "If you verified zybuu.com at Resend, mail can be sent as your own domain."
-printf 'Send mail from [onboarding@resend.dev]: '
+DOM="${TO#*@}"
+if dig +short TXT "resend._domainkey.$DOM" | grep -q .; then
+    SUGGEST="Zybuu <support@$DOM>"
+    echo "$DOM is verified with Resend, so mail can be sent as your own domain."
+else
+    SUGGEST=""
+    echo "$DOM is NOT yet verified with Resend (no resend._domainkey record)."
+    echo "Leave this blank for now — mail keeps going out from Resend's shared"
+    echo "sender, which is generic but delivers. To send as support@$DOM, add"
+    echo "the records Resend shows, then:"
+    echo
+    echo "    ./deploy/sitetests/check-mail-dns.sh   # confirm they resolve"
+    echo "    ./deploy/set-access-email.sh           # and answer this prompt"
+fi
+echo
+printf 'Send mail from [%s]: ' "${SUGGEST:-onboarding@resend.dev}"
 read -r FROM
+FROM="${FROM:-$SUGGEST}"
 if [ -n "$FROM" ]; then
     printf '%s' "$FROM" | npm_config_cache="$CACHE" npx --yes wrangler@3 \
         pages secret put ACCESS_FROM --project-name "$PROJECT"

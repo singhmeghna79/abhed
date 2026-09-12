@@ -137,30 +137,62 @@ Until it is set the form refuses honestly — "the form is not connected yet,
 email support@zybuu.com" — rather than accepting a request and dropping it.
 Nothing is lost either way, but nothing is emailed either.
 
-### Sending as zybuu.com
+### Sending as support@zybuu.com
 
-Set up, mail goes out from Resend's shared `onboarding@resend.dev` sender.
-That works, and it has two costs: the message does not look like it came from
-Zybuu, and a shared sending address carries other people's reputation, so it is
-likelier to land in spam.
+Out of the box mail goes out from Resend's shared `onboarding@resend.dev`. It
+delivers, but it does not look like it came from Zybuu, and a shared sending
+address carries strangers' reputation.
 
-Fixing it is DNS, once. In Resend, add the domain `zybuu.com`; it prints three
-records (a DKIM `TXT` at `resend._domainkey`, an SPF `TXT`, and a `MX` for
-bounce handling). Add them at GoDaddy — **alongside** the existing records, not
-replacing them. The existing `MX` for `smtp.secureserver.net` is what receives
-your mail; deleting it stops mail arriving. Resend's bounce `MX` goes on a
-subdomain and does not conflict.
+To send as `support@zybuu.com`, Resend has to prove it is allowed to. That is
+three DNS records at GoDaddy, and one of them needs care.
 
-Then point the form at the verified address:
+**Why you cannot just change the From address.** Your SPF record ends in
+`-all`, which tells receivers to reject anything from a sender not on the list,
+and your DMARC is `p=quarantine`, which tells them to act on that. Sending as
+the domain before the records exist is *worse* than the status quo — the mail
+gets quarantined instead of merely looking generic.
 
-```bash
-./deploy/set-access-email.sh        # answer the third prompt this time
-./deploy/publish-site.sh
+In Resend: **Domains → Add Domain → `zybuu.com`**. It prints the records. Then
+at GoDaddy:
+
+| Type | Name | Value | Note |
+|---|---|---|---|
+| `TXT` | `resend._domainkey` | (the long key Resend shows) | DKIM signing key |
+| `MX` | `send` | `feedback-smtp.<region>.amazonses.com`, priority 10 | bounce handling |
+| `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | SPF for the sending subdomain |
+
+**The one that needs care.** Resend may also ask you to add `include:resend.com`
+to your *root* SPF. If it does, **edit the existing record — do not add a second
+one.** A domain with two `v=spf1` records fails SPF entirely. The merge is:
+
+```
+before:  v=spf1 include:secureserver.net -all
+after:   v=spf1 include:secureserver.net include:resend.com -all
 ```
 
-Verify with `dig +short TXT resend._domainkey.zybuu.com` — an answer means
-verified. The form works either way; this only changes what the recipient sees
-and how reliably it arrives.
+And leave the root `MX` records alone. `smtp.secureserver.net` is what
+*receives* your mail — including the access requests this form sends. Deleting
+it would stop them arriving at the very mailbox you are wiring up. Resend's
+`MX` goes on the `send` subdomain and does not conflict.
+
+**Then verify before switching**, because a wrong switch is a silent one:
+
+```bash
+./deploy/sitetests/check-mail-dns.sh
+```
+
+It checks that the inbound `MX` is still intact, that DKIM resolves, and that
+SPF lists Resend *without* having dropped the existing provider. When it is
+clean:
+
+```bash
+./deploy/set-access-email.sh     # it detects verification and suggests the address
+./deploy/publish-site.sh
+./deploy/sitetests/check-access-live.sh
+```
+
+The requester's address is already the `Reply-To`, so a request arrives looking
+like it came from Zybuu and hitting Reply answers the person who sent it.
 
 ## Verify
 
