@@ -475,6 +475,11 @@ tr:last-child td{border-bottom:0}
 .honest{border-left:2px solid var(--recorded);background:var(--recorded-soft);
   padding:16px 18px;border-radius:0 8px 8px 0}
 .honest p{margin:0;color:var(--ink-2)}
+
+.note.said-ok{color:var(--live);border-left:2px solid var(--live);
+  background:var(--live-soft);padding:11px 14px;border-radius:0 6px 6px 0}
+.note.said-bad{color:var(--warn);border-left:2px solid var(--warn);
+  background:var(--warn-soft);padding:11px 14px;border-radius:0 6px 6px 0}
 </style>
 </head>
 
@@ -1145,6 +1150,54 @@ var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["di
       });
     });
   });
+})();
+
+
+// The access form's result.
+//
+// The page is static, so the Function answers with a 303 to /#access-<status>
+// and this reads it back. That handler was lost when the stylesheet was
+// rewritten, which left the form submitting into apparent silence — a person
+// filled it in, the page reloaded looking unchanged, and nothing said whether
+// it had worked. Restored, and the six statuses here are exactly the six
+// back() can emit; deploy/sitetests/access.test.mjs asserts that set.
+(function () {
+  var note = document.getElementById('reqnote'),
+      form = document.getElementById('req');
+  if (!note || !form) return;
+
+  var SAID = {
+    ok: ['We have it. A reply is coming to the address you gave, usually the ' +
+         'same day.', 'ok'],
+    missing: ['Name and work email are both needed.', 'bad'],
+    email: ['That email address does not look right — check it and try again.', 'bad'],
+    invalid: ['The form did not submit cleanly. Try again, or email ' +
+              'support@zybuu.com.', 'bad'],
+    failed: ['Something broke on our side, not yours. Email ' +
+             'support@zybuu.com and we will pick it up.', 'bad'],
+    unconfigured: ['The form is not connected yet. Email support@zybuu.com.', 'bad']
+  };
+
+  var m = /^#access-(\w+)$/.exec(location.hash);
+  if (!m) return;
+  var said = SAID[m[1]];
+  if (!said) return;
+
+  note.textContent = said[0];
+  note.className = 'note said-' + said[1];
+  // Announced, not just shown: someone using a screen reader submitted the
+  // same form and gets the same answer.
+  note.setAttribute('role', 'status');
+
+  if (said[1] === 'ok') {
+    form.querySelectorAll('input,textarea,button').forEach(function (el) {
+      el.disabled = true;
+    });
+  }
+  // Take the fragment off the URL so a refresh does not re-announce a result
+  // for a submission that is not happening again.
+  history.replaceState(null, '', location.pathname + '#access');
+  note.scrollIntoView({ block: 'center' });
 })();
 </script>
 </html>

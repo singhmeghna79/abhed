@@ -23,6 +23,14 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../web/zybuu" && pwd)"
 # Checked here so a broken form cannot be published.
 # Docs are generated from docs/ at publish time, so the markdown in the repo
 # stays the single source and the site cannot drift from it.
+# The access Function imports the screening rules, and Pages Functions cannot
+# import from outside the functions directory. Copy rather than symlink, so
+# what deploys is what was tested.
+echo "==> Syncing the screening rules into the Function"
+cp "$(dirname "${BASH_SOURCE[0]}")/sitegen/screen.js" \
+   "$(dirname "${BASH_SOURCE[0]}")/../web/zybuu/functions/api/_screen.js"
+echo
+
 echo "==> Rendering documentation"
 python3 "$(dirname "${BASH_SOURCE[0]}")/sitegen/build-docs.py"
 echo

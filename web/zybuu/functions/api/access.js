@@ -19,6 +19,8 @@
 // Set them with deploy/set-access-email.sh, which prompts for the key and
 // hands it to Cloudflare without it touching the repository.
 
+import { screen } from "./_screen.js";
+
 const MAX_FIELD = 2000;
 const TO = "support@zybuu.com";
 // Resend's shared sending address. It works without verifying a domain, which
@@ -93,7 +95,78 @@ export async function onRequestPost({ request, env }) {
     return back(request, "failed");
   }
 
+  // Acknowledge the requester — but only once the request has been delivered
+  // and only if it passed screening.
+  //
+  // The order matters. The notification above is sent first and its failure
+  // is reported; the acknowledgement is best-effort and never changes what
+  // the visitor is told, because a person whose request DID arrive should not
+  // see an error just because the courtesy reply bounced.
+  //
+  // Screening gates it because an acknowledgement is an outbound email to an
+  // address a stranger typed. Replying to everything turns this form into a
+  // way to send mail to arbitrary people over our domain — the classic
+  // backscatter abuse — and burns the sending reputation the DKIM records
+  // exist to build.
+  const verdict = screen({ name, email, company, use });
+  if (verdict.action !== "reject") {
+    await acknowledge(env, { name, email, from: env.ACCESS_FROM || FROM });
+  }
+
   return back(request, "ok");
+}
+
+// The thank-you. Deliberately quiet about what happens next: it sets an
+// expectation we can keep, names a human route, and promises no timeline the
+// person reading it can hold us to beyond "the same day".
+async function acknowledge(env, { name, email, from }) {
+  const first = (name.split(/\s+/)[0] || "there").slice(0, 40);
+  const text = [
+    `Hi ${first},`,
+    "",
+    "Thanks — your request for Titan access is in, and a person will read it.",
+    "",
+    "Titan is a deep agent harness that runs on your own hardware, against a",
+    "model you host. If the hosted console is what you want, the reply will",
+    "carry a sign-in code. If you would rather run it on your own",
+    "infrastructure, say so and we will talk about that instead.",
+    "",
+    "Two things worth knowing before you decide:",
+    "",
+    "  - The console runs on a single machine. It is a trial environment,",
+    "    not a service with an uptime commitment.",
+    "  - Zybuu holds no SOC 2, ISO 27001 or HIPAA certification. That is",
+    "    stated on the site too, and it is better said now than discovered",
+    "    in procurement.",
+    "",
+    "Documentation, if you want to read ahead:",
+    "  https://titan.zybuu.com/docs",
+    "",
+    "Reply to this email and it reaches a person, not a queue.",
+    "",
+    "— Zybuu",
+  ].join("\n");
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [email],
+        reply_to: env.ACCESS_TO || TO,
+        subject: "Your Titan access request",
+        text,
+      }),
+    });
+  } catch {
+    // Swallowed on purpose. The request itself is already delivered; failing
+    // the visitor's submission because a courtesy email bounced would be the
+    // wrong trade.
+  }
 }
 
 // Anything other than POST. Answering rather than 405ing means a stray GET

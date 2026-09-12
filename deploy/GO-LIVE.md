@@ -200,6 +200,52 @@ clean:
 The requester's address is already the `Reply-To`, so a request arrives looking
 like it came from Zybuu and hitting Reply answers the person who sent it.
 
+## Handling an access request
+
+A request arrives at `support@zybuu.com`. The requester has already had an
+automatic acknowledgement — sent only if the submission passed screening, so a
+stranger cannot use the form to mail arbitrary addresses over our domain.
+
+Read it, decide, then:
+
+```bash
+export TITAN_ADMIN_USER=yuvraj TITAN_ADMIN_PASS=...   # or TITAN_SESSION=<cookie>
+export RESEND_API_KEY=...
+
+./deploy/grant-access.sh priya@siemens.com "Priya Raman"        # 7 days
+./deploy/grant-access.sh priya@siemens.com "Priya Raman" 720    # 30 days
+```
+
+It mints a single-use invite on the live console, formats the expiry, and
+emails the code with what the account can and cannot do. Without
+`RESEND_API_KEY` it prints the code for you to send by hand; the invite is
+real either way.
+
+**Why this is not automatic.** An invite is a shell on a machine. Screening
+decides who is worth reading; it cannot decide who is worth trusting, and a
+convincing lookalike domain costs a few dollars. The decision stays yours —
+what the script removes is the tedium, not the judgement.
+
+The account the code creates lands with no groups. It can use Titan Chat and
+read its own sessions; it cannot administer the console, change policy, or
+invite anyone else. The agent's shell runs in a container with no network and
+no host access, so what an invited user can reach is bounded by
+`internal/sandbox` rather than by trust.
+
+### Turning it off
+
+An invite expires on its own and is single use, so an unsent or unused code
+lapses without action. To cut off an account that already exists:
+
+```bash
+titan user list                 # who exists
+titan user remove <username>    # the account is gone; their sessions are not
+```
+
+There is no `disable` — the subcommands are `add`, `list`, `passwd` and
+`remove`. Removing the account ends their access; the audit log of what they
+did stays, which is the point of keeping it.
+
 ## Verify
 
 ```bash
