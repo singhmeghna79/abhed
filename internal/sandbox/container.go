@@ -128,6 +128,38 @@ func (c *Container) Command(ctx context.Context, cwd, command string) *exec.Cmd 
 		"--security-opt", "no-new-privileges",
 	)
 
+	// The image itself is immutable. A writable rootfs lets a session drop a
+	// binary somewhere on PATH, or edit a shell profile, and lets one command
+	// leave something behind for the next — the container is per-command, so
+	// without this the filesystem is the one place state could persist.
+	args = append(args, "--read-only")
+
+	// Somewhere to write, sized and mounted noexec so it cannot become the
+	// place a downloaded binary is run from. Compilers and package managers
+	// need a scratch directory; an attacker needs an executable one, and
+	// these are not the same requirement.
+	args = append(args,
+		"--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=256m",
+		"--tmpfs", "/run:rw,noexec,nosuid,nodev,size=16m",
+	)
+
+	// Fork bombs and disk-fill are denial of service against the host, which
+	// the memory and pid caps below do not cover on their own.
+	args = append(args,
+		"--ulimit", "nproc=256:256",
+		"--ulimit", "nofile=1024:1024",
+		"--ulimit", "fsize=536870912:536870912", // 512 MB per file
+		"--ulimit", "core=0:0",
+	)
+
+	// A CPU cap so one session cannot starve the host. Not security, but a
+	// session that pins every core is indistinguishable from an outage.
+	args = append(args, "--cpus", "2")
+
+	// No IPC or UTS sharing with anything else, and a private PID namespace,
+	// so one session cannot see or signal another's processes.
+	args = append(args, "--ipc", "private", "--uts", "private")
+
 	if !c.policy.AllowNetwork {
 		args = append(args, "--network", "none")
 	}
