@@ -15,11 +15,25 @@ say() {
     else printf '  FAIL  %-26s %s\n' "$2" "$3"; bad=$((bad+1)); fi
 }
 
+# Ask a public resolver, and retry once against a second one before believing a
+# negative. A local resolver under a burst of queries returns an empty answer
+# that is indistinguishable from "the record does not exist" — which reported a
+# correctly configured domain as broken, the worst way for a check like this to
+# be wrong.
+q() {
+    local type="$1" name="$2" out
+    for server in 1.1.1.1 8.8.8.8; do
+        out=$(dig @"$server" +short "$type" "$name" 2>/dev/null)
+        [ -n "$out" ] && { printf '%s' "$out"; return 0; }
+    done
+    return 1
+}
+
 echo "==> Mail DNS for $DOMAIN"
 
 # 1. Receiving must keep working. This is the one that breaks things: the
 #    GoDaddy MX is what delivers mail TO the mailbox the form writes to.
-mx=$(dig +short MX "$DOMAIN" | tr '\n' ' ')
+mx=$(q MX "$DOMAIN" | tr '\n' ' ')
 case "$mx" in
     *secureserver.net*) say pass "inbound MX intact" "$mx" ;;
     "")                 say fail "inbound MX intact" "NO MX — mail to @$DOMAIN is undeliverable" ;;
@@ -27,14 +41,14 @@ case "$mx" in
 esac
 
 # 2. DKIM: Resend's signing key.
-dkim=$(dig +short TXT "resend._domainkey.$DOMAIN" | head -1)
+dkim=$(q TXT "resend._domainkey.$DOMAIN" | head -1)
 if [ -n "$dkim" ]; then say pass "Resend DKIM" "present"
 else say fail "Resend DKIM" "missing — add the TXT record Resend shows"; fi
 
 # 3. Exactly one SPF record. Two is the classic and silent failure: RFC 7208
 #    says a domain publishing multiple v=spf1 records is a permerror, which
 #    means SPF fails for ALL mail from the domain, not just the new sender.
-spfcount=$(dig +short TXT "$DOMAIN" | grep -ci 'v=spf1')
+spfcount=$(q TXT "$DOMAIN" | grep -ci 'v=spf1')
 if [ "$spfcount" -gt 1 ]; then
     say fail "one SPF record" "$spfcount found — two v=spf1 records fail SPF entirely; merge them into one"
 fi
@@ -42,7 +56,7 @@ fi
 # The root SPF must survive untouched. Resend's Domain Connect flow puts its
 # SPF on the send subdomain, a separate scope, so the root should still read
 # exactly as it did before — anything else means something edited it.
-spf=$(dig +short TXT "$DOMAIN" | grep -i 'v=spf1' | head -1)
+spf=$(q TXT "$DOMAIN" | grep -i 'v=spf1' | head -1)
 if [ -z "$spf" ]; then
     say fail "root SPF" "no SPF record at all"
 elif ! printf '%s' "$spf" | grep -qi secureserver; then
@@ -53,7 +67,7 @@ fi
 
 # The sending scope: Resend signs as send.<domain>, so this is the SPF that
 # has to name Amazon SES (Resend sends through it).
-sendspf=$(dig +short TXT "send.$DOMAIN" | grep -i 'v=spf1' | head -1)
+sendspf=$(q TXT "send.$DOMAIN" | grep -i 'v=spf1' | head -1)
 if printf '%s' "$sendspf" | grep -qi 'amazonses\|resend'; then
     say pass "send SPF" "$sendspf"
 else
@@ -62,7 +76,7 @@ fi
 
 # 4. Bounce handling. Resend puts an MX on a subdomain; absence is not fatal
 #    but bounces are then invisible, which is how a dead address goes unnoticed.
-bounce=$(dig +short MX "send.$DOMAIN" | head -1)
+bounce=$(q MX "send.$DOMAIN" | head -1)
 if [ -n "$bounce" ]; then say pass "bounce MX" "$bounce"
 else printf '  note  %-26s %s\n' "bounce MX" "absent — bounces will not be reported"; fi
 
