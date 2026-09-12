@@ -20,6 +20,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/agent"
 	"github.com/yuvrajsingh/titan/internal/auth"
 	"github.com/yuvrajsingh/titan/internal/config"
+	"github.com/yuvrajsingh/titan/internal/docsite"
 	"github.com/yuvrajsingh/titan/internal/index"
 	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
@@ -241,6 +242,19 @@ func (s *Server) Handler() http.Handler {
 	}
 	mux.HandleFunc("GET /", s.serveLanding)
 	mux.HandleFunc("GET /console", s.serveConsole)
+
+	// Documentation, when it was embedded at build time. An air-gapped
+	// install has no route to the public copy, so the binary carries its own;
+	// a build that skipped generation simply has no /docs rather than a route
+	// that 404s every page. Registered before the auth wrapper below because
+	// documentation is not a secret and an operator who cannot sign in is
+	// exactly who needs to read it.
+	if docsite.Available() {
+		mux.Handle("GET /docs/", docsite.Handler("/docs"))
+		mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/docs/", http.StatusMovedPermanently)
+		})
+	}
 	mux.HandleFunc("GET /v1/overview", s.overview)
 
 	// Order matters and is easy to get backwards: authentication must run
@@ -1062,7 +1076,7 @@ type overviewResponse struct {
 	Isolation string `json:"isolation,omitempty"`
 	// IsolationOK is whether the deployment is actually contained, as opposed
 	// to whether a particular tier string was configured.
-	IsolationOK bool `json:"isolation_ok"`
+	IsolationOK   bool   `json:"isolation_ok"`
 	Storage       string `json:"storage"`
 	Durable       bool   `json:"durable"`
 	AuthMode      string `json:"auth_mode"`
@@ -1070,8 +1084,8 @@ type overviewResponse struct {
 	Authenticated bool   `json:"authenticated"`
 	// LocalAuth tells the landing page to render a username/password form
 	// rather than a redirect button.
-	LocalAuth     bool     `json:"local_auth"`
-	AllowSignup   bool     `json:"allow_signup"`
+	LocalAuth   bool `json:"local_auth"`
+	AllowSignup bool `json:"allow_signup"`
 	// InviteSignup reports that registration is possible with a code.
 	//
 	// Distinct from AllowSignup, which means "anyone may register". The two
@@ -1079,7 +1093,7 @@ type overviewResponse struct {
 	// either an open form or nothing at all — with only AllowSignup, an
 	// invite-only deployment is indistinguishable from a closed one and the
 	// UI correctly hides a door that is in fact open.
-	InviteSignup bool `json:"invite_signup"`
+	InviteSignup  bool     `json:"invite_signup"`
 	ProviderLabel string   `json:"provider_label,omitempty"`
 	User          string   `json:"user,omitempty"`
 	Tenant        string   `json:"tenant,omitempty"`

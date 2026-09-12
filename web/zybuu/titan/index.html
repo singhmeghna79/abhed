@@ -244,48 +244,68 @@ h1,h2,.lede,.body,.card p,.honest p{overflow-wrap:break-word}
 
 <style>
 /* ---- the replay ------------------------------------------------------ */
-.replay{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
-  gap:22px;align-items:start}
-@media (max-width:900px){.replay{grid-template-columns:1fr}}
+/* The terminal is the evidence, so it gets the larger half and a height that
+   fits the longest step without scrolling. Sized in ch/em rather than px so a
+   reader who scales text does not get a clipped transcript. */
+.replay{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
+  gap:20px;align-items:start}
+@media (max-width:960px){.replay{grid-template-columns:1fr}}
 .term{background:#0B0E13;border:1px solid #252D3A;border-radius:13px;
-  overflow:hidden;position:sticky;top:74px}
-@media (max-width:900px){.term{position:static}}
+  overflow:hidden;position:sticky;top:74px;
+  box-shadow:0 1px 3px rgba(0,0,0,.16),0 12px 34px -14px rgba(0,0,0,.4)}
+@media (max-width:960px){.term{position:static}}
 .term-bar{display:flex;align-items:center;gap:7px;padding:10px 14px;
   border-bottom:1px solid #252D3A;background:#0F141C}
 .dot{width:10px;height:10px;border-radius:50%}
 .term-bar .t{margin-left:8px;font-family:var(--mono);font-size:11px;color:#8A96A8}
-.term-body{padding:15px 16px;font-family:var(--mono);font-size:12.4px;
-  line-height:1.62;min-height:332px;max-height:332px;overflow-y:auto;
-  color:#C9D4E2;white-space:pre-wrap;word-break:break-word}
-.term-body .p{color:#2BF5C4}
-.term-body .cmd{color:#E8EDF4}
+.term-bar .live{margin-left:auto;display:flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:#8A96A8}
+.term-bar .live i{width:6px;height:6px;border-radius:50%;background:#3FAF6C;
+  display:inline-block;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.term-body{padding:16px 18px;font-family:var(--mono);
+  font-size:clamp(11.5px,1.02vw,13px);line-height:1.66;
+  height:31em;overflow-y:auto;color:#C9D4E2;
+  white-space:pre-wrap;word-break:break-word;scroll-behavior:smooth}
+@media (max-width:960px){.term-body{height:24em}}
+.term-body .cmd{color:#E8EDF4;margin-top:2px}
 .term-body .tool{color:#6FB3EE}
 .term-body .res{color:#8A96A8}
 .term-body .ok{color:#3FAF6C}
 .term-body .warn{color:#D4A03C}
 .term-body .dim{color:#77839A}
-.cursor{display:inline-block;width:7px;height:14px;background:#2BF5C4;
+.cursor{display:inline-block;width:7px;height:13px;background:#2BF5C4;
   vertical-align:-2px;animation:bl 1.05s steps(2) infinite}
 @keyframes bl{0%,50%{opacity:1}51%,100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.cursor{animation:none}}
+@media (prefers-reduced-motion:reduce){
+  .cursor,.term-bar .live i{animation:none}
+  .term-body{scroll-behavior:auto}
+}
 
-.steps{display:flex;flex-direction:column;gap:9px}
-.step{border:1px solid var(--line);border-radius:11px;padding:15px 17px;
-  background:var(--surface);cursor:pointer;text-align:left;font:inherit;
-  color:inherit;transition:border-color .16s,background .16s}
+.steps{display:flex;flex-direction:column;gap:8px}
+/* Each step carries its own progress bar: with auto-play running, the reader
+   needs to see that something is advancing and roughly how long is left. */
+.step{position:relative;border:1px solid var(--line);border-radius:11px;
+  padding:14px 16px;background:var(--surface);cursor:pointer;text-align:left;
+  font:inherit;color:inherit;overflow:hidden;
+  transition:border-color .16s,background .16s,opacity .16s}
 .step:hover{border-color:var(--line-strong)}
 .step[aria-current="true"]{border-color:var(--accent);
   background:linear-gradient(180deg,var(--accent-soft),var(--surface) 70%)}
-.step h4{margin:0 0 6px;font-size:14.5px;letter-spacing:-.01em;
-  display:flex;align-items:center;gap:9px}
+.step[data-done="true"]:not([aria-current="true"]){opacity:.62}
+.step .bar{position:absolute;left:0;bottom:0;height:2px;width:0;
+  background:var(--accent);transition:width .18s linear}
+.step h4{margin:0 0 5px;font-size:14.4px;letter-spacing:-.01em;
+  display:flex;align-items:baseline;gap:9px;line-height:1.35}
 .step .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);
   border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none}
 .step[aria-current="true"] .n{color:var(--accent);
   border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
-.step p{margin:0;font-size:13.6px;color:var(--ink-2);line-height:1.6}
-.step p code{font-family:var(--mono);font-size:12.4px;background:var(--sunken);
+.step p{margin:0;font-size:13.4px;color:var(--ink-2);line-height:1.58}
+.step p code{font-family:var(--mono);font-size:12.2px;background:var(--sunken);
   padding:1px 5px;border-radius:4px}
-.replay-ctl{display:flex;gap:9px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.replay-ctl{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
 .replay-ctl .note{font-family:var(--mono);font-size:11px;color:var(--muted)}
 
 /* ---- install --------------------------------------------------------- */
@@ -342,7 +362,7 @@ pre.code .g{color:#2BF5C4}
       <a href="/" class="hide-sm">Zybuu</a>
       <a href="#install">Install</a>
       <a href="#harness" class="hide-sm">Harness</a>
-      <a href="/docs/">Docs</a>
+      <a href="https://titan.zybuu.com/docs/">Docs</a>
       <a class="btn" href="https://titan.zybuu.com">Open console</a>
     </nav>
   </div>
@@ -387,17 +407,18 @@ pre.code .g{color:#2BF5C4}
           <span class="dot" style="background:#FEBC2E"></span>
           <span class="dot" style="background:#28C840"></span>
           <span class="t">~/demo — titan</span>
+          <span class="live"><i></i>recorded session</span>
         </div>
         <div class="term-body" id="tb" role="img" aria-label="Terminal replay of a real Titan session"></div>
       </div>
 
       <div>
         <div class="steps" id="steps">
-      <button class="step" type="button" data-i="0" aria-current="true"><h4><span class="n">1</span>Check the model before you trust it</h4><p>A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back — ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open.</p></button>
-      <button class="step" type="button" data-i="1" aria-current="false"><h4><span class="n">2</span>One prompt, no terminal to sit in front of</h4><p><code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace.</p></button>
-      <button class="step" type="button" data-i="2" aria-current="false"><h4><span class="n">3</span>It recovers, then it reads</h4><p>The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate — and that you can replay afterwards from the event log, in order, with their arguments.</p></button>
-      <button class="step" type="button" data-i="3" aria-current="false"><h4><span class="n">4</span>Writes are a permission, not a default</h4><p>Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse — never assume yes.</p></button>
-      <button class="step" type="button" data-i="4" aria-current="false"><h4><span class="n">5</span>And it checks its own work</h4><p><code>go test</code> passes. The whole task — read, edit, write, verify — took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost.</p></button>
+      <button class="step" type="button" data-i="0" aria-current="true" data-done="false"><h4><span class="n">1</span>Check the model before you trust it</h4><p>A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back — ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open.</p><span class="bar"></span></button>
+      <button class="step" type="button" data-i="1" aria-current="false" data-done="false"><h4><span class="n">2</span>One prompt, no terminal to sit in front of</h4><p><code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace.</p><span class="bar"></span></button>
+      <button class="step" type="button" data-i="2" aria-current="false" data-done="false"><h4><span class="n">3</span>It recovers, then it reads</h4><p>The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate — and that you can replay afterwards from the event log, in order, with their arguments.</p><span class="bar"></span></button>
+      <button class="step" type="button" data-i="3" aria-current="false" data-done="false"><h4><span class="n">4</span>Writes are a permission, not a default</h4><p>Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse — never assume yes.</p><span class="bar"></span></button>
+      <button class="step" type="button" data-i="4" aria-current="false" data-done="false"><h4><span class="n">5</span>And it checks its own work</h4><p><code>go test</code> passes. The whole task — read, edit, write, verify — took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost.</p><span class="bar"></span></button>
         </div>
         <div class="replay-ctl">
           <button class="btn ghost" type="button" id="rp">Replay</button>
@@ -468,7 +489,7 @@ titan doctor    <span class="c"># check the endpoint before you rely on it</span
 
     <p class="body" style="margin-top:20px">
       Full instructions, configuration and every tool contract are in the
-      <a href="/docs/">documentation</a>.
+      <a href="https://titan.zybuu.com/docs/">documentation</a>.
     </p>
   </div>
 </section>
@@ -823,36 +844,53 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 <footer>
   <div class="wrap foot">
     <span><a href="/">Zybuu</a></span>
-    <span><a href="/docs/">Documentation</a></span>
+    <span><a href="https://titan.zybuu.com/docs/">Documentation</a></span>
     <span>On-prem by default</span>
     <span>Tool output is data, never instructions</span>
   </div>
 </footer>
 
 <script>
-// The replay. Data is the real captured transcript; this only schedules it.
+// The replay. STEPS is the real captured transcript; this only schedules it.
+//
+// It plays itself once scrolled into view, because a demo that needs to be
+// clicked before it shows anything is a demo most readers never see. Clicking
+// a step takes over: auto-advance stops and stays stopped, so a reader who is
+// steering is never fought by the page.
 var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["dim", "provider    local (openai-compatible)"], ["dim", "endpoint    http://localhost:11434/v1"], ["dim", "model       gemma4:26b"], ["dim", "sandbox     process \u2014 workspace-scoped writes \u00b7 no network"], ["dim", "storage     memory (sessions do not survive restart)"], ["", ""], ["ok", "checking endpoint... ok"], ["ok", "checking tool calling... ok"], ["dim", "  called glob with {\"pattern\":\"*.go\"}"], ["", ""], ["ok", "Ready."]], "title": "Check the model before you trust it", "body": "A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back \u2014 ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open."}, {"cmd": "titan -p \"Add a FToC function converting Fahrenheit to Celsius to tempconv.go, and a table-driven test for both in tempconv_test.go. Then run go test.\"", "out": [["tool", "\u25cf glob tempconv*"], ["res", "  \u2514 1 line(s)"], ["tool", "\u25cf read tempconv.go"], ["warn", "  \u2502 path must be absolute. Did you mean ~/demo/tempconv.go?"]], "title": "One prompt, no terminal to sit in front of", "body": "<code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace."}, {"cmd": null, "out": [["tool", "\u25cf bash Check current working directory"], ["res", "  \u2514 exit 0"], ["tool", "\u25cf read ~/demo/tempconv.go"], ["res", "  \u2514 12 line(s)"], ["tool", "\u25cf glob tempconv_test.go"], ["res", "  \u2514 no results"]], "title": "It recovers, then it reads", "body": "The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate \u2014 and that you can replay afterwards from the event log, in order, with their arguments."}, {"cmd": null, "out": [["tool", "\u25cf edit ~/demo/tempconv.go"], ["res", "  \u2514 Edited tempconv.go."], ["tool", "\u25cf write ~/demo/tempconv_test.go"], ["res", "  \u2514 Created tempconv_test.go (629 bytes, 39 lines)."]], "title": "Writes are a permission, not a default", "body": "Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse \u2014 never assume yes."}, {"cmd": null, "out": [["tool", "\u25cf bash Run tests"], ["ok", "  \u2514 exit 0"], ["", ""], ["dim", "9 turns \u00b7 30,193 in / 1,825 out tokens"]], "title": "And it checks its own work", "body": "<code>go test</code> passes. The whole task \u2014 read, edit, write, verify \u2014 took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost."}];
 (function () {
   var tb = document.getElementById('tb'),
       steps = [].slice.call(document.querySelectorAll('.step')),
       pos = document.getElementById('pos'),
       rp = document.getElementById('rp'),
-      timers = [], cur = -1,
+      timers = [], cur = -1, auto = true, started = false,
       reduce = window.matchMedia &&
                window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // Pacing. The hold is what the reader actually spends on the prose beside
+  // the terminal, so it scales with how much prose there is — roughly a
+  // slow reading speed, floored so a short step is not a flash and capped so
+  // a long one does not stall. Measured, not guessed: the five steps run
+  // about 40 seconds end to end rather than the 11 the first version took.
+  var LINE = 95;
+  function holdFor(n) {
+    var words = (STEPS[n].title + ' ' + STEPS[n].body.replace(/<[^>]*>/g, ' '))
+                  .split(/\s+/).length;
+    return Math.min(9000, Math.max(3400, words * 95));
+  }
+
   function clear() { timers.forEach(clearTimeout); timers = []; }
-  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
   function line(cls, text) {
     var d = document.createElement('div');
     if (cls) d.className = cls;
     d.innerHTML = esc(text) || '&nbsp;';
-    tb.appendChild(d); tb.scrollTop = tb.scrollHeight;
+    tb.appendChild(d);
+    tb.scrollTop = tb.scrollHeight;
   }
 
-  // Render every step up to and including n, instantly.
-  function upTo(n) {
+  function renderTo(n) {
     tb.innerHTML = '';
     for (var i = 0; i <= n; i++) {
       var st = STEPS[i];
@@ -864,35 +902,86 @@ var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["di
   function mark(n) {
     steps.forEach(function (b, i) {
       b.setAttribute('aria-current', i === n ? 'true' : 'false');
+      b.setAttribute('data-done', i < n ? 'true' : 'false');
+      var bar = b.querySelector('.bar');
+      if (bar) bar.style.width = i < n ? '100%' : '0';
     });
     pos.textContent = 'step ' + (n + 1) + ' of ' + STEPS.length;
+    // Follow along on narrow screens, where the step column is below the
+    // terminal and the active card can otherwise be off-screen entirely.
+    if (auto && started && window.innerWidth <= 960 && steps[n]) {
+      steps[n].scrollIntoView({ block: 'nearest',
+        behavior: reduce ? 'auto' : 'smooth' });
+    }
     cur = n;
   }
 
-  // Show step n, typing its output if motion is allowed.
-  function show(n, animate) {
+  // Play step n. When advancing automatically, chain into the next one.
+  function play(n, chain) {
     clear();
-    if (n > 0) upTo(n - 1); else tb.innerHTML = '';
-    var st = STEPS[n];
+    if (n > 0) renderTo(n - 1); else tb.innerHTML = '';
     mark(n);
-    if (!animate || reduce) {
+    var st = STEPS[n], bar = steps[n] && steps[n].querySelector('.bar');
+
+    if (reduce) {                       // no motion: show it all at once
       if (st.cmd) line('cmd', '$ ' + st.cmd);
       st.out.forEach(function (o) { line(o[0], o[1]); });
+      if (bar) bar.style.width = '100%';
+      if (chain && auto && n + 1 < STEPS.length) {
+        timers.push(setTimeout(function () { play(n + 1, true); }, holdFor(n)));
+      }
       return;
     }
+
     var t = 0;
-    if (st.cmd) { line('cmd', '$ ' + st.cmd); t = 260; }
+    if (st.cmd) { line('cmd', '$ ' + st.cmd); t = 240; }
     st.out.forEach(function (o, i) {
-      timers.push(setTimeout(function () { line(o[0], o[1]); }, t + i * 115));
+      timers.push(setTimeout(function () {
+        line(o[0], o[1]);
+        if (bar) bar.style.width = Math.round((i + 1) / st.out.length * 100) + '%';
+      }, t + i * LINE));
     });
+
+    var done = t + st.out.length * LINE;
+    if (chain && auto && n + 1 < STEPS.length) {
+      timers.push(setTimeout(function () { play(n + 1, true); }, done + holdFor(n)));
+    }
   }
 
+  // A click is a takeover: stop advancing and let the reader drive.
   steps.forEach(function (b, i) {
-    b.addEventListener('click', function () { show(i, true); });
+    b.addEventListener('click', function () {
+      auto = false;
+      rp.textContent = 'Play from the start';
+      play(i, false);
+    });
   });
-  rp.addEventListener('click', function () { show(0, true); });
 
-  show(0, false);
+  rp.addEventListener('click', function () {
+    auto = true;
+    rp.textContent = 'Playing';
+    play(0, true);
+  });
+
+  // Start when it is actually on screen, once.
+  function begin() {
+    if (started) return;
+    started = true;
+    rp.textContent = 'Playing';
+    play(0, true);
+  }
+
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { begin(); io.disconnect(); } });
+    }, { threshold: 0.35 });
+    io.observe(document.getElementById('replay'));
+  } else {
+    begin();
+  }
+
+  renderTo(0);   // something to look at before it starts
+  mark(0);
 })();
 
 // Install tabs.

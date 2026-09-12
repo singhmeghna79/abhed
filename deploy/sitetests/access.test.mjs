@@ -55,6 +55,14 @@ const body = JSON.parse(fetched.init.body);
 t('reply_to is requester', body.reply_to, 'a@b.co');
 t('to is default', body.to[0], 'support@zybuu.com');
 
+// ACCESS_FROM override — sending as a verified domain rather than Resend's
+// shared address. Getting this wrong silently sends from the wrong identity.
+await onRequestPost({ request: req({ name: 'A', email: 'a@b.co' }),
+                      env: { ...env, ACCESS_FROM: 'Zybuu <hello@zybuu.com>' } });
+t('ACCESS_FROM honoured', JSON.parse(fetched.init.body).from, 'Zybuu <hello@zybuu.com>');
+await onRequestPost({ request: req({ name: 'A', email: 'a@b.co' }), env });
+t('default From when unset', JSON.parse(fetched.init.body).from, 'Zybuu <onboarding@resend.dev>');
+
 // ACCESS_TO override
 await onRequestPost({ request: req({ name: 'A', email: 'a@b.co' }), env: { ...env, ACCESS_TO: 'x@y.z' } });
 t('ACCESS_TO honoured', JSON.parse(fetched.init.body).to[0], 'x@y.z');

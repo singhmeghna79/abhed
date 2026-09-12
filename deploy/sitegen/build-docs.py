@@ -19,6 +19,10 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, "docs")
 OUT = os.path.join(ROOT, "web", "zybuu", "docs")
+# The same HTML is embedded in the binary, so an air-gapped install has local
+# documentation with no route to the public copy. One generator, two outputs —
+# rendering twice from one source is what keeps them from disagreeing.
+EMBED = os.path.join(ROOT, "internal", "docsite", "site")
 
 # Which trees are published. docs/internal/ is competitive analysis and working
 # notes — it stays off the public site.
@@ -256,7 +260,21 @@ def main():
         shell("Titan documentation", "".join(idx), desc="Documentation for Titan, the Zybuu agent harness."))
     written += 1
 
+    # Mirror into the binary's embed directory.
+    if os.path.isdir(EMBED):
+        for name in os.listdir(EMBED):
+            if name == ".keep":
+                continue
+            q = os.path.join(EMBED, name)
+            shutil.rmtree(q) if os.path.isdir(q) else os.remove(q)
+    else:
+        os.makedirs(EMBED)
+    for name in os.listdir(OUT):
+        src_p, dst_p = os.path.join(OUT, name), os.path.join(EMBED, name)
+        shutil.copytree(src_p, dst_p) if os.path.isdir(src_p) else shutil.copy2(src_p, dst_p)
+
     print("  rendered %d pages from docs/" % written)
+    print("  mirrored into internal/docsite/site for the embedded copy")
     return 0
 
 

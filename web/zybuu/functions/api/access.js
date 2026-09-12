@@ -14,9 +14,16 @@
 //
 // And optionally:
 //   ACCESS_TO        where requests land (default support@zybuu.com)
+//   ACCESS_FROM      the From: address (default Resend's shared sender)
+//
+// Set them with deploy/set-access-email.sh, which prompts for the key and
+// hands it to Cloudflare without it touching the repository.
 
 const MAX_FIELD = 2000;
 const TO = "support@zybuu.com";
+// Resend's shared sending address. It works without verifying a domain, which
+// is why it is the default, but mail from it is likelier to be filtered. Set
+// ACCESS_FROM to an address at a domain verified with Resend to send as Zybuu.
 const FROM = "Zybuu <onboarding@resend.dev>";
 
 export async function onRequestPost({ request, env }) {
@@ -72,7 +79,7 @@ export async function onRequestPost({ request, env }) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: FROM,
+        from: env.ACCESS_FROM || FROM,
         to: [env.ACCESS_TO || TO],
         // The requester's address, so a reply goes to them rather than to the
         // sending domain.

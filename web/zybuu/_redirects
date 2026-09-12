@@ -1,0 +1,11 @@
+# No /docs rule here, deliberately.
+#
+# Documentation is canonically at titan.zybuu.com/docs, served by the
+# titan-docs Worker, which fetches these same files from the Pages origin. A
+# redirect on /docs/* would apply to that origin too — including
+# zybuu.pages.dev — so the Worker would fetch a redirect pointing back at its
+# own route and loop. Verified: it did.
+#
+# zybuu.com/docs therefore still serves the docs directly. Two URLs for one
+# set of pages is worth less than an outage, and the canonical links on the
+# site all point at titan.zybuu.com.

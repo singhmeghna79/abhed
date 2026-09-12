@@ -1,0 +1,8 @@
+name = "titan-docs"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# One route. Everything else on titan.zybuu.com keeps going to the tunnel.
+[[routes]]
+pattern = "titan.zybuu.com/docs*"
+zone_name = "zybuu.com"
