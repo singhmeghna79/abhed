@@ -11,10 +11,11 @@
 package sitecheck
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -195,34 +196,77 @@ func TestPageClaimsNoCertification(t *testing.T) {
 	// forge. These regimes are named only where the page disclaims them, so the
 	// rule is exact: a compliance regime may appear in these sections and
 	// nowhere else. No character spans, no proximity, nothing to borrow.
+	// These two sections exist to disclaim; a regime named anywhere else is a
+	// claim. When a new section genuinely needs to discuss compliance in order
+	// to deny it, add its id here — deliberately, so that the decision is
+	// visible in the diff rather than made by moving a paragraph.
 	allowed := map[string]bool{"evidence": true, "limitations": true}
 
 	src := raw(t)
-	// Section boundaries, in document order.
-	type sec struct {
-		at int
-		id string
+
+	// An id is only an anchor if it names exactly one section. Nothing
+	// enforced that, and a second <section id="evidence"> appended anywhere
+	// laundered any claim inside it — the round-5 nav-link escape one level up,
+	// with the forged token now the id itself.
+	seen := map[string]int{}
+	for _, m := range regexp.MustCompile(`<section id="([^"]+)"`).
+		FindAllStringSubmatch(src, -1) {
+		seen[m[1]]++
 	}
-	var secs []sec
+	// A rename is a legitimate refactor, so say so in the failure rather than
+	// asserting the honest copy "reads as a claim". The set is explicit and not
+	// derived: these sections do not announce themselves as disclaimers in any
+	// way a regex could recognise — #evidence is headed "Numbers that survive a
+	// technical diligence call" — so inferring the set would be guesswork, and
+	// guessing wrong here means either a false claim shipping or honest copy
+	// reddening. Explicit and loud beats clever.
+	for id := range allowed {
+		if seen[id] == 0 {
+			t.Errorf("no <section id=%q> on the page. If it was renamed, update "+
+				"the allowed set in this test to match — the sections that may "+
+				"discuss compliance are a deliberate choice, not a derived one",
+				id)
+		}
+	}
+	for id, n := range seen {
+		if n > 1 {
+			t.Errorf("section id %q appears %d times — an id that names more "+
+				"than one section is not an anchor, and a duplicate of an "+
+				"allowed id launders every claim inside it", id, n)
+		}
+	}
+
+	// Section spans, honouring </section>. Reading only opening tags
+	// attributed the footer to whichever section happened to be last, which
+	// is a wrong location in the one message a writer uses to find the copy —
+	// and would silently bless everything after the page's final section if an
+	// allowed id ever ended up there.
+	type span struct {
+		from, to int
+		id       string
+	}
+	var secs []span
 	for _, m := range regexp.MustCompile(`<section id="([^"]+)"`).
 		FindAllStringSubmatchIndex(src, -1) {
-		secs = append(secs, sec{m[0], src[m[2]:m[3]]})
+		id := src[m[2]:m[3]]
+		end := strings.Index(src[m[0]:], "</section>")
+		if end < 0 {
+			end = len(src) - m[0] // unclosed: runs to the end
+		}
+		secs = append(secs, span{m[0], m[0] + end, id})
 	}
 	owner := func(off int) string {
-		id := "(no section — before the first one)"
 		for _, s := range secs {
-			if s.at > off {
-				break
+			if off >= s.from && off < s.to {
+				return s.id
 			}
-			id = s.id
 		}
-		return id
+		return "(outside every section)"
 	}
 
 	regime := regexp.MustCompile(`(?i)soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss`)
 	hits := 0
 	for _, m := range regime.FindAllStringIndex(src, -1) {
-		// Skip the nav: a link to a section is not a claim inside it.
 		hits++
 		id := owner(m[0])
 		if allowed[id] {
@@ -238,22 +282,71 @@ func TestPageClaimsNoCertification(t *testing.T) {
 		}
 		t.Errorf("%q appears in section %q, which is not a disclaiming "+
 			"section — outside %v it reads as a claim: %q",
-			src[m[0]:m[1]], id, keys(allowed), flat(src[a:b]))
+			src[m[0]:m[1]], id, slices.Sorted(maps.Keys(allowed)), flat(src[a:b]))
 	}
 	if hits == 0 {
 		t.Fatal("the page no longer names any compliance regime — the honest " +
 			"disclosure that we hold none appears to have been deleted")
 	}
-}
 
-// keys returns a map's keys, sorted, for a stable error message.
-func keys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+	// Placement is necessary, not sufficient. Anchoring on sections fixed the
+	// nav-link forgery but answered only WHERE a regime is named, so the two
+	// disclaiming sections became an unaudited amnesty: rewriting "Zybuu holds
+	// no SOC 2 certification" into "Zybuu is SOC 2 Type II certified" inside
+	// #evidence inverted the page's most load-bearing honesty claim and shipped
+	// green. Word-matching alone was unreliable — that is why placement was
+	// added — but the answer is both, not either.
+	//
+	// So inside the allowed sections the words are checked too: a regime may be
+	// named adjacent to an attainment verb ONLY where the sentence denies it.
+	// Here a denial is required rather than inferred, which is safe precisely
+	// because these two sections exist to deny.
+	claim := regexp.MustCompile(
+		`(?i)(soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss)[^.]{0,60}` +
+			`\b(certified|certification|compliant|compliance|attested|audited|` +
+			`accredited|authori[sz]ed)\b|` +
+			`(?i)\b(certified|certification|compliant|compliance|attested|audited|` +
+			`accredited|authori[sz]ed)\b[^.]{0,60}` +
+			`(soc\s?2|iso\s?27001|hipaa|fedramp|pci[\s-]?dss)`)
+	// The denial must govern the REGIME, not merely share a sentence with it.
+	// The "No certifications" heading flattens into the same sentence as the
+	// row it labels, so a bare "no" anywhere let "SOC 2 ... and FedRAMP
+	// certified" read as a denial — the exact defect removed from the
+	// contradiction guard, reintroduced here. So the negation has to sit
+	// immediately before the regime list or attach to the verb.
+	// The negation must reach the regime without a bare noun bridging it. The
+	// section heading "No certifications" flattens into the row it labels, so
+	// allowing filler words between the negation and the regime let
+	// "No certifications SOC 2 ... and FedRAMP certified" read as a denial.
+	// Adjacent only: "no SOC 2", "holds no SOC 2", "not HIPAA compliant".
+	denial := regexp.MustCompile(
+		`(?i)(\bno|\bnot|\bnone|\bnever|\bwithout|holds no|has yet to|` +
+			`\byet to\b|do(es)? not|remains? outstanding)\s+` +
+			`(of\s+|any\s+|the\s+|our\s+|a\s+)?` +
+			`(soc\s?2|iso\s?27001|hipaa|fedramp|pci|certified|certification)`)
+	// Headings are labels, not sentences, and flattening them into the prose
+	// merges "No certifications" into the row it labels — so a row reading
+	// "SOC 2 ... and FedRAMP certified" inherited a denial from its own title.
+	// A heading cannot deny on a sentence's behalf, so they are dropped before
+	// the words are read.
+	body := regexp.MustCompile(`(?is)<h[1-6][^>]*>.*?</h[1-6]>|<td>[^<]*</td>\s*<td>`).
+		ReplaceAllString(raw(t), " . ")
+	body = regexp.MustCompile(`(?is)<script\b.*?</script>|<style\b.*?</style>`).
+		ReplaceAllString(body, " ")
+	body = strings.ToLower(flat(regexp.MustCompile(`<[^>]*>`).
+		ReplaceAllString(body, " ")))
+	for _, s := range sentences(body) {
+		m := claim.FindString(s)
+		if m == "" {
+			continue
+		}
+		if denial.MatchString(s) {
+			continue
+		}
+		t.Errorf("a compliance regime is asserted rather than denied: %q "+
+			"(in: %q) — Zybuu holds none of these, and these sections exist "+
+			"to say so", m, s)
 	}
-	sort.Strings(out)
-	return out
 }
 
 // The form's action and the CSP that governs it live in two files and have to
@@ -526,23 +619,38 @@ func TestDurabilityClaimsNameTheDriver(t *testing.T) {
 	// too. Prose elsewhere on the page is caught by the section it lives in —
 	// a durability promise in the hero is a claim the limitations table then
 	// contradicts, which is TestPageDoesNotContradictItsOwnLimitations's job.
+	// Pinned as ORDERED copy, not as a bag of substrings. Requiring
+	// "postgres", "accounts survive" and "they do not" to appear somewhere in
+	// the window let the row be rewritten into "Accounts survive it, and so do
+	// transcripts — on the default store as on Postgres. ... completed turns,
+	// they do not." — all three present, the claim inverted into a falsehood.
+	// The relation between the words is the whole meaning, so the relation is
+	// what gets pinned.
 	p := prose(t)
+	// To the end of the cell, not a fixed sentence count. The previous regex
+	// hardcoded "exactly three sentences follow", so inserting one honest
+	// clarifying sentence made it stop 40 characters short and report that the
+	// row "no longer says postgres" — while the row said Postgres plainly. A
+	// failure message that misdescribes the cause sends the next maintainer
+	// hunting a deletion that never happened.
 	row := regexp.MustCompile(
-		`a restart ends running turns[^.]*\.[^.]*\.[^.]*\.`).FindString(p)
+		`a restart ends running turns.*?(?:postgres only|auth mode|$)`).
+		FindString(p)
 	if row == "" {
 		t.Fatal("the limitations table no longer says what a restart does — " +
 			"that row is the page's only statement about durability, and the " +
 			"default store loses transcripts, so it cannot simply be dropped")
 	}
-	for _, must := range []struct{ word, why string }{
-		{"postgres", "transcripts survive only on the Postgres store"},
-		{"accounts survive", "accounts DO survive: file-backed users.json"},
-		{"they do not", "the in-memory default must be stated as losing them"},
-	} {
-		if !strings.Contains(row, must.word) {
-			t.Errorf("the durability row no longer says %q — %s. Row reads: %q",
-				must.word, must.why, row)
-		}
+	// Accounts survive unconditionally; transcripts survive only on Postgres,
+	// and the default must be stated as losing them — in that order.
+	want := regexp.MustCompile(
+		`accounts survive[^.]*\.\s*transcripts survive[^.]*\bpostgres\b[^.]*` +
+			`\bdefault\b[^.]*\bthey do not\b`)
+	if !want.MatchString(row) {
+		t.Errorf("the durability row no longer reads as: accounts survive, "+
+			"then transcripts survive on Postgres, then the default store does "+
+			"not. That order is the claim — rearranging it inverts the meaning "+
+			"while keeping the words. Row reads: %q", row)
 	}
 }
 
@@ -596,23 +704,52 @@ func TestPageDoesNotContradictItsOwnLimitations(t *testing.T) {
 			// is retained") while the store usually follows it ("survive it on
 			// the Postgres store"). Bounded either way so an unrelated
 			// negation elsewhere in a long sentence cannot excuse the claim.
-			at := strings.Index(s, m)
-			from, to := at-30, at+len(m)+40
-			if from < 0 {
-				from = 0
-			}
-			if to > len(s) {
-				to = len(s)
-			}
-			near := s[from:to]
+			// To the end of the clause, not a fixed character count. A ±30/+40
+			// window reddened honest copy whose qualifier landed past the
+			// cliff — "Sessions persist across a restart only when you have
+			// configured the durable Postgres store" names the store in the
+			// same sentence and failed. English puts no bound on that
+			// distance, so the bound is the clause: the qualification a reader
+			// takes as attached to the claim.
+			// The whole sentence, minus the clause-boundary trimming that
+			// cut honest qualifiers off. "Sessions persist across a restart
+			// only when you have configured the durable Postgres store" puts
+			// the store after a clause break, and bounding at that break
+			// reddened it. Sentence scope is safe here BECAUSE the exemption
+			// markers below each negate a claim or scope it to a store —
+			// none of them is a word that merely co-occurs.
+			near := s
 			// Bare "no" is NOT a denial marker. "Sessions persist with no
 			// extra configuration" defeated three earlier versions of this
 			// check on that word alone — it negates the configuration, not the
 			// claim. The markers below each negate a claim directly, or name
 			// the store that makes the claim true.
-			if regexp.MustCompile(`\bnot\b|\bnever\b|\bnothing\b|\bno longer\b|` +
-				`\bdo(es)? not\b|\bcannot\b|\bwithout\b|there is no|holds no|` +
-				`remains outstanding|contained, not|rather than|postgres`).
+			// Exemption markers must NEGATE the claim. Three tokens were doing
+			// the opposite:
+			//
+			//   "without" is the standard English construction for this exact
+			//   overclaim — "transcripts persist WITHOUT any database setup"
+			//   is the lie, not a disclaimer of it.
+			//
+			//   a bare store name absolves nothing: "no Postgres required"
+			//   names Postgres precisely in order to deny needing it.
+			//
+			// So Postgres only exempts when the claim is scoped TO it ("on
+			// Postgres", "with Postgres"), never when it is waved away.
+			// "no Postgres required" / "without any database" name the store
+			// only to wave it away; they are the overclaim, not a scoping.
+			if regexp.MustCompile(
+				`(?i)\b(no|without|not)\b[^.]{0,25}\b(postgres|database|db)\b`).
+				MatchString(near) {
+				// fall through to the error below
+			} else if regexp.MustCompile(`\bnot\b|\bnever\b|\bnothing\b|\bno longer\b|` +
+				`\bdo(es)? not\b|\bcannot\b|there is no|holds no|` +
+				`remains outstanding|contained, not|rather than|` +
+				// Scoped TO Postgres — "on Postgres", "configured the Postgres
+				// store", "requires Postgres" — but never "no Postgres
+				// required", which names it in order to wave it away.
+				`\b(on|with|under|using|configured|configure|require[sd]?|` +
+				`only (when|if|with))\b(?:(?:\s+\w+){0,6}?\s+)?postgres\b`).
 				MatchString(near) {
 				continue
 			}
