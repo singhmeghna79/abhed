@@ -92,6 +92,32 @@ t('resend failure reported', frag(await onRequestPost({ request: req({ name: 'A'
 globalThis.fetch = async () => { throw new Error('network'); };
 t('network throw reported', frag(await onRequestPost({ request: req({ name: 'A', email: 'a@b.co' }), env })), '#access-failed');
 
+// --- where the visitor lands -------------------------------------------
+// The bug these cover: back() hardcoded "/", so after the form moved to
+// /titan/ every submission returned the visitor to the homepage — which has
+// no form and no status handler. The email arrived, the redirect fired, and
+// the person was told nothing. Every earlier test asserted the fragment and
+// none asserted the PATH, which is why it shipped.
+const landing = async (referer) => {
+  const fd = new FormData();
+  fd.set('name', 'A'); fd.set('email', 'a@b.co');
+  const headers = referer ? { Referer: referer } : {};
+  const r = await onRequestPost({
+    request: new Request(url, { method: 'POST', body: fd, headers }),
+    env,
+  });
+  return new URL(r.headers.get('location')).pathname;
+};
+
+t('returns to the page that submitted',
+  await landing('https://zybuu.com/titan/'), '/titan/');
+t('returns to the homepage if that is where the form was',
+  await landing('https://zybuu.com/'), '/');
+t('defaults to /titan/ with no referer',
+  await landing(null), '/titan/');
+t('ignores an off-origin referer',
+  await landing('https://evil.example/titan/'), '/titan/');
+
 // --- the acknowledgement -----------------------------------------------
 // Two emails leave per accepted request: the notification to support, and a
 // thank-you to the requester. The second is gated on screening, because

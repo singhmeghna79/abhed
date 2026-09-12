@@ -172,14 +172,32 @@ async function acknowledge(env, { name, email, from }) {
 // Anything other than POST. Answering rather than 405ing means a stray GET
 // lands the visitor back on the page instead of on an error document.
 export async function onRequest({ request }) {
-  return Response.redirect(new URL("/#access", request.url).toString(), 303);
+  return Response.redirect(new URL("/titan/#access", request.url).toString(), 303);
 }
 
 // The page is static, so the result is carried in the fragment and read by the
 // form's own script. 303 rather than 302 so the browser follows with GET and a
 // refresh cannot resubmit.
 function back(request, status) {
-  const url = new URL("/", request.url);
+  // Back to the page that submitted, not a path baked in here. This returned
+  // people to "/" — correct when the form lived on the homepage, wrong the
+  // moment it moved to /titan/, and the symptom was silent: the submission
+  // worked, the email arrived, and the visitor landed on a page with no form
+  // and no handler, so nothing acknowledged them.
+  //
+  // The Referer is the submitting page. It is same-origin here because the
+  // CSP sets form-action 'self', so it cannot be pointed at another site.
+  let path = "/titan/";
+  const ref = request.headers.get("Referer");
+  if (ref) {
+    try {
+      const u = new URL(ref);
+      if (u.origin === new URL(request.url).origin) path = u.pathname;
+    } catch {
+      // Unparseable Referer: fall through to the default.
+    }
+  }
+  const url = new URL(path, request.url);
   url.hash = `access-${status}`;
   return Response.redirect(url.toString(), 303);
 }

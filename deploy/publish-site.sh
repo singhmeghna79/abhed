@@ -73,6 +73,35 @@ if ! grep -q "Functions bundle" <<<"$out"; then
     exit 1
 fi
 
+# Verify what was published, against the live site, by exercising the path a
+# visitor actually takes. Every regression on this form shipped because it was
+# checked some other way: the CSS by reading it, the status handler by typing
+# the fragment into the URL bar. Neither submits the form, and the form was
+# what was broken.
+if command -v curl >/dev/null 2>&1; then
+    echo
+    echo "==> Verifying the published form"
+    sleep 6
+    LOC="$(curl -sD- -o /dev/null --max-time 25 -X POST "https://zybuu.com/api/access" \
+        -H 'Referer: https://zybuu.com/titan/' \
+        -d 'name=Publish check&email=noreply@zybuu.com' 2>/dev/null \
+        | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}')"
+    case "$LOC" in
+        https://zybuu.com/titan/#access-ok)
+            echo "    ok    submits and returns to /titan/#access-ok" ;;
+        https://zybuu.com/#access*)
+            echo "    FAIL  returns to the homepage, which has no form and no"
+            echo "          status handler - the visitor would be told nothing."
+            exit 1 ;;
+        "")
+            echo "    FAIL  no redirect at all; the Function may not be deployed"
+            exit 1 ;;
+        *)
+            echo "    FAIL  unexpected landing: $LOC"
+            exit 1 ;;
+    esac
+fi
+
 cat <<'TEXT'
 
 Done. Three things to set in the Cloudflare dashboard the first time:
