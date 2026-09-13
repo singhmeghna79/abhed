@@ -8,6 +8,7 @@ window.VIDEOS['04-using'] = () => {
     const out = []; let t = start;
     (text || '').split('\n').slice(0, max).forEach((raw) => {
       let l = raw.replace(/\x1b\[[0-9;]*m/g, '');
+      if (/^\s*(```\w*|text)\s*$/.test(l)) return;   // markdown fence remnants in the model's report
       if (l.length > width) l = l.slice(0, width - 1) + '…';
       let cls = '';
       if (/^\s*●/.test(l)) cls = 'tool'; else if (/^\s*└/.test(l)) cls = 'res'; else if (/^\s*│|✕|rejected|refus|error/i.test(l)) cls = 'warn';
