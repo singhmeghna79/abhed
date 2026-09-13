@@ -28,3 +28,4 @@ model you point it at, and records everything it does.
 | [The SDK](09-sdk.md) | embedding Titan in a Go program |
 | [RPC and headless](10-automation.md) | driving Titan from another language, or from CI |
 | [Sessions and audit](11-sessions.md) | replay, forking, export, what is recorded |
+| [Observability](12-observability.md) | the event log as OpenTelemetry traces |

@@ -37,9 +37,10 @@ type Config struct {
 	Extensions  []ExtensionConfig `json:"extensions,omitempty"`
 	// CustomProviders adds model providers without a rebuild.
 	CustomProviders []CustomProviderConfig `json:"custom_providers,omitempty"`
-	Storage     StorageConfig     `json:"storage"`
-	Server      ServerConfig      `json:"server,omitempty"`
-	Auth        AuthConfig        `json:"auth"`
+	Storage         StorageConfig          `json:"storage"`
+	Server          ServerConfig           `json:"server,omitempty"`
+	Telemetry       TelemetryConfig        `json:"telemetry,omitempty"`
+	Auth            AuthConfig             `json:"auth"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -78,7 +79,7 @@ type ProviderConfig struct {
 	IAMURL string `json:"iam_url,omitempty"`
 
 	// Region and Project scope a cloud-hosted deployment (Bedrock, Vertex).
-	Region  string `json:"region,omitempty"`
+	Region string `json:"region,omitempty"`
 
 	// Params holds the sampling and decoding controls for this provider.
 	// Every field is optional; an omitted one leaves the model's own default
@@ -653,4 +654,22 @@ func WriteDefault(path string) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+// TelemetryConfig exports the event stream as OpenTelemetry traces.
+//
+// Every session is already an ordered log of events; this turns that log into
+// spans — one per session, one per tool call, one per subagent — and ships
+// them over OTLP/HTTP to whatever collector the operator runs. Nothing else
+// changes: the event log stays the source of truth, and the exporter is a
+// tap on it, so a collector being down cannot slow or fail a session.
+type TelemetryConfig struct {
+	Enabled bool `json:"enabled"`
+	// Endpoint is the OTLP/HTTP base, e.g. http://otel-collector:4318. The
+	// exporter posts to <Endpoint>/v1/traces.
+	Endpoint string `json:"endpoint,omitempty"`
+	// Headers are sent with every export, for collectors that want a token.
+	Headers map[string]string `json:"headers,omitempty"`
+	// ServiceName is the resource attribute a backend groups traces under.
+	ServiceName string `json:"service_name,omitempty"`
 }

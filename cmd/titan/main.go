@@ -41,6 +41,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/server"
 	"github.com/yuvrajsingh/titan/internal/skills"
 	"github.com/yuvrajsingh/titan/internal/store"
+	"github.com/yuvrajsingh/titan/internal/telemetry"
 	"github.com/yuvrajsingh/titan/internal/tools"
 	"github.com/yuvrajsingh/titan/internal/ui"
 	"github.com/yuvrajsingh/titan/internal/websearch"
@@ -1004,10 +1005,25 @@ func serveCmd(workspace, addr string) int {
 		return 1
 	}
 
+	// Traces, when an operator has somewhere to send them. A tap on the
+	// event store: a collector being slow or absent costs spans, never turns.
+	var tap func(agent.Event)
+	if cfg.Telemetry.Enabled && cfg.Telemetry.Endpoint != "" {
+		exp := telemetry.New(telemetry.Config{
+			Endpoint:    cfg.Telemetry.Endpoint,
+			Headers:     cfg.Telemetry.Headers,
+			ServiceName: cfg.Telemetry.ServiceName,
+		})
+		defer exp.Close()
+		tap = exp.Observe
+		fmt.Fprintf(os.Stderr, "  telemetry %s\n", cfg.Telemetry.Endpoint)
+	}
+
 	srv := server.New(server.Options{
 		Addr:         addr,
 		Workspace:    workspace,
 		HomeURL:      cfg.Server.HomeURL,
+		EventTap:     tap,
 		Config:       cfg,
 		Adapter:      buildAdapter(provider),
 		Registry:     registry,

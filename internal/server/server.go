@@ -84,6 +84,10 @@ type Options struct {
 	Logger    *slog.Logger
 	// Store defaults to an in-memory store when nil.
 	Store EventStore
+	// EventTap sees every event as it is appended, on the appending
+	// goroutine. It must return immediately; the telemetry exporter honours
+	// that by queueing and dropping rather than waiting. Nil means no tap.
+	EventTap func(agent.Event)
 	// Access records who asked for the console and who has it. Optional: the
 	// memory driver does not implement it, and the admin routes that need it
 	// answer 501 rather than existing in a broken state. An access decision
@@ -164,12 +168,20 @@ func New(opts Options) *Server {
 		opts.Logger = slog.Default()
 	}
 	st := opts.Store
+	// The tap wraps only what the loop writes through. Optional interfaces
+	// (session recording, deletion, access records) are asserted on the
+	// unwrapped store below, so tapping cannot silently switch them off.
+	var tapped EventStore = st
 	if st == nil {
 		st = agent.NewMemStore()
+		tapped = st
+	}
+	if opts.EventTap != nil {
+		tapped = tapStore{EventStore: st, tap: opts.EventTap}
 	}
 	s := &Server{
 		opts:    opts,
-		store:   st,
+		store:   tapped,
 		log:     opts.Logger,
 		running: make(map[string]*liveSession),
 		// Ten sign-in attempts a minute is far beyond what a person typing a
@@ -1383,4 +1395,20 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	}()
 	s.log.Info("titan server listening", "addr", s.opts.Addr, "workspace", s.opts.Workspace)
 	return srv.ListenAndServe()
+}
+
+// tapStore forwards to the real store and hands each appended event to a
+// function that must not block. Only Append is intercepted; reads and
+// subscriptions go straight through.
+type tapStore struct {
+	EventStore
+	tap func(agent.Event)
+}
+
+func (t tapStore) Append(ev agent.Event) error {
+	err := t.EventStore.Append(ev)
+	if err == nil {
+		t.tap(ev)
+	}
+	return err
 }
