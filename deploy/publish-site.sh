@@ -35,9 +35,28 @@ echo "==> Rendering documentation"
 python3 "$(dirname "${BASH_SOURCE[0]}")/sitegen/build-docs.py"
 echo
 
+# The shared stylesheet is inlined into both marketing pages; a page whose
+# copy has drifted from deploy/sitegen/site.css fails here, not in a browser.
+echo "==> Inlining the shared stylesheet"
+python3 "$(dirname "${BASH_SOURCE[0]}")/sitegen/inline-css.py"
+python3 "$(dirname "${BASH_SOURCE[0]}")/sitegen/inline-css.py" --check
+echo
+
+# The demo is published with the site, behind the signed-link gate. Warn when
+# the artefacts are missing rather than fail: the site is publishable without
+# them, and /demo/ answers 404 behind the gate until they exist.
+DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")/../web/zybuu/demo"
+if [ ! -f "$DEMO_DIR/titan-demo.mp4" ] || [ ! -f "$DEMO_DIR/titan-deck.pptx" ]; then
+    echo "!!  demo artefacts missing in web/zybuu/demo (run deploy/demo/build.sh); /demo/ will 404"
+    echo
+fi
+
 if command -v node >/dev/null 2>&1; then
     echo "==> Checking the access Function"
     node "$(dirname "${BASH_SOURCE[0]}")/sitetests/access.test.mjs"
+    echo
+    echo "==> Checking the demo gate"
+    node "$(dirname "${BASH_SOURCE[0]}")/sitetests/demo.test.mjs"
     echo
 else
     echo "!!  node not found — publishing without checking the access Function"

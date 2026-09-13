@@ -295,3 +295,26 @@ server; when you want real uptime, the same container runs unchanged on a VPS.
 **Your IP is dynamic.** When it changes, the A record is stale until you update
 it. A DDNS updater would automate that, and is worth adding before you send the
 link to a customer.
+
+## Sending the recorded demo and the deck
+
+Both live at `https://zybuu.com/demo/`, which answers only to a signed link
+that expires. Nothing there is indexed or linked from the site.
+
+```bash
+RESEND_API_KEY=… ./deploy/send-demo.sh someone@company.com "Their Name" 7
+```
+
+That mints a link valid for seven days, emails it from support@zybuu.com,
+and prints the link. The secret it signs with is `deploy/.demo-secret`, which
+`deploy/set-access-email.sh` also uploads to Pages as `DEMO_SECRET`; if the
+two ever differ, every link answers 403 and the fix is to run that script
+again. A request that ticked "send me the recorded demo" on the access form
+arrives in the support inbox marked *wants demo*.
+
+To rebuild the recording after a UI change:
+
+```bash
+UXUSER=<a throwaway console account> UXPASS=… ./deploy/demo/build.sh
+./deploy/publish-site.sh
+```

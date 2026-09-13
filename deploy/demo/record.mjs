@@ -25,7 +25,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 
+// SCENES=s4,s5 re-records only those; the others keep their existing clips.
+const ONLY = (process.env.SCENES || '').split(',').map((s) => s.trim()).filter(Boolean);
+
 async function scene(id, run) {
+  if (ONLY.length && !ONLY.includes(id)) return;
   const dir = path.join(OUT, 'raw', id);
   fs.rmSync(dir, { recursive: true, force: true });
   const ctx = await browser.newContext({ viewport: SIZE, colorScheme: 'dark', deviceScaleFactor: 1,
@@ -122,7 +126,7 @@ await scene('s6', async (page, ctx) => {
   await type(page, '#q', 'List the files in the workspace and tell me, in two sentences, what this project is.');
   await sleep(500);
   await page.keyboard.press('Enter');
-  await sleep(40000);
+  await sleep(26000);
 });
 
 // 7 — a write waits for a person; then a chat is deleted.
@@ -134,7 +138,7 @@ await scene('s7', async (page, ctx) => {
   // Wait for the approval card, approve it, then let the run finish.
   const card = page.locator('.approve .yes').first();
   try { await card.waitFor({ timeout: 45000 }); await sleep(2500); await card.click(); } catch {}
-  await sleep(9000);
+  await sleep(7000);
   // Delete the oldest chat from the rail.
   const rows = page.locator('.item');
   const n = await rows.count();
@@ -150,7 +154,7 @@ await scene('s7', async (page, ctx) => {
 // The dashboard itself is the operator's, and the recording is made with a
 // throwaway account that is deliberately not an administrator.
 await scene('s8', async (page) => {
-  await page.goto(SITE + '/docs/access-policy.html', { waitUntil: 'networkidle' }).catch(() => {});
+  await page.goto(SITE + '/titan/access-policy.html', { waitUntil: 'networkidle' }).catch(() => {});
   await sleep(4500);
   await glide(page, 520, 1600); await sleep(5000);
   await glide(page, 1100, 1600); await sleep(4000);

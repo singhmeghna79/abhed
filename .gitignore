@@ -27,3 +27,9 @@ web/zybuu/demo/*.webm
 web/zybuu/demo/*.pptx
 web/zybuu/demo/*.jpg
 deploy/.demo-secret
+
+# Rendered by deploy/sitegen/build-docs.py from docs/access-policy.md.
+web/zybuu/titan/access-policy.html
+# Playwright for the demo recording, installed by deploy/demo/build.sh.
+deploy/demo/node_modules
+deploy/demo/package.json

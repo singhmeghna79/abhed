@@ -50,8 +50,21 @@ print(' '.join(f"{k}={v:.1f}s" for k, v in d.items()))
 PY
 
 # ---- 2. recording
+#
+# ES modules do not honour NODE_PATH, so playwright has to be resolvable from
+# deploy/demo itself. Point DEMO_NODE_MODULES at a directory that already has
+# it (a scratch install) and it is linked in; otherwise it is installed here,
+# without touching a package.json, and the directory is gitignored.
 echo "== recording"
-( cd "$HERE" && NODE_PATH="${DEMO_NODE_PATH:-}" node "$HERE/record.mjs" "$OUT" )
+if [ -n "${DEMO_NODE_MODULES:-}" ]; then
+  ln -sfn "$DEMO_NODE_MODULES" "$HERE/node_modules"
+elif [ ! -d "$HERE/node_modules/playwright" ]; then
+  ( cd "$HERE" && npm install --no-save --no-package-lock --silent playwright@1.47.2 )
+fi
+# Video recording needs Playwright's own ffmpeg build, fetched once into its
+# browser cache; the system Chrome is used for the browser itself.
+( cd "$HERE" && npx --no-install playwright install ffmpeg >/dev/null 2>&1 || true )
+( cd "$HERE" && node "$HERE/record.mjs" "$OUT" )
 
 # ---- 3. lay narration over each scene, pad the shorter side, join
 echo "== mux"

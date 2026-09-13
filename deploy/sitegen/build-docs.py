@@ -263,6 +263,18 @@ def main():
         shell("Titan documentation", "".join(idx), desc="Documentation for Titan, the Zybuu agent harness."))
     written += 1
 
+    # Standalone pages outside /docs/. The console access policy is linked
+    # from the revocation email as zybuu.com/titan/access-policy, so it is
+    # rendered there, in the docs shell, from the same markdown the admin
+    # clauses cite. A link in an email that goes nowhere is worse than none.
+    policy = os.path.join(SRC, "access-policy.md")
+    if os.path.exists(policy):
+        text = open(policy).read()
+        dst = os.path.join(os.path.dirname(OUT), "titan", "access-policy.html")
+        open(dst, "w").write(shell(title_of(text, "access-policy.md"), render(text, ""),
+                                   desc="What access to the hosted Titan console means, and how it ends."))
+        written += 1
+
     # Mirror into the binary's embed directory.
     if os.path.isdir(EMBED):
         for name in os.listdir(EMBED):
