@@ -94,14 +94,25 @@ def render(md, section):
         # list
         if re.match(r"^\s*[-*]\s+", ln):
             items = []
+            # A wrapped item continues on indented lines (or any non-blank line
+            # that is not itself a new block). Without this, the second line of
+            # a two-line bullet rendered as a paragraph outside the list.
             while i < len(lines) and re.match(r"^\s*[-*]\s+", lines[i]):
-                items.append(re.sub(r"^\s*[-*]\s+", "", lines[i])); i += 1
+                item = re.sub(r"^\s*[-*]\s+", "", lines[i]); i += 1
+                while i < len(lines) and lines[i].strip() and not re.match(
+                        r"^(#{1,4}\s|```|\||\s*[-*]\s|\s*\d+\.\s|>)", lines[i]):
+                    item += " " + lines[i].strip(); i += 1
+                items.append(item)
             out.append("<ul>" + "".join("<li>%s</li>" % inline(x, section) for x in items) + "</ul>")
             continue
         if re.match(r"^\s*\d+\.\s+", ln):
             items = []
             while i < len(lines) and re.match(r"^\s*\d+\.\s+", lines[i]):
-                items.append(re.sub(r"^\s*\d+\.\s+", "", lines[i])); i += 1
+                item = re.sub(r"^\s*\d+\.\s+", "", lines[i]); i += 1
+                while i < len(lines) and lines[i].strip() and not re.match(
+                        r"^(#{1,4}\s|```|\||\s*[-*]\s|\s*\d+\.\s|>)", lines[i]):
+                    item += " " + lines[i].strip(); i += 1
+                items.append(item)
             out.append("<ol>" + "".join("<li>%s</li>" % inline(x, section) for x in items) + "</ol>")
             continue
 
