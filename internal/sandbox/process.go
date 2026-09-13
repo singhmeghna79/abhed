@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Process confines a command with OS process-level primitives: macOS
@@ -20,6 +22,13 @@ type Process struct {
 	policy  Policy
 	profile string // rendered sandbox profile path, macOS only
 	backend string // "sandbox-exec" | "bwrap"
+
+	// Whether bwrap may mount a fresh /proc and /dev here. Inside a hardened
+	// container (capabilities dropped, masked paths) the kernel refuses those
+	// mounts and every command died with "Can't mount proc" — a sandbox
+	// failure that looked exactly like an agent failure. Probed once.
+	freshOnce sync.Once
+	freshOK   bool
 }
 
 func NewProcess(p Policy) *Process {
@@ -120,6 +129,25 @@ func (s *Process) seatbeltProfile() string {
 	return b.String()
 }
 
+// bwrapFreshOK reports whether bwrap can mount a fresh /proc and /dev in
+// this environment, probing once with a trivial command.
+func (s *Process) bwrapFreshOK() bool {
+	s.freshOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "bwrap", "--unshare-pid", "--proc", "/proc", "--dev", "/dev",
+			"--ro-bind", "/usr", "/usr", "--ro-bind", "/bin", "/bin", "--ro-bind", "/lib", "/lib",
+			"--ro-bind-try", "/lib64", "/lib64", "/bin/true").CombinedOutput()
+		s.freshOK = err == nil
+		if err != nil && !strings.Contains(string(out), "Can't mount") {
+			// Some other failure: keep the private mounts and let the real
+			// command report what is wrong, rather than hiding it.
+			s.freshOK = true
+		}
+	})
+	return s.freshOK
+}
+
 func (s *Process) Command(ctx context.Context, cwd, command string) *exec.Cmd {
 	switch s.backend {
 	case "sandbox-exec":
@@ -135,7 +163,19 @@ func (s *Process) Command(ctx context.Context, cwd, command string) *exec.Cmd {
 		args := []string{
 			"--die-with-parent",
 			"--unshare-pid", "--unshare-ipc", "--unshare-uts",
-			"--proc", "/proc", "--dev", "/dev",
+		}
+		// A private /proc and /dev when the kernel allows them. Where it does
+		// not (a container that has dropped the capabilities), the host's
+		// /dev is bound instead and /proc is left out: the PID namespace still
+		// holds, and tools that read /proc see nothing rather than the host.
+		// That is the lesser loss — the alternative was no sandboxed command
+		// running at all.
+		if s.bwrapFreshOK() {
+			args = append(args, "--proc", "/proc", "--dev", "/dev")
+		} else {
+			args = append(args, "--dev-bind", "/dev", "/dev")
+		}
+		args = append(args,
 			// Read-only system, writable workspace.
 			"--ro-bind", "/usr", "/usr",
 			"--ro-bind", "/bin", "/bin",
@@ -146,7 +186,7 @@ func (s *Process) Command(ctx context.Context, cwd, command string) *exec.Cmd {
 			"--bind", s.policy.Workspace, s.policy.Workspace,
 			"--tmpfs", "/tmp",
 			"--chdir", cwd,
-		}
+		)
 		if !s.policy.AllowNetwork {
 			args = append(args, "--unshare-net")
 		}

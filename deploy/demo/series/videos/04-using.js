@@ -4,10 +4,11 @@ window.VIDEOS['04-using'] = () => {
   const { fx, ease, el } = Motion;
   const title = (s, kicker, html, at = 0.1, cls = 'l', w = 1500) => { Parts.kicker(s, kicker, 96, 120, at); return Parts.heading(s, html, { x: 96, y: 170, w, cls, at: at + 0.2 }); };
   // classify a captured CLI transcript into terminal lines
-  const cliLines = (text, start, step = 0.55, max = 60) => {
+  const cliLines = (text, start, step = 0.55, max = 60, width = 96) => {
     const out = []; let t = start;
     (text || '').split('\n').slice(0, max).forEach((raw) => {
-      const l = raw.replace(/\x1b\[[0-9;]*m/g, '');
+      let l = raw.replace(/\x1b\[[0-9;]*m/g, '');
+      if (l.length > width) l = l.slice(0, width - 1) + '…';
       let cls = '';
       if (/^\s*●/.test(l)) cls = 'tool'; else if (/^\s*└/.test(l)) cls = 'res'; else if (/^\s*│|✕|rejected|refus|error/i.test(l)) cls = 'warn';
       else if (/^\s*\$/.test(l)) cls = 'cmd'; else if (/ok\b|passed|OK$/.test(l)) cls = 'ok'; else if (l.trim() === '') cls = 'dim';
@@ -16,7 +17,14 @@ window.VIDEOS['04-using'] = () => {
     return out;
   };
   const screenFull = (s, key, at, cap, from = 0, speed = 1) => Parts.screen(s, { x: 210, y: 330, w: 1500, h: 844, src: key, at, cap, from, speed });
-  const screenSide = (s, key, at, cap, from = 0, speed = 1) => Parts.screen(s, { x: 700, y: 400, w: 1120, h: 630, src: key, at, cap, from, speed });
+  const screenSide = (s, key, at, cap, from = 0, speed = 1) => Parts.screen(s, { x: 560, y: 236, w: 1300, h: 731, src: key, at, cap, from, speed });
+  // console scenes: a narrow left column, the footage large on the right
+  const side = (s, kicker, html, checks, callout) => {
+    Parts.kicker(s, kicker, 96, 130, 0.1);
+    Parts.heading(s, html, { x: 96, y: 190, w: 420, cls: 's', at: 0.3 });
+    checks.forEach(([t, at], i) => { const c = Parts.check(s, t, { x: 96, y: 500 + i * 96, at }); c.style.fontSize = '25px'; c.style.width = '430px'; });
+    if (callout) Parts.callout(s, callout[0], { x: 96, y: 500 + checks.length * 96 + 10, at: callout[1], w: 430 });
+  };
 
   return [
     { beat: 'b1', build(s) {
@@ -27,49 +35,33 @@ window.VIDEOS['04-using'] = () => {
     } },
 
     { beat: 'b2', build(s) {
-      title(s, 'The console · sign in', 'Accounts are <span class="hl">issued.</span>', 0.1, 'm', 560);
+      side(s, 'The console · sign in', 'Accounts are <span class="hl">issued.</span>', [['Never self-served', 3.2], ['One account, one tenant', 5.4], ['Examples drawn from real tools', 11.0]]);
       screenSide(s, 'signin', 0.8, '<b>titan.zybuu.com</b> · local accounts · one tenant', 0, 1);
-      Parts.check(s, 'Never self-served', { x: 96, y: 460, at: 3.2 });
-      Parts.check(s, 'One account, one tenant', { x: 96, y: 540, at: 5.4 });
-      Parts.check(s, 'Examples drawn from real tools', { x: 96, y: 620, at: 11.0 });
     } },
 
     { beat: 'b3', build(s) {
-      title(s, 'Ask it something', 'Plan mode: <span class="hl">read-only.</span>', 0.1, 'm', 560);
+      side(s, 'Ask it something', 'Plan mode: <span class="hl">read-only.</span>', [['Arguments and results, live', 6.0], ['A refused call is shown, not hidden', 10.5]], ['This transcript <b>is</b> the audit record.', 15.0]);
       screenSide(s, 'ask', 0.6, 'plan mode · every tool call as it happens', 3, 1.35);
-      Parts.check(s, 'Arguments and results, live', { x: 96, y: 460, at: 6.0 });
-      Parts.check(s, 'A refused call is shown, not hidden', { x: 96, y: 540, at: 10.5 });
-      Parts.callout(s, 'This transcript <b>is</b> the audit record.', { x: 96, y: 660, at: 15.0, w: 540 });
     } },
 
     { beat: 'b4', build(s) {
-      title(s, 'Now a change', 'A write <span class="hl">waits for a person.</span>', 0.1, 'm', 560);
+      side(s, 'Now a change', 'A write <span class="hl">waits for a person.</span>', [['Exactly what will be written', 5.0], ['Approve or deny — recorded with your name', 9.0], ['Then the agent finishes the job', 13.5]]);
       screenSide(s, 'approve', 0.6, 'default mode · approval card · decision recorded', 6, 1.6);
-      Parts.check(s, 'Exactly what will be written', { x: 96, y: 460, at: 5.0 });
-      Parts.check(s, 'Approve or deny — recorded with your name', { x: 96, y: 540, at: 9.0 });
-      Parts.check(s, 'Then the agent finishes the job', { x: 96, y: 620, at: 13.5 });
     } },
 
     { beat: 'b5', build(s) {
-      title(s, 'Attach a document', 'Inside the <span class="hl">sandbox.</span>', 0.1, 'm', 560);
+      side(s, 'Attach a document', 'Inside the <span class="hl">sandbox.</span>', [['Uploaded into the session', 4.0], ['Read inside the sandbox', 7.5], ['Nothing leaves the deployment', 10.5]]);
       screenSide(s, 'attach', 0.6, 'attachments · uploaded into the session workspace', 2, 1.6);
-      Parts.check(s, 'Uploaded into the session', { x: 96, y: 460, at: 4.0 });
-      Parts.check(s, 'Read inside the sandbox', { x: 96, y: 540, at: 7.5 });
-      Parts.check(s, 'Nothing leaves the deployment', { x: 96, y: 620, at: 10.5 });
     } },
 
     { beat: 'b6', build(s) {
-      title(s, 'Replay, search, delete', 'From the <span class="hl">append-only record.</span>', 0.1, 'm', 560);
+      side(s, 'Replay, search, delete', 'From the <span class="hl">append-only record.</span>', [['Replay any chat, step by step', 3.0], ['Search the rail; grouped by day', 6.0], ['Delete: hidden for you, kept for audit', 10.0]]);
       screenSide(s, 'replay', 0.6, 'replay · search · day groups · delete with confirmation', 0, 1.1);
-      Parts.check(s, 'Replay any chat, step by step', { x: 96, y: 460, at: 3.0 });
-      Parts.check(s, 'Search the rail; grouped by day', { x: 96, y: 540, at: 6.0 });
-      Parts.check(s, 'Delete: hidden for you, kept for audit', { x: 96, y: 620, at: 10.0 });
     } },
 
     { beat: 'b7', build(s) {
-      title(s, 'The deployment page', 'What is <span class="hl">actually in force.</span>', 0.1, 'm', 560);
+      side(s, 'The deployment page', 'What is <span class="hl">actually in force.</span>', [['Model and context window', 3.0], ['Isolation tier', 5.1], ['Store and sign-in mode', 7.2], ['Egress: allowed or not', 9.3], ['Every boundary, held or not', 11.4]]);
       screenSide(s, 'overview', 0.6, 'model · isolation · store · sign-in · egress · containment', 0, 1);
-      ['Model and context window', 'Isolation tier', 'Store and sign-in mode', 'Egress: allowed or not', 'Every boundary, held or not'].forEach((t, i) => Parts.check(s, t, { x: 96, y: 440 + i * 80, at: 3.0 + i * 2.1 }));
     } },
 
     { beat: 'b8', build(s) {
@@ -121,9 +113,9 @@ window.VIDEOS['04-using'] = () => {
 
     { beat: 'b13', build(s) {
       title(s, 'Pipelines, other languages, your own code', 'Three more <span class="hl">surfaces.</span>', 0.1, 'm', 900);
-      const json = cliLines(ASSETS.run3, 1.6, 0.5, 6);
+      const json = cliLines(ASSETS.run3, 1.6, 0.5, 6, 78);
       Parts.terminal(s, { x: 96, y: 400, w: 860, h: 300, title: 'titan -output-format json', at: 1.0, size: 19, lines: [['cmd', '$ titan -mode plan -output-format json -p "…"', 1.2]].concat(json.map(([c, l, t]) => [c === 'cmd' ? 'dim' : c, l, t + 0.6])) });
-      const rpc = cliLines(ASSETS.run4, 6.4, 0.5, 6);
+      const rpc = cliLines(ASSETS.run4, 6.4, 0.5, 6, 78);
       Parts.terminal(s, { x: 96, y: 730, w: 860, h: 300, title: 'titan rpc — JSONL over stdio', at: 6.0, size: 19, lines: [['cmd', '{"method":"start","params":{"prompt":"List the files…","mode":"plan"}}', 6.2]].concat(rpc.map(([c, l, t]) => ['dim', l, t + 0.6])) });
       Parts.terminal(s, { x: 1000, y: 400, w: 820, h: 630, title: 'main.go — the SDK', at: 11.0, size: 20, lines: [
         ['cmd', 'a, _ := titan.New(ctx, titan.Options{', 11.2], ['dim', '    Workspace: "/srv/work",', 11.4], ['dim', '    Deny:      []string{"bash(rm -rf *)"},', 11.6],
