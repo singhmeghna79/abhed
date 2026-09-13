@@ -412,6 +412,15 @@ td:first-child { color: var(--ink); font-weight: 600; }
   box-shadow:0 0 0 1px color-mix(in srgb,var(--live) 25%,transparent), var(--glow)}
 .compare .card.us dd{color:var(--ink)}
 .fine{margin:14px 0 0;font-size:13px;color:var(--muted);max-width:70ch}
+
+.about{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:40px;align-items:start;margin-top:8px}
+@media (max-width:900px){.about{grid-template-columns:1fr;gap:22px}}
+.about .body{max-width:60ch}
+.facts{display:grid;grid-template-columns:1fr;gap:10px}
+.facts div{padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--surface) 80%,transparent)}
+.facts span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.facts b{font-size:18px;font-weight:650;letter-spacing:-.01em}
+.facts small{display:block;color:var(--muted);font-size:13px;margin-top:3px}
 </style>
 </head>
 
@@ -425,6 +434,7 @@ td:first-child { color: var(--ink); font-weight: 600; }
     </a>
     <nav class="nav">
       <a href="#vision" class="hide-sm">Vision</a>
+      <a href="#about" class="hide-sm">About</a>
       <a href="/titan/">Titan</a>
       <a href="https://titan.zybuu.com/docs/" class="hide-sm">Docs</a>
       <a href="#contact" class="hide-sm">Contact</a>
@@ -609,6 +619,41 @@ td:first-child { color: var(--ink); font-weight: 600; }
   </div>
 </section>
 
+<section id="about">
+  <div class="wrap">
+    <p class="kicker">About</p>
+    <h2>Founded on 1 September 2026, by an engineer who has run this problem from the inside.</h2>
+    <div class="about">
+      <div>
+        <p class="body">
+          Zybuu was founded on 1 September 2026 by an AI/ML staff engineer with
+          years spent building and operating machine-learning systems inside
+          large organisations — the kind where the model is the easy part and
+          everything around it is the work: the boundary, the approval, the
+          record, the audit that comes afterwards.
+        </p>
+        <p class="body">
+          The founder is not named here yet. They are still employed, and would
+          rather ship than announce. That will change in time; the record on
+          this site, and in Titan, will not.
+        </p>
+        <p class="body">
+          Zybuu is founder-led, self-funded, and building in the open — one
+          product live, the platform beneath it stated as planned rather than
+          promised. If you want to talk to the person behind it, the address
+          below reaches them directly.
+        </p>
+      </div>
+      <div class="facts">
+        <div><span>Founded</span><b>1 September 2026</b></div>
+        <div><span>Founder</span><b>An AI/ML staff engineer</b><small>identity withheld while still employed</small></div>
+        <div><span>First product</span><b>Titan, live</b><small>invite-only, September 2026</small></div>
+        <div><span>Reach us</span><b><a href="mailto:support@zybuu.com">support@zybuu.com</a></b><small>a person reads it, not a queue</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="evidence">
   <div class="wrap">
     <p class="kicker">Evidence</p>
@@ -654,7 +699,7 @@ td:first-child { color: var(--ink); font-weight: 600; }
 
 <footer>
   <div class="wrap foot">
-    <span>Zybuu</span>
+    <span>Zybuu · founded 1 September 2026</span>
     <span><a href="/titan/">Titan</a></span>
     <span><a href="https://titan.zybuu.com/docs/">Documentation</a></span>
     <span><a href="https://titan.zybuu.com/docs/vision">Vision</a></span>
