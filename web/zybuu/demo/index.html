@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Titan — recorded demo</title>
+<style>
+:root{--bg:#06090F;--surface:#0D131C;--line:#182231;--ink:#E8EEF7;--ink-2:#B0BFD2;--muted:#7A8AA0;--live:#3BA9FF;--live-2:#8B6CFF}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,"Inter","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:34px 24px 60px}
+.k{display:inline-flex;align-items:center;gap:8px;font:600 11.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--live);margin-bottom:14px}
+.k::before{content:"";width:18px;height:2px;background:var(--live);border-radius:2px}
+h1{font-size:clamp(28px,4vw,42px);letter-spacing:-.035em;line-height:1.08;margin:0 0 10px;font-weight:750}
+h1 span{background:linear-gradient(92deg,var(--live),var(--live-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+p{color:var(--ink-2);max-width:62ch;margin:0 0 20px}
+video{width:100%;aspect-ratio:16/9;max-width:100%;border-radius:16px;border:1px solid var(--line);background:#000;box-shadow:0 30px 70px -30px rgba(0,0,0,.8);display:block}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--live);color:#04121F;border-radius:11px;padding:11px 18px;font-weight:650;text-decoration:none;font-size:14.5px;box-shadow:0 0 22px rgba(59,169,255,.38)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid #27364B;box-shadow:none}
+.note{font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--muted);margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="k">Zybuu · Titan · shared on request</div>
+  <h1>Titan, end to end, in <span>three minutes.</span></h1>
+  <p>A recorded walk through zybuu.com, the Titan harness page, the console, and the documentation, narrated. The deck that goes with it is below.</p>
+  <video controls preload="metadata" src="titan-demo.mp4" poster="poster.jpg"></video>
+  <div class="row">
+    <a class="btn" href="titan-deck.pptx">Download the deck (.pptx)</a>
+    <a class="btn ghost" href="https://zybuu.com/titan/">Titan on zybuu.com</a>
+    <a class="btn ghost" href="mailto:support@zybuu.com">Talk to us</a>
+  </div>
+  <div class="note">Confidential. This link was issued to you and expires; please do not repost it. Questions: support@zybuu.com.</div>
+</div>
+</body>
+</html>

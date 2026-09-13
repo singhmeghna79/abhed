@@ -13,484 +13,423 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22zt%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2250%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22zl%22%20cx=%2222%25%22%20cy=%2218%25%22%20r=%2280%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%22.26%22/%3E%20%3Cstop%20offset=%2260%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3Cmask%20id=%22zcut%22%3E%20%3Crect%20width=%22256%22%20height=%22256%22%20fill=%22%23fff%22/%3E%20%3Cg%20fill=%22%23000%22%3E%20%3Crect%20x=%2270%22%20y=%2262%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Crect%20x=%2260%22%20y=%22160%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Cpath%20d=%22M156%2096%20H200%20L100%20160%20H56%20Z%22/%3E%20%3C/g%3E%20%3C/mask%3E%20%3C/defs%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zt)%22%20mask=%22url(%23zcut)%22/%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zl)%22%20mask=%22url(%23zcut)%22/%3E%20%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
-<style>
-/* Zybuu design tokens.
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style data-shared>
+/* Zybuu site stylesheet — shared by zybuu.com and zybuu.com/titan.
  *
- * The previous palette — near-black ground, blue accent, one radius on every
- * card — is the default an AI page arrives in, and a real reader said so. What
- * replaces it is drawn from the only material this product actually has: a
- * terminal. Neon blue on a ground biased blue, violet for the
- * recorded-but-not-live register, and a baseline rhythm that behaves like
- * terminal rows. The blue is a CRT/plasma blue rather than the flat corporate
- * #3BA9FF this started from — it is the accent because it was asked for, and
- * it earns its place by being used only where something is live.
+ * Source of truth: deploy/sitegen/site.css. It is inlined into the first
+ * <style> block of each page by deploy/sitegen/inline-css.py, which the publish
+ * script runs; editing the copy inside a page is editing a build artefact.
  *
- * The risk taken deliberately: a mono display face at large sizes against a
- * serif for prose. It reads like a paper about a system rather than a SaaS
- * landing page, which is the register this product argues in.
+ * The register. The previous pass set a mono display face against a serif and
+ * called it "a paper about a system". A reader who evaluates products for a
+ * living called it a paper, and not as praise: it asked to be read, not tried.
+ * This pass keeps everything that was honest about the copy and changes what
+ * the page IS: the product is on screen, running, before a word of argument.
+ *
+ * Type: one sans for people (Inter, tight at display sizes) and one mono for
+ * the machine (JetBrains Mono). Colour: neon blue, the one the founder chose,
+ * spent where something is live; violet where something is recorded. Ground:
+ * a near-black with a slow, faint field behind it — drifting light and a dot
+ * grid, masked so it never competes with text — because a page about an agent
+ * that is alive should not sit perfectly still. Off under reduced motion.
  */
 
-/* Light is the default block, so a viewer with no preference stamped still
-   gets a complete palette. This design is dark-first in intent, so the dark
-   values are the considered ones and light is the careful inverse. */
 :root {
-  --ground:      #F4F6FA;  /* paper, cool-neutral with a blue bias */
+  --ground:      #F5F7FB;
   --surface:     #FFFFFF;
-  --sunken:      #E6EBF3;
-  --line:        #D2DAE6;
-  --line-strong: #B0BCCC;
+  --sunken:      #E9EEF5;
+  --line:        #D6DEE9;
+  --line-strong: #B3BFD0;
 
-  --ink:         #0D1218;
-  --ink-2:       #38424F;
-  --muted:       #66727F;
+  --ink:         #0B1017;
+  --ink-2:       #3A4553;
+  --muted:       #6A7684;
 
-  --live:        #0F63C4;  /* neon blue, darkened to hold on paper */
+  --live:        #0E63C6;
+  --live-2:      #7A3FE0;
   --btn-ink:     #FFFFFF;
-  --live-soft:   #E2EDFB;
-  --recorded:    #7A5A9E;  /* violet, the "captured not running" register */
-  --recorded-soft:#F0EAF8;
-
+  --live-soft:   #E3EEFB;
+  --recorded:    #7B5AA6;
+  --recorded-soft:#F1EBF9;
+  --ok:          #1F8A4C;
+  --ok-soft:     #E3F5EA;
   --warn:        #9A4B16;
   --warn-soft:   #F8E9DF;
 
-  --mono:  "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --serif: "Source Serif 4", Iowan Old Style, Georgia, serif;
-  --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --glow: 0 0 0 transparent;
+  --term-bg: #0B0E14;
+  --term-line: #232B38;
+  --term-ink: #CDD6E3;
 
-  /* One rhythm, used everywhere. Terminal rows, not arbitrary spacing. */
+  --sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --maxw: 1180px;
   --row: 26px;
-  --maxw: 1120px;
-
+  --r: 14px;
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground:      #070B12;
-    --surface:     #0E1521;
-    --sunken:      #0A101A;
-    --line:        #1B2636;
-    --line-strong: #2B3B52;
-
-    --ink:         #E4ECF7;
-    --ink-2:       #AFBED2;
-    --muted:       #77879D;
-
+    --ground:      #06090F;
+    --surface:     #0D131C;
+    --sunken:      #090E16;
+    --line:        #182231;
+    --line-strong: #27364B;
+    --ink:         #E8EEF7;
+    --ink-2:       #B0BFD2;
+    --muted:       #7A8AA0;
     --live:        #3BA9FF;
+    --live-2:      #8B6CFF;
     --btn-ink:     #04121F;
     --live-soft:   #0B2540;
     --recorded:    #B98BFF;
     --recorded-soft:#1E1733;
-
+    --ok:          #3DD68C;
+    --ok-soft:     #0D2A1D;
     --warn:        #E08A4C;
     --warn-soft:   #2A1A10;
+    --glow: 0 0 22px color-mix(in srgb, var(--live) 38%, transparent);
   }
 }
-
 :root[data-theme="dark"] {
-  --ground:      #070B12;
-  --surface:     #0E1521;
-  --sunken:      #0A101A;
-  --line:        #1B2636;
-  --line-strong: #2B3B52;
-
-  --ink:         #E4ECF7;
-  --ink-2:       #AFBED2;
-  --muted:       #77879D;
-
+  --ground:      #06090F;
+  --surface:     #0D131C;
+  --sunken:      #090E16;
+  --line:        #182231;
+  --line-strong: #27364B;
+  --ink:         #E8EEF7;
+  --ink-2:       #B0BFD2;
+  --muted:       #7A8AA0;
   --live:        #3BA9FF;
+  --live-2:      #8B6CFF;
   --btn-ink:     #04121F;
   --live-soft:   #0B2540;
   --recorded:    #B98BFF;
   --recorded-soft:#1E1733;
-
+  --ok:          #3DD68C;
+  --ok-soft:     #0D2A1D;
   --warn:        #E08A4C;
   --warn-soft:   #2A1A10;
+  --glow: 0 0 22px color-mix(in srgb, var(--live) 38%, transparent);
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
   margin: 0;
   background: var(--ground);
   color: var(--ink);
-  font-family: var(--serif);
-  font-size: 16.5px;
-  line-height: var(--row);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
+/* ---- the field ------------------------------------------------------- */
+/* Two soft lights drifting on a dot grid, behind everything, masked toward
+   the top of the page. Cheap: two elements, transforms only. */
+.field { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1.5px) 0 0/28px 28px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 60vh, transparent 140vh);
+  mask-image: linear-gradient(180deg, #000 0, #000 60vh, transparent 140vh); }
+.field i { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55;
+  width: 62vw; height: 62vw; max-width: 900px; max-height: 900px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--live) 42%, transparent), transparent 62%);
+  animation: drift 26s ease-in-out infinite alternate; }
+.field i:nth-child(1) { top: -28vw; left: -18vw; }
+.field i:nth-child(2) { top: -10vw; right: -24vw; animation-duration: 34s; animation-delay: -12s;
+  background: radial-gradient(circle, color-mix(in srgb, var(--live-2) 34%, transparent), transparent 62%); }
+@keyframes drift { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(9vw, 7vw, 0) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .field i { animation: none; } }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .field i { opacity: .35; } }
+
 a { color: var(--live); text-decoration: none; }
-a:hover { text-decoration: underline; text-underline-offset: 2px; }
-:focus-visible { outline: 2px solid var(--live); outline-offset: 3px; border-radius: 2px; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--live); outline-offset: 3px; border-radius: 4px; }
 img, svg { max-width: 100%; }
 
 .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+@media (max-width: 560px) { .wrap { padding: 0 18px; } }
 
-/* ------------------------------------------------------------------ type */
-/* Mono for anything the machine says; serif for anything a person wrote. That
-   split is the whole typographic idea and it is applied without exception. */
-h1, h2, h3, h4, .kicker, .btn, code, pre, .mono { font-family: var(--mono); }
+/* ---- type ------------------------------------------------------------ */
+h1, h2, h3, h4 { font-family: var(--sans); font-weight: 700; letter-spacing: -0.025em; }
+h1 { margin: 0 0 18px; font-size: clamp(34px, 5.2vw, 62px); line-height: 1.04; letter-spacing: -0.04em;
+  font-weight: 750; text-wrap: balance; }
+h1 .hl { background: linear-gradient(92deg, var(--live), var(--live-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+h2 { margin: 0 0 14px; font-size: clamp(24px, 3.1vw, 38px); line-height: 1.12; letter-spacing: -0.03em;
+  max-width: 24ch; text-wrap: balance; }
+h3 { margin: 0; font-size: 17px; line-height: 1.35; }
+code, pre, .mono, .kicker { font-family: var(--mono); }
 
-h1 {
-  margin: 0 0 18px;
-  font-size: clamp(29px, 4.6vw, 46px);
-  line-height: 1.12;
-  letter-spacing: -0.03em;
-  font-weight: 700;
-  max-width: 20ch;
-  text-wrap: balance;
-}
-h2 {
-  margin: 0 0 14px;
-  font-size: clamp(21px, 2.7vw, 28px);
-  line-height: 1.22;
-  letter-spacing: -0.02em;
-  font-weight: 700;
-  max-width: 26ch;
-  text-wrap: balance;
-}
-h3 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px;
+  font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--live); font-weight: 600; }
+.kicker::before { content: ""; width: 18px; height: 2px; background: var(--live); border-radius: 2px;
+  box-shadow: var(--glow); }
 
-/* A section label is a shell prompt, because that is true of the subject —
-   numbered markers would imply a sequence these sections do not have. */
-.kicker {
-  display: block;
-  margin: 0 0 10px;
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.kicker::before { content: "$ "; color: var(--live); }
-
-.body { color: var(--ink-2); max-width: 64ch; margin: 0 0 var(--row); }
+.body { color: var(--ink-2); max-width: 62ch; margin: 0 0 var(--row); font-size: 16.5px; }
 .body:last-child { margin-bottom: 0; }
-.lede { font-size: clamp(17px, 2vw, 19.5px); color: var(--ink-2); max-width: 58ch; }
+.lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--ink-2); max-width: 54ch; line-height: 1.55; }
+.sub { margin: 0 0 28px; color: var(--ink-2); max-width: 62ch; font-size: 17px; }
 
-code {
-  font-family: var(--mono);
-  font-size: 0.88em;
-  background: var(--sunken);
-  border: 1px solid var(--line);
-  padding: 1px 5px;
-  border-radius: 3px;
-}
+code { font-size: 0.86em; background: var(--sunken); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
 
-/* --------------------------------------------------------------- surfaces */
-/* Radius is spent by role, not stamped on everything: panels that represent a
-   screen get 10px, everything else is square. A uniform radius on every block
-   is one of the tells. */
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
+/* ---- surfaces -------------------------------------------------------- */
+.panel, .card { background: color-mix(in srgb, var(--surface) 86%, transparent);
+  border: 1px solid var(--line); border-radius: var(--r);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.card { padding: 22px; display: flex; flex-direction: column; gap: 8px;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.card:hover { transform: translateY(-2px); border-color: var(--line-strong);
+  box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--live) 45%, transparent); }
+.card h3 { margin: 0; }
+.card p { margin: 0; color: var(--ink-2); font-size: 14.6px; line-height: 1.6; }
+.card .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--live-soft); color: var(--live); margin-bottom: 6px; }
+.card .ic svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.grid.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid.g5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .grid.g5, .grid.g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid.g3 { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 720px) { .grid, .grid.g3, .grid.g4, .grid.g5 { grid-template-columns: 1fr; } }
 
-/* A rule that reads as a terminal divider rather than a hairline box. */
-.rule {
-  height: 1px;
-  background: repeating-linear-gradient(90deg,
-    var(--line) 0 6px, transparent 6px 12px);
-  border: 0;
-  margin: 0;
-}
+.rule { height: 1px; border: 0; margin: 0; background: var(--line); }
+.scroll { overflow-x: auto; }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--live);
-  /* Per theme, because the accent is a different colour in each. The
-     measured ratio was never the problem — the previous accent measured
-     10.5:1 against near-black and still glared at small bold text, which a
-     reader reported and the metric did not. Deep navy on neon, white on the
-     darkened paper blue: 7.5:1 and 5.8:1 respectively. */
-  color: var(--btn-ink);
-  border: 1px solid var(--live);
-  border-radius: 4px;
-  padding: 9px 18px;
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition: filter .14s, transform .14s;
-}
-.btn:hover { filter: brightness(1.1); transform: translateY(-1px); text-decoration: none; }
-.btn.ghost {
-  background: transparent;
-  color: var(--ink);
-  border-color: var(--line-strong);
-}
-.btn.ghost:hover { border-color: var(--live); color: var(--live); filter: none; }
-.btn.lg { padding: 12px 22px; font-size: 14.5px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; background: var(--live); color: var(--btn-ink);
+  border: 1px solid var(--live); border-radius: 10px; padding: 10px 18px; font-family: var(--sans);
+  font-size: 14px; font-weight: 650; letter-spacing: -0.01em; cursor: pointer; white-space: nowrap;
+  box-shadow: var(--glow); transition: transform .14s, box-shadow .14s, filter .14s; }
+.btn:hover { transform: translateY(-1px); filter: brightness(1.08); text-decoration: none;
+  box-shadow: 0 0 30px color-mix(in srgb, var(--live) 52%, transparent); }
+.btn.ghost { background: color-mix(in srgb, var(--surface) 70%, transparent); color: var(--ink);
+  border-color: var(--line-strong); box-shadow: none; }
+.btn.ghost:hover { border-color: var(--live); color: var(--live); filter: none; box-shadow: none; }
+.btn.lg { padding: 13px 22px; font-size: 15px; border-radius: 12px; }
+.btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ---------------------------------------------------------------- header */
-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: color-mix(in srgb, var(--ground) 90%, transparent);
-  backdrop-filter: saturate(160%) blur(10px);
-  border-bottom: 1px solid var(--line);
-}
-.bar { display: flex; align-items: center; gap: 12px; height: 56px; }
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--ink);
-  font-family: var(--mono);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-}
+/* ---- header ---------------------------------------------------------- */
+header { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid transparent;
+  background: color-mix(in srgb, var(--ground) 72%, transparent);
+  backdrop-filter: saturate(160%) blur(12px); -webkit-backdrop-filter: saturate(160%) blur(12px);
+  transition: border-color .2s, background .2s; }
+header.solid { border-bottom-color: var(--line); background: color-mix(in srgb, var(--ground) 88%, transparent); }
+.bar { display: flex; align-items: center; gap: 12px; height: 60px; }
+.logo { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 700;
+  font-size: 16px; letter-spacing: -0.02em; }
 .logo:hover { text-decoration: none; }
-.logo svg { width: 26px; height: 26px; flex: none; }
-.nav { margin-left: auto; display: flex; align-items: center; gap: 20px; }
-/* :not(.btn) matters. Without it .nav a (0,1,1) beats .btn (0,1,0) on the
-   cascade, so the header's Open console button rendered muted grey text on
-   the bright accent and was unreadable — reported by a real user twice. The
-   button carries its own colour and the nav must not reach inside it. */
-.nav a:not(.btn) {
-  color: var(--ink-2);
-  font-family: var(--mono);
-  font-size: 13px;
-}
-.nav a:not(.btn):hover { color: var(--live); text-decoration: none; }
-@media (max-width: 720px) { .nav a.hide-sm { display: none; } }
+.logo svg { width: 28px; height: 28px; flex: none;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--live) 30%, transparent)); }
+.logo .prod { color: var(--muted); font-weight: 500; }
+.logo .prod::before { content: "/"; margin: 0 6px 0 2px; color: var(--line-strong); }
+.nav { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+.nav a:not(.btn) { color: var(--ink-2); font-size: 14px; font-weight: 500; }
+.nav a:not(.btn):hover { color: var(--ink); text-decoration: none; }
+.nav .btn { padding: 8px 14px; font-size: 13.5px; }
+@media (max-width: 720px) { .nav { gap: 14px; } .nav a.hide-sm { display: none; } }
+@media (max-width: 560px) { .eyebrow { font-size: 10px; letter-spacing: .08em; padding: 5px 10px; } .hero-cta .btn.lg { padding: 12px 16px; font-size: 14px; } }
 
-/* ---------------------------------------------------------------- footer */
-footer { border-top: 1px solid var(--line); padding: 22px 0; margin-top: 8px; }
-.foot {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--muted);
-}
+/* ---- footer ---------------------------------------------------------- */
+footer { border-top: 1px solid var(--line); padding: 26px 0; margin-top: 30px; }
+.foot { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13px; color: var(--muted); align-items: center; }
 .foot a { color: var(--muted); }
-.foot a:hover { color: var(--live); }
+.foot a:hover { color: var(--ink); }
+.foot .sp { flex: 1; }
 
-section { padding: calc(var(--row) * 2) 0; }
+section { padding: calc(var(--row) * 2.4) 0; }
+@media (max-width: 720px) { section { padding: calc(var(--row) * 1.7) 0; } }
 
+/* ---- hero ------------------------------------------------------------ */
+.hero { padding: calc(var(--row) * 2.2) 0 calc(var(--row) * 1.6); position: relative; }
+.hero .inner { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 44px; align-items: center; }
+@media (max-width: 960px) { .hero .inner { grid-template-columns: 1fr; gap: 30px; } }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 18px;
+  padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 10px var(--ok); animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 26px; }
+.hero-note { margin-top: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+.chip { font-family: var(--mono); font-size: 11.5px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--ink-2); background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.chip b { color: var(--live); font-weight: 600; }
 
-/* ---- neon ------------------------------------------------------------ */
-/* The earlier design had a glow and the user liked it. It returns, but spent
-   only where something is actually live or actionable, rather than laid over
-   the whole page. */
-:root { --neon: 0 0 0 transparent; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --neon: 0 0 18px color-mix(in srgb, var(--live) 34%, transparent);
-  }
-}
-:root[data-theme="dark"] {
-  --neon: 0 0 18px color-mix(in srgb, var(--live) 34%, transparent);
-}
-.btn:not(.ghost) { box-shadow: var(--neon); }
-.btn:not(.ghost):hover { box-shadow: 0 0 26px color-mix(in srgb, var(--live) 48%, transparent); }
-.logo svg { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--live) 26%, transparent)); }
+/* ---- the terminal ---------------------------------------------------- */
+/* One component, three sizes. The evidence the page has is a real run, so the
+   run is the picture: framed like a window, never a screenshot. */
+.term { background: var(--term-bg); border: 1px solid var(--term-line); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 30px 70px -30px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.02) inset;
+  position: relative; }
+.term::before { content: ""; position: absolute; inset: -1px; border-radius: 17px; pointer-events: none;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--live) 45%, transparent), transparent 40%, transparent 60%, color-mix(in srgb, var(--live-2) 40%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; padding: 1px; opacity: .8; }
+.term-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid var(--term-line);
+  background: #0F141C; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.term-bar .t { margin-left: 8px; font-family: var(--mono); font-size: 11.5px; color: #8A96A8; }
+.term-bar .live { margin-left: auto; display: flex; align-items: center; gap: 6px; font-family: var(--mono);
+  font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #8A96A8; }
+.term-bar .live i { width: 6px; height: 6px; border-radius: 50%; background: #3FAF6C; display: inline-block;
+  animation: pulse 1.8s ease-in-out infinite; }
+.term-body { padding: 16px 18px; font-family: var(--mono); font-size: clamp(11.5px, 1vw, 13px); line-height: 1.66;
+  overflow-y: auto; color: var(--term-ink); white-space: pre-wrap; word-break: break-word; scroll-behavior: smooth; }
+.term-body .cmd { color: #EEF3FA; margin-top: 2px; }
+.term-body .tool { color: #6FB3EE; }
+.term-body .res { color: #8A96A8; }
+.term-body .ok { color: #3FD68C; }
+.term-body .warn { color: #E0B04C; }
+.term-body .dim { color: #77839A; }
+.cursor { display: inline-block; width: 7px; height: 13px; background: #6FD0FF; vertical-align: -2px;
+  animation: bl 1.05s steps(2) infinite; }
+@keyframes bl { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+.term-foot { display: flex; gap: 14px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--term-line);
+  background: #0F141C; font-family: var(--mono); font-size: 10.5px; color: #8A96A8; letter-spacing: .04em; }
+.term-foot b { color: #C9D4E2; font-weight: 500; }
+.term-foot .ok { color: #3FD68C; }
+@media (prefers-reduced-motion: reduce) { .cursor, .term-bar .live i, .eyebrow i { animation: none; } .term-body { scroll-behavior: auto; } }
+
+/* ---- evidence figures ------------------------------------------------ */
+.ev { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.ev > div { background: var(--surface); padding: 22px 22px; }
+.ev b { display: block; font-family: var(--sans); font-size: 34px; font-weight: 750; color: var(--ink);
+  letter-spacing: -0.04em; font-variant-numeric: tabular-nums; line-height: 1; }
+.ev span { display: block; margin-top: 8px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.honest { border: 1px solid color-mix(in srgb, var(--recorded) 35%, transparent); background: var(--recorded-soft);
+  padding: 18px 20px; border-radius: var(--r); margin-top: 18px; }
+.honest p { margin: 0; color: var(--ink-2); font-size: 15px; }
+.honest strong { color: var(--ink); }
+
+/* ---- tables ---------------------------------------------------------- */
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink-2); }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { color: var(--ink); font-weight: 600; }
+.lim, .tw { background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.scroll > .lim { border-radius: var(--r); }
+.req-pg { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--recorded-soft); color: var(--recorded); padding: 2px 7px; border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--recorded) 30%, transparent); white-space: nowrap; }
+
+/* ---- tags & pills ---------------------------------------------------- */
+.tag { font-family: var(--mono); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px;
+  border-radius: 999px; white-space: nowrap; }
+.tag.live { background: var(--ok-soft); color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent); }
+.tag.planned { background: var(--sunken); color: var(--muted); border: 1px solid var(--line); }
+
+/* ---- cta band -------------------------------------------------------- */
+.cta-band { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; padding: 40px;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--live) 14%, var(--surface)), var(--surface) 55%, color-mix(in srgb, var(--live-2) 12%, var(--surface))); }
+.cta-band::after { content: ""; position: absolute; width: 420px; height: 420px; right: -160px; top: -200px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--live) 30%, transparent), transparent 65%); filter: blur(30px); pointer-events: none; }
+.cta-band > * { position: relative; }
+@media (max-width: 720px) { .cta-band { padding: 26px 20px; border-radius: 16px; } }
 
 /* ---- forms ----------------------------------------------------------- */
-/* Restored: replacing the stylesheet dropped these and the access form
-   rendered as bare inline controls, with the honeypot visible as a real
-   "Website" field — which a person would fill in and be silently rejected as
-   a bot. That is the worst kind of broken, because it fails quietly. */
 .req { display: flex; flex-direction: column; gap: 14px; max-width: 620px; }
 .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
-
-.req label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.req input,
-.req textarea {
-  font-family: var(--serif);
-  font-size: 15.5px;
-  line-height: 1.5;
-  color: var(--ink);
-  background: var(--sunken);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 12px;
-  width: 100%;
-  text-transform: none;
-  letter-spacing: normal;
-}
+.req label { display: flex; flex-direction: column; gap: 6px; font-family: var(--mono); font-size: 11.5px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.req input, .req textarea { font-family: var(--sans); font-size: 15.5px; line-height: 1.5; color: var(--ink);
+  background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; width: 100%;
+  text-transform: none; letter-spacing: normal; }
 .req textarea { resize: vertical; min-height: 92px; }
-.req input::placeholder,
-.req textarea::placeholder { color: var(--muted); opacity: 1; }
-.req input:focus,
-.req textarea:focus {
-  outline: none;
-  border-color: var(--live);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 18%, transparent);
-}
-
+.req input::placeholder, .req textarea::placeholder { color: var(--muted); opacity: 1; }
+.req input:focus, .req textarea:focus { outline: none; border-color: var(--live);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 18%, transparent); }
 /* The honeypot. Off-canvas rather than display:none, because some bots skip
    fields that are not rendered at all. */
-.req label.hp {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-.req .go { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.req label.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .req .note { font-size: 14px; color: var(--muted); margin: 0; }
+.req label.chk { flex-direction: row; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0;
+  font-family: var(--sans); font-size: 14.5px; color: var(--ink-2); cursor: pointer; }
+.req label.chk input { width: 17px; height: 17px; accent-color: var(--live); margin: 0; }
+.note.said-ok { color: var(--ok); border-left: 2px solid var(--ok); background: var(--ok-soft); padding: 11px 14px; border-radius: 0 8px 8px 0; }
+.note.said-bad { color: var(--warn); border-left: 2px solid var(--warn); background: var(--warn-soft); padding: 11px 14px; border-radius: 0 8px 8px 0; }
 
+/* ---- reveal ---------------------------------------------------------- */
+/* Fade-up on arrival. Only elements below the fold are ever hidden, and the
+   script reveals everything after a short fallback regardless — a page that
+   stays blank because an observer never fired is not a page. */
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .55s ease, transform .55s ease; }
+.reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 </style>
 <style>
-/* ---- the replay ------------------------------------------------------ */
-/* The terminal is the evidence, so it gets the larger half and a height that
-   fits the longest step without scrolling. Sized in ch/em rather than px so a
-   reader who scales text does not get a clipped transcript. */
-.replay{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
-  gap:20px;align-items:start}
+/* ---- titan page ------------------------------------------------------ */
+.pillars .card{gap:6px}
+.pillars .card h3{font-size:15.5px}
+.pillars .card p{font-size:13.8px}
+
+.replay{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
 @media (max-width:960px){.replay{grid-template-columns:1fr}}
-.term{background:#0B0E13;border:1px solid #252D3A;border-radius:13px;
-  overflow:hidden;position:sticky;top:74px;
-  box-shadow:0 1px 3px rgba(0,0,0,.16),0 12px 34px -14px rgba(0,0,0,.4)}
-@media (max-width:960px){.term{position:static}}
-.term-bar{display:flex;align-items:center;gap:7px;padding:10px 14px;
-  border-bottom:1px solid #252D3A;background:#0F141C}
-.dot{width:10px;height:10px;border-radius:50%}
-.term-bar .t{margin-left:8px;font-family:var(--mono);font-size:11px;color:#8A96A8}
-.term-bar .live{margin-left:auto;display:flex;align-items:center;gap:6px;
-  font-family:var(--mono);font-size:10px;letter-spacing:.06em;
-  text-transform:uppercase;color:#8A96A8}
-.term-bar .live i{width:6px;height:6px;border-radius:50%;background:#3FAF6C;
-  display:inline-block;animation:pulse 1.8s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.term-body{padding:16px 18px;font-family:var(--mono);
-  font-size:clamp(11.5px,1.02vw,13px);line-height:1.66;
-  height:31em;overflow-y:auto;color:#C9D4E2;
-  white-space:pre-wrap;word-break:break-word;scroll-behavior:smooth}
-@media (max-width:960px){.term-body{height:24em}}
-.term-body .cmd{color:#E8EDF4;margin-top:2px}
-.term-body .tool{color:#6FB3EE}
-.term-body .res{color:#8A96A8}
-.term-body .ok{color:#3FAF6C}
-.term-body .warn{color:#D4A03C}
-.term-body .dim{color:#77839A}
-.cursor{display:inline-block;width:7px;height:13px;background:#6FD0FF;
-  vertical-align:-2px;animation:bl 1.05s steps(2) infinite}
-@keyframes bl{0%,50%{opacity:1}51%,100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){
-  .cursor,.term-bar .live i{animation:none}
-  .term-body{scroll-behavior:auto}
-}
+.replay .term{position:sticky;top:78px}
+@media (max-width:960px){.replay .term{position:static}}
+.replay .term-body{height:31em}
+@media (max-width:960px){.replay .term-body{height:24em}}
 
 .steps{display:flex;flex-direction:column;gap:8px}
-/* Each step carries its own progress bar: with auto-play running, the reader
-   needs to see that something is advancing and roughly how long is left. */
-.step{position:relative;border:1px solid var(--line);border-radius:11px;
-  padding:14px 16px;background:var(--surface);cursor:pointer;text-align:left;
-  font:inherit;color:inherit;overflow:hidden;
-  transition:border-color .16s,background .16s,opacity .16s}
+.step{position:relative;border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+  background:color-mix(in srgb,var(--surface) 80%,transparent);cursor:pointer;text-align:left;
+  font:inherit;color:inherit;overflow:hidden;transition:border-color .16s,background .16s,opacity .16s}
 .step:hover{border-color:var(--line-strong)}
-.step[aria-current="true"]{border-color:var(--accent);
-  background:linear-gradient(180deg,var(--accent-soft),var(--surface) 70%)}
-.step[data-done="true"]:not([aria-current="true"]){opacity:.62}
-.step .bar{position:absolute;left:0;bottom:0;height:2px;width:0;
-  background:var(--accent);transition:width .18s linear}
-.step h4{margin:0 0 5px;font-size:14.4px;letter-spacing:-.01em;
-  display:flex;align-items:baseline;gap:9px;line-height:1.35}
-.step .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);
-  border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none}
-.step[aria-current="true"] .n{color:var(--accent);
-  border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.step[aria-current="true"]{border-color:var(--live);background:linear-gradient(180deg,var(--live-soft),var(--surface) 70%)}
+.step[data-done="true"]:not([aria-current="true"]){opacity:.6}
+.step .bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--live);transition:width .18s linear}
+.step h4{margin:0 0 5px;font-size:14.4px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:9px;line-height:1.35}
+.step .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex:none}
+.step[aria-current="true"] .n{color:var(--live);border-color:color-mix(in srgb,var(--live) 40%,transparent)}
 .step p{margin:0;font-size:13.4px;color:var(--ink-2);line-height:1.58}
-.step p code{font-family:var(--mono);font-size:12.2px;background:var(--sunken);
-  padding:1px 5px;border-radius:4px}
+.step p code{font-size:12.2px}
 .replay-ctl{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
 .replay-ctl .note{font-family:var(--mono);font-size:11px;color:var(--muted)}
 
-/* ---- install --------------------------------------------------------- */
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.tab{font:inherit;font-size:13.2px;font-weight:560;padding:7px 14px;
-  border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
-  border-radius:8px;cursor:pointer;transition:border-color .14s,color .14s}
+.tab{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--surface) 80%,transparent);color:var(--ink-2);border-radius:999px;cursor:pointer;
+  transition:border-color .14s,color .14s}
 .tab:hover{border-color:var(--line-strong);color:var(--ink)}
-.tab[aria-selected="true"]{border-color:var(--accent);color:var(--accent);
-  background:var(--accent-soft)}
-pre.code{background:#0B0E13;border:1px solid #252D3A;border-radius:11px;
-  padding:15px 17px;overflow-x:auto;margin:0 0 12px;
-  font-family:var(--mono);font-size:12.6px;line-height:1.66;color:#C9D4E2}
+.tab[aria-selected="true"]{border-color:var(--live);color:var(--live);background:var(--live-soft)}
+pre.code{background:var(--term-bg);border:1px solid var(--term-line);border-radius:14px;padding:16px 18px;overflow-x:auto;
+  margin:0 0 12px;font-family:var(--mono);font-size:12.8px;line-height:1.66;color:var(--term-ink)}
 pre.code .c{color:#77839A}
 pre.code .g{color:#6FD0FF}
-.callout{border-left:3px solid var(--accent);background:var(--accent-soft);
-  padding:13px 16px;border-radius:0 9px 9px 0;margin:14px 0;
-  font-size:14px;color:var(--ink-2)}
+.callout{border-left:3px solid var(--live);background:var(--live-soft);padding:13px 16px;border-radius:0 10px 10px 0;
+  margin:14px 0;font-size:14.5px;color:var(--ink-2)}
 .callout strong{color:var(--ink)}
-
-.hero{padding:calc(var(--row)*2.4) 0 calc(var(--row)*1.6);position:relative;overflow:hidden}
-.hero::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.28;
-  -webkit-mask-image:linear-gradient(180deg,transparent,#000 55%,transparent);
-  mask-image:linear-gradient(180deg,transparent,#000 55%,transparent);
-  background:repeating-linear-gradient(180deg,
-    color-mix(in srgb,var(--live) 6%,transparent) 0 1px,
-    transparent 1px calc(var(--row)/2))}
-.hero .inner{position:relative}
-.eyebrow{display:inline-block;font-family:var(--mono);font-size:11.5px;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--live);margin-bottom:14px}
-.hero-cta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:calc(var(--row)*0.9)}
-.hero-note{margin-top:14px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.ev{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;
-  background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.ev>div{background:var(--surface);padding:18px 20px}
-.ev b{display:block;font-family:var(--mono);font-size:25px;font-weight:700;color:var(--ink);
-  letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.ev span{display:block;margin-top:6px;font-size:13.2px;color:var(--muted);line-height:1.5}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-@media (max-width:680px){.grid{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;
-  padding:20px;display:flex;flex-direction:column;gap:8px}
-.card h3{margin:0 0 2px}
-.card p{margin:0;color:var(--ink-2);font-size:14.2px;line-height:1.6}
-table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);
-  vertical-align:top;color:var(--ink-2)}
-th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--muted);font-weight:400}
-tr:last-child td{border-bottom:0}
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
-.req-pg{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
-  background:var(--recorded-soft);color:var(--recorded);padding:2px 7px;border-radius:3px;
-  border:1px solid color-mix(in srgb,var(--recorded) 30%,transparent);white-space:nowrap}
-.honest{border-left:2px solid var(--recorded);background:var(--recorded-soft);
-  padding:16px 18px;border-radius:0 8px 8px 0}
-.honest p{margin:0;color:var(--ink-2)}
-
-.note.said-ok{color:var(--live);border-left:2px solid var(--live);
-  background:var(--live-soft);padding:11px 14px;border-radius:0 6px 6px 0}
-.note.said-bad{color:var(--warn);border-left:2px solid var(--warn);
-  background:var(--warn-soft);padding:11px 14px;border-radius:0 6px 6px 0}
+.api{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.api code{font-size:12.5px;padding:4px 9px;border-radius:999px}
 </style>
 </head>
 
-<header>
+<body>
+<div class="field" aria-hidden="true"><i></i><i></i></div>
+
+<header id="hdr">
   <div class="wrap bar">
     <a class="logo" href="https://zybuu.com/"> <svg class="" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="zb-zt" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="50%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="zb-zl" cx="22%" cy="18%" r="80%"> <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".26"/> <stop offset="60%"  stop-color="#FFFFFF" stop-opacity="0"/> </radialGradient> <mask id="zb-zcut"> <rect width="256" height="256" fill="#fff"/> <g fill="#000"> <rect x="70" y="62" width="126" height="34" rx="9"/> <rect x="60" y="160" width="126" height="34" rx="9"/> <path d="M156 96 H200 L100 160 H56 Z"/> </g> </mask> </defs> <rect x="14" y="14" width="228" height="228" rx="58" fill="url(#zb-zt)" mask="url(#zb-zcut)"/> <rect x="14" y="14" width="228" height="228" rx="58" fill="url(#zb-zl)" mask="url(#zb-zcut)"/> </svg>
-      Zybuu
+      Zybuu<span class="prod">Titan</span>
     </a>
     <nav class="nav">
       <a href="/" class="hide-sm">Zybuu</a>
       <a href="#install">Install</a>
+      <a href="#why" class="hide-sm">Why Titan</a>
       <a href="#harness" class="hide-sm">Harness</a>
       <a href="https://titan.zybuu.com/docs/">Docs</a>
       <a class="btn" href="https://titan.zybuu.com">Open console</a>
@@ -501,19 +440,81 @@ tr:last-child td{border-bottom:0}
 <main>
 <section class="hero">
   <div class="wrap inner">
-    <span class="eyebrow">Titan · a Zybuu product</span>
-    <h1>Many agent harnesses. This one runs where your data cannot leave.</h1>
-    <p class="lede">
-      Titan is a deep agent harness: the loop, the tool contracts, the
-      permission engine and the sandbox. It runs on your own hardware, against
-      a model you host. Policy, audit and deny rules hold when you embed it in
-      something else.
-    </p>
-    <div class="hero-cta">
-      <a class="btn lg" href="#install">Install it</a>
-      <a class="btn ghost lg" href="#replay">Watch a real run</a>
+    <div>
+      <span class="eyebrow"><i></i>Titan · a Zybuu product · invite-only</span>
+      <h1>The agent harness for work that <span class="hl">cannot leave the building.</span></h1>
+      <p class="lede">
+        Titan is a deep agent harness: the loop, the tool contracts, the
+        permission engine and the sandbox. It runs on your own hardware, against
+        a model you host. Policy, audit and deny rules hold when you embed it in
+        something else.
+      </p>
+      <div class="hero-cta">
+        <a class="btn lg" href="#install">Install it
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg></a>
+        <a class="btn ghost lg" href="#replay">Watch a real run</a>
+        <a class="btn ghost lg" href="https://titan.zybuu.com">Open console</a>
+      </div>
+      <div class="chips">
+        <span class="chip"><b>one</b> static binary</span>
+        <span class="chip"><b>20</b> providers</span>
+        <span class="chip"><b>no</b> egress by default</span>
+        <span class="chip"><b>Go</b> SDK</span>
+      </div>
     </div>
-    <p class="hero-note">Single static binary · 20 providers · no egress by default</p>
+    <div>
+      <div class="term">
+        <div class="term-bar">
+          <span class="dot" style="background:#FF5F57"></span>
+          <span class="dot" style="background:#FEBC2E"></span>
+          <span class="dot" style="background:#28C840"></span>
+          <span class="t">~/demo — titan</span>
+          <span class="live"><i></i>recorded session</span>
+        </div>
+        <div class="term-body" id="ht" style="height:21em" role="img" aria-label="A real Titan session, replayed"></div>
+        <div class="term-foot">
+          <span>sandbox <b>process</b></span>
+          <span>egress <b>none</b></span>
+          <span>model <b>26B, local</b></span>
+          <span class="ok">✓ every step recorded</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <p class="kicker">Why Titan</p>
+    <h2>Five things "under your control" actually means.</h2>
+    <p class="sub">Each one is a property this repository tests, not a line of copy.</p>
+    <div class="grid g5 pillars">
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></div>
+        <h3>Runs where the data is</h3>
+        <p>One static binary, from a laptop to an air-gapped rack, with a signed offline bundle for the rack.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/></svg></div>
+        <h3>Runs any model</h3>
+        <p>Twenty providers over three wire formats, including the one on your own GPUs. Changing vendors is a line of config.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Sandboxed by default</h3>
+        <p>Inside a boundary the operator sets and the agent cannot lift, with an approval policy the operator owns.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg></div>
+        <h3>Every action on the record</h3>
+        <p>An append-only event log, replayable step by step, with every approval and refusal and who made it. Exportable as traces.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg></div>
+        <h3>Embeds without weakening</h3>
+        <p>The SDK gives a program the same loop with the same guarantees. The console is a reference app built on it.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -694,13 +695,10 @@ defer a.Close()
 answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     </div>
 
-    <p class="body" style="margin-top:16px">
-      <code>Run</code> &middot; <code>Continue</code> &middot;
-      <code>Steer</code> (from another goroutine, mid-run) &middot;
-      <code>Fork</code> &middot; <code>Events</code> &middot;
-      <code>Usage</code> &middot; <code>ExportHTML</code> &middot;
-      <code>SetModel</code>. For anything not written in Go,
-      <code>titan rpc</code> is the same agent over JSONL.
+    <div class="api"><code>Run</code><code>RunJSON</code><code>Continue</code><code>Steer</code><code>Fork</code><code>Events</code><code>Usage</code><code>ExportHTML</code><code>SetModel</code></div>
+    <p class="body" style="margin-top:14px">
+      <code>Steer</code> works from another goroutine, mid-run. For anything
+      not written in Go, <code>titan rpc</code> is the same agent over JSONL.
     </p>
   </div>
 </section>
@@ -804,30 +802,34 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
   <div class="wrap">
     <p class="kicker">Context engineering</p>
     <h2>Compaction is a capacity decision, not a quality knob.</h2>
-    <p class="body">
-      The threshold is applied to used tokens <em>plus headroom for the turn
-      that is coming</em>, not to what has already happened. Without that
-      margin the check passes at 24,809 of a 32,768 window, the next tool
-      result adds 8,000, and the call fails — having been told, correctly, that
-      there was no need to compact.
-    </p>
-    <p class="body">
-      What survives is chosen rather than truncated: the system prompt and
-      memory file are re-injected whole, recent turns are kept verbatim and
-      split at a tool-call boundary so the model never sees a result answering
-      a call it cannot see. How many turns are kept is a preference rather than
-      a promise — exchanges are dropped from the front until what remains
-      actually fits, and compaction returns to half the window rather than to
-      the threshold, because stopping at the threshold leaves the session one
-      turn away from compacting again.
-    </p>
-    <p class="body">
-      Subagents get a fresh context and a narrower tool set, and return a
-      bounded summary — so the orchestrator grows by the summary rather than the
-      transcript. Isolation is a compression ratio, not free: each spawn
-      re-prefills its own prefix, and that spend counts against the parent's
-      budget rather than multiplying invisibly.
-    </p>
+    <div class="grid g3">
+      <div class="card">
+        <h3>Headroom for the turn that is coming</h3>
+        <p>The threshold is applied to used tokens <em>plus headroom for the turn
+          that is coming</em>, not to what has already happened. Without that
+          margin the check passes at 24,809 of a 32,768 window, the next tool
+          result adds 8,000, and the call fails — having been told, correctly,
+          that there was no need to compact.</p>
+      </div>
+      <div class="card">
+        <h3>Chosen, not truncated</h3>
+        <p>The system prompt and memory file are re-injected whole, recent turns
+          are kept verbatim and split at a tool-call boundary so the model never
+          sees a result answering a call it cannot see. Exchanges are dropped
+          from the front until what remains actually fits, and compaction
+          returns to half the window rather than to the threshold, because
+          stopping at the threshold leaves the session one turn away from
+          compacting again.</p>
+      </div>
+      <div class="card">
+        <h3>Subagents are a compression ratio</h3>
+        <p>Subagents get a fresh context and a narrower tool set, and return a
+          bounded summary — so the orchestrator grows by the summary rather than
+          the transcript. Isolation is not free: each spawn re-prefills its own
+          prefix, and that spend counts against the parent's budget rather than
+          multiplying invisibly.</p>
+      </div>
+    </div>
   </div>
 </section>
 <section id="chat">
@@ -856,7 +858,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>583</b><span>test functions across the engine</span></div>
+      <div><b>584</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
@@ -960,6 +962,8 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
           <textarea name="use" rows="3"
             placeholder="The workload, and whether it has to stay on your own infrastructure."></textarea>
         </label>
+        <label class="chk"><input type="checkbox" name="demo" value="yes">
+          <span>Also send me the recorded demo and the deck</span></label>
         <button class="btn lg" type="submit">Request access</button>
         <p class="note" id="reqnote">
           Goes to a person, not a list. No newsletter, no tracking.
@@ -975,8 +979,9 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
   <div class="wrap foot">
     <span><a href="/">Zybuu</a></span>
     <span><a href="https://titan.zybuu.com/docs/">Documentation</a></span>
-    <span>On-prem by default</span>
-    <span>Tool output is data, never instructions</span>
+    <span><a href="https://titan.zybuu.com/docs/vision">Vision</a></span>
+    <span class="sp"></span>
+    <span>On-prem by default · Tool output is data, never instructions</span>
   </div>
 </footer>
 
@@ -1114,6 +1119,56 @@ var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["di
   mark(0);
 })();
 
+// The hero replay: the same captured run, looping quietly as the thing to
+// look at while reading. The stepped replay below is the one to study.
+(function () {
+  var el = document.getElementById('ht');
+  if (!el) return;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var lines = [];
+  STEPS.forEach(function (s) {
+    if (s.cmd) lines.push(['cmd', '$ ' + s.cmd]);
+    s.out.forEach(function (o) { lines.push(o); });
+  });
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function put(i) {
+    var d = document.createElement('div');
+    if (lines[i][0]) d.className = lines[i][0];
+    d.innerHTML = esc(lines[i][1]) || '&nbsp;';
+    el.appendChild(d);
+    el.scrollTop = el.scrollHeight;
+  }
+  if (reduce) { lines.forEach(function (_, i) { put(i); }); return; }
+  var i = 0;
+  function tick() {
+    if (i >= lines.length) { i = 0; setTimeout(function () { el.innerHTML = ''; tick(); }, 4200); return; }
+    put(i);
+    var delay = lines[i][0] === 'cmd' ? 900 : (lines[i][0] === 'warn' ? 700 : 260);
+    i++;
+    setTimeout(tick, delay);
+  }
+  tick();
+})();
+
+// Header gains its rule once the page has scrolled under it; sections fade
+// up as they arrive. Cosmetic, and off under reduced motion.
+(function () {
+  var h = document.getElementById('hdr');
+  function onScroll() { h.classList.toggle('solid', window.scrollY > 8); }
+  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  var els = [].slice.call(document.querySelectorAll('section:not(.hero) > .wrap'));
+  var vh = window.innerHeight || 800;
+  els = els.filter(function (e) { return e.getBoundingClientRect().top > vh * 0.9; });
+  els.forEach(function (e) { e.classList.add('reveal'); });
+  function all() { els.forEach(function (e) { e.classList.add('in'); }); }
+  if (!('IntersectionObserver' in window)) { all(); return; }
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  els.forEach(function (e) { io.observe(e); });
+  setTimeout(all, 3000);
+})();
+
 // Install tabs.
 (function () {
   var tabs = [].slice.call(document.querySelectorAll('.tab'));
@@ -1176,4 +1231,5 @@ var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["di
   note.scrollIntoView({ block: 'center' });
 })();
 </script>
+</body>
 </html>

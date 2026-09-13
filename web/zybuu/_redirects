@@ -9,3 +9,4 @@
 # zybuu.com/docs therefore still serves the docs directly. Two URLs for one
 # set of pages is worth less than an outage, and the canonical links on the
 # site all point at titan.zybuu.com.
+/demo /demo/ 301

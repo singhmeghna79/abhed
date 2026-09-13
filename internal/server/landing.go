@@ -19,206 +19,193 @@ const landingHTML = `<!doctype html>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22tf%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2255%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22tcore%22%20cx=%2240%25%22%20cy=%2235%25%22%20r=%2270%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22/%3E%20%3Cstop%20offset=%2270%25%22%20stop-color=%22%23DDEFFF%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%239ED2FF%22/%3E%20%3C/radialGradient%3E%20%3CradialGradient%20id=%22tglow%22%20cx=%2250%25%22%20cy=%2250%25%22%20r=%2250%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%22.5%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3C/defs%3E%20%3Cg%20fill=%22none%22%20stroke=%22url(%23tf)%22%20stroke-width=%2228%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%20%3Cpath%20d=%22M104%2034%20H64%20a20%2020%200%200%200%20-20%2020%20V202%20a20%2020%200%200%200%2020%2020%20H104%22/%3E%20%3Cpath%20d=%22M152%2034%20H192%20a20%2020%200%200%201%2020%2020%20V202%20a20%2020%200%200%201%20-20%2020%20H152%22/%3E%20%3C/g%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2260%22%20fill=%22url(%23tglow)%22/%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2231%22%20fill=%22url(%23tcore)%22/%3E%20%3C/svg%3E">
 <style>
 :root{
-  --bg:#F4F6FA; --surface:#FFFFFF; --sunken:#E6EBF3;
-  --line:#DCE3EC; --line-strong:#C4CFDD;
-  --ink:#0F141B; --ink-2:#3A4757; --muted:#697786;
-  --accent:#0F63C4; --accent-soft:#E2EDFB;
-  --ok:#1A7F4B; --ok-bg:#E3F3EA; --warn:#9A6A16; --warn-bg:#FAF0DC;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
+  --bg:#F5F7FB; --surface:#FFFFFF; --sunken:#E9EEF5;
+  --line:#D6DEE9; --line-strong:#B3BFD0;
+  --ink:#0B1017; --ink-2:#3A4553; --muted:#6A7684;
+  --accent:#0E63C6; --accent-2:#7A3FE0; --accent-soft:#E3EEFB; --btn-ink:#FFFFFF;
+  --ok:#1F8A4C; --ok-bg:#E3F5EA; --warn:#9A4B16; --warn-bg:#F8E9DF;
+  --glow:0 0 0 transparent;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,Roboto,sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#070B12; --surface:#0E1521; --sunken:#0A101A;
-    --line:#252D3A; --line-strong:#333D4D;
-    --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-    --accent:#3BA9FF; --accent-soft:#0B2540;
-    --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+    --bg:#06090F; --surface:#0D131C; --sunken:#090E16;
+    --line:#182231; --line-strong:#27364B;
+    --ink:#E8EEF7; --ink-2:#B0BFD2; --muted:#7A8AA0;
+    --accent:#3BA9FF; --accent-2:#8B6CFF; --accent-soft:#0B2540; --btn-ink:#04121F;
+    --ok:#3DD68C; --ok-bg:#0D2A1D; --warn:#E08A4C; --warn-bg:#2A1A10;
+    --glow:0 0 22px rgba(59,169,255,.38);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#070B12; --surface:#0E1521; --sunken:#0A101A;
-  --line:#252D3A; --line-strong:#333D4D;
-  --ink:#E8EDF4; --ink-2:#BAC6D4; --muted:#8A96A8;
-  --accent:#3BA9FF; --accent-soft:#0B2540;
-  --ok:#3FAF6C; --ok-bg:#0F2419; --warn:#D4A03C; --warn-bg:#241C0C;
+  --bg:#06090F; --surface:#0D131C; --sunken:#090E16;
+  --line:#182231; --line-strong:#27364B;
+  --ink:#E8EEF7; --ink-2:#B0BFD2; --muted:#7A8AA0;
+  --accent:#3BA9FF; --accent-2:#8B6CFF; --accent-soft:#0B2540; --btn-ink:#04121F;
+  --ok:#3DD68C; --ok-bg:#0D2A1D; --warn:#E08A4C; --warn-bg:#2A1A10;
+  --glow:0 0 22px rgba(59,169,255,.38);
 }
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
-  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  font-size:14.5px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
-.wrap{max-width:940px;margin:0 auto;padding:0 26px}
+/* The field: two soft lights on a dot grid behind the first screen. The same
+   backdrop as zybuu.com, so the console reads as the same product. */
+.field{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+  background:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1.5px) 0 0/28px 28px;
+  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 50vh,transparent 120vh);
+  mask-image:linear-gradient(180deg,#000 0,#000 50vh,transparent 120vh)}
+.field i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;width:60vw;height:60vw;max-width:820px;max-height:820px;
+  background:radial-gradient(circle,color-mix(in srgb,var(--accent) 40%,transparent),transparent 62%);
+  animation:drift 26s ease-in-out infinite alternate}
+.field i:nth-child(1){top:-26vw;left:-18vw}
+.field i:nth-child(2){top:-8vw;right:-24vw;animation-duration:34s;animation-delay:-12s;
+  background:radial-gradient(circle,color-mix(in srgb,var(--accent-2) 32%,transparent),transparent 62%)}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(8vw,6vw,0) scale(1.1)}}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 26px}
 
 /* ---------------------------------------------------------------- masthead */
-header{border-bottom:1px solid var(--line);background:var(--surface)}
-.bar{display:flex;align-items:center;gap:10px;height:52px}
-.bar .mark{width:24px;height:24px;flex:none}
-.bar b{font-size:15px;font-weight:650;letter-spacing:-.01em}
-.bar .sub{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+header{position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:saturate(160%) blur(12px);
+  -webkit-backdrop-filter:saturate(160%) blur(12px)}
+.bar{display:flex;align-items:center;gap:10px;height:58px}
+.bar .mark{width:26px;height:26px;flex:none;filter:drop-shadow(0 0 8px rgba(59,169,255,.3))}
+.bar b{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.bar .sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:2px}
 .bar .spacer{flex:1}
 .bar .who{font-family:var(--mono);font-size:11px;color:var(--ink-2);
-  background:var(--sunken);border:1px solid var(--line);border-radius:11px;
-  padding:2px 9px}
-.bar .who-admin{font-family:var(--mono);font-size:11px;color:var(--ink-2);text-decoration:none;padding:3px 9px;border:1px solid var(--line);border-radius:5px;margin-left:8px}
+  background:var(--sunken);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.bar .who-admin{font-size:12.5px;font-weight:600;color:var(--ink-2);text-decoration:none;padding:5px 11px;border:1px solid var(--line);border-radius:8px;margin-left:8px}
 .bar .who-admin:hover{color:var(--accent);border-color:var(--accent)}
+.bar .home{font-size:12.5px;font-weight:500;color:var(--muted);text-decoration:none;margin-left:10px;white-space:nowrap}
+.bar .home:hover{color:var(--accent)}
 
 /* ---------------------------------------------------------------- hero */
-.hero{padding:46px 0 38px;display:grid;grid-template-columns:minmax(0,1fr) auto;
-  gap:56px;align-items:center}
-.hero h1{margin:0 0 10px;font-size:31px;line-height:1.2;letter-spacing:-.022em;
-  font-weight:640;text-wrap:balance}
-.hero p{margin:0 0 22px;font-size:15px;color:var(--ink-2);max-width:52ch}
+.hero{padding:54px 0 40px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:56px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-2);margin-bottom:18px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;
+  background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{margin:0 0 14px;font-size:clamp(30px,4.2vw,48px);line-height:1.06;letter-spacing:-.04em;font-weight:750;text-wrap:balance}
+.hero h1 .hl{background:linear-gradient(92deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0 0 24px;font-size:16.5px;color:var(--ink-2);max-width:52ch;line-height:1.55}
 .cta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);
-  color:#fff;border:1px solid var(--accent);border-radius:8px;padding:10px 18px;
-  font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;
-  transition:filter .14s,transform .14s}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:var(--btn-ink);
+  border:1px solid var(--accent);border-radius:11px;padding:11px 18px;font-size:14.5px;font-weight:650;
+  text-decoration:none;cursor:pointer;box-shadow:var(--glow);transition:filter .14s,transform .14s}
 .btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
-.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line)}
+.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line);box-shadow:none}
 .btn.ghost:hover{border-color:var(--accent);filter:none}
 .note{font-family:var(--mono);font-size:11px;color:var(--muted)}
 
 /* Sign-in form. Shown only when Titan holds the accounts; an OIDC
    deployment gets a redirect button instead, because the password never
    belongs to Titan in that mode. */
-.signin{background:var(--surface);border:1px solid var(--line);border-radius:11px;
-  padding:20px 22px;max-width:360px;box-shadow:0 2px 14px -8px rgba(0,0,0,.3)}
-.signin label{display:block;font-family:var(--mono);font-size:10px;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
-.signin input{width:100%;background:var(--sunken);border:1px solid var(--line);
-  border-radius:7px;padding:9px 11px;font-size:14px;color:var(--ink);margin-bottom:13px}
-.signin input:focus{outline:none;border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft)}
+.signin{background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);border-radius:16px;
+  padding:22px 22px 18px;max-width:380px;width:100%;box-shadow:0 30px 60px -30px rgba(0,0,0,.6);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.signin label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.signin input{width:100%;background:var(--sunken);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14.5px;color:var(--ink);margin-bottom:13px;font-family:inherit}
+.signin input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .signin .btn{width:100%;justify-content:center}
-.err{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:8px 11px;
-  font-size:12.5px;margin-bottom:12px}
-.alt{display:flex;align-items:center;gap:10px;margin:16px 0 14px;
-  font-family:var(--mono);font-size:10px;color:var(--muted)}
+.err{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 11px;font-size:12.5px;margin-bottom:12px}
+.alt{display:flex;align-items:center;gap:10px;margin:16px 0 14px;font-family:var(--mono);font-size:10px;color:var(--muted)}
 .alt::before,.alt::after{content:"";flex:1;height:1px;background:var(--line)}
 .oauth{display:flex;flex-direction:column;gap:8px}
-.oauth a{display:flex;align-items:center;justify-content:center;gap:9px;
-  background:var(--surface);border:1px solid var(--line);border-radius:8px;
-  padding:9px 14px;font-size:13.5px;font-weight:520;text-decoration:none;
-  color:var(--ink);transition:border-color .14s}
+.oauth a{display:flex;align-items:center;justify-content:center;gap:9px;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:550;text-decoration:none;color:var(--ink);transition:border-color .14s}
 .oauth a:hover{border-color:var(--accent)}
 .oauth svg{width:16px;height:16px;flex:none}
 
-/* The column, drawn large. Same three strokes as the CLI banner. */
 /* The hero visual: a live network with the mark sitting at its centre, so
    the emblem reads as the thing the signals converge on. */
-.viz{position:relative;width:340px;height:250px;flex:none}
+.viz{position:relative;width:360px;height:270px;flex:none}
 .viz canvas{position:absolute;inset:0;width:100%;height:100%}
-.emblem{position:absolute;left:50%;top:50%;width:88px;height:88px;
-  transform:translate(-50%,-50%);
-  filter:drop-shadow(0 6px 22px rgba(31,111,184,.45))}
+.emblem{position:absolute;left:50%;top:50%;width:92px;height:92px;transform:translate(-50%,-50%);
+  filter:drop-shadow(0 6px 26px rgba(59,169,255,.5))}
 
 /* ---------------------------------------------------------------- panels */
-h2{margin:0 0 14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;
-  text-transform:uppercase;color:var(--muted);font-weight:600}
-section{padding-bottom:34px}
+h2{margin:0 0 14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:650;
+  display:inline-flex;align-items:center;gap:8px;font-family:var(--mono)}
+h2::before{content:"";width:18px;height:2px;background:var(--accent);border-radius:2px;box-shadow:var(--glow)}
+section{padding-bottom:36px}
 
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:12px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:9px;
-  padding:14px 16px}
-.card .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.card .v{font-size:14.5px;font-weight:560;overflow-wrap:anywhere}
-.card .d{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:4px}
+.card{background:color-mix(in srgb,var(--surface) 86%,transparent);border:1px solid var(--line);border-radius:14px;padding:15px 17px;
+  transition:transform .16s,border-color .16s}
+.card:hover{transform:translateY(-1px);border-color:var(--line-strong)}
+.card .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.card .v{font-size:15.5px;font-weight:620;overflow-wrap:anywhere;letter-spacing:-.01em}
+.card .d{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:5px}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:9px;
-  padding:14px 16px}
-.stat .n{font-family:var(--mono);font-size:25px;font-weight:600;line-height:1.1;
-  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.stat .l{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--muted);margin-top:5px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.stat{background:color-mix(in srgb,var(--surface) 86%,transparent);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+.stat .n{font-size:30px;font-weight:750;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.stat .l{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:7px}
 
-.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);
-  font-size:10.5px;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:5px;white-space:nowrap}
 .chip.on{background:var(--ok-bg);color:var(--ok)}
 .chip.off{background:var(--sunken);color:var(--muted)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)}
 
 .tools{display:flex;flex-wrap:wrap;gap:6px}
-.tool{font-family:var(--mono);font-size:11px;background:var(--sunken);
-  border:1px solid var(--line);border-radius:5px;padding:3px 9px;color:var(--ink-2)}
-
-/* The thesis. A number this large is the argument, so it is set as a figure
-   rather than buried in the prose — but it stays next to its source, because a
-   statistic without provenance reads as marketing. */
-.thesis{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;
-  align-items:start;padding:22px 24px;background:var(--surface);
-  border:1px solid var(--line);border-radius:12px;margin-bottom:34px}
-.thesis h2{margin-top:0}
-.thesis p{margin:0 0 9px;max-width:64ch}
-.thesis p:last-child{margin-bottom:0}
-.thesis .muted{color:var(--muted);font-size:13px}
-.figure{text-align:center;padding-right:26px;border-right:1px solid var(--line);
-  min-width:132px}
-.figure b{display:block;font-size:38px;font-weight:680;letter-spacing:-.03em;
-  color:var(--accent);line-height:1}
-.figure span{display:block;margin-top:5px;font-family:var(--mono);font-size:10px;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-@media (max-width:700px){
-  .thesis{grid-template-columns:1fr;gap:18px}
-  .figure{text-align:left;padding:0 0 16px;border-right:0;
-    border-bottom:1px solid var(--line)}
-}
+.tool{font-family:var(--mono);font-size:11.5px;background:var(--sunken);border:1px solid var(--line);border-radius:999px;padding:4px 11px;color:var(--ink-2)}
 
 /* Containment. Each row is a boundary that either holds or does not, so the
    mark carries the state and the text says what it means in practice — a green
    tick with no explanation is decoration, not information. */
-.lede{margin:-6px 0 16px;color:var(--muted);max-width:62ch}
-.posture{list-style:none;margin:0;padding:0;display:grid;gap:9px}
-.posture li{display:grid;grid-template-columns:18px 1fr;gap:11px;
-  align-items:start;background:var(--surface);border:1px solid var(--line);
-  border-radius:9px;padding:11px 13px}
-.posture .mk{font-family:var(--mono);font-size:13px;line-height:1.35;font-weight:700}
-.posture .yes .mk{color:var(--ok)}
-.posture .no .mk{color:var(--warn)}
-.posture b{display:block;font-size:13px;font-weight:600;letter-spacing:-.005em}
+.lede{margin:-4px 0 16px;color:var(--muted);max-width:62ch}
+.posture{list-style:none;margin:0;padding:0;display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.posture li{display:grid;grid-template-columns:22px 1fr;gap:11px;align-items:start;
+  background:color-mix(in srgb,var(--surface) 86%,transparent);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.posture .mk{font-family:var(--mono);font-size:12px;line-height:1.5;font-weight:700;width:20px;height:20px;border-radius:50%;
+  display:grid;place-items:center}
+.posture .yes .mk{color:var(--ok);background:var(--ok-bg)}
+.posture .no .mk{color:var(--warn);background:var(--warn-bg)}
+.posture b{display:block;font-size:13.5px;font-weight:620;letter-spacing:-.005em}
 .posture span{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
 
-footer{border-top:1px solid var(--line);padding:20px 0 30px;
-  font-family:var(--mono);font-size:10.5px;color:var(--muted);
+footer{border-top:1px solid var(--line);padding:20px 0 30px;font-family:var(--mono);font-size:10.5px;color:var(--muted);
   display:flex;gap:18px;flex-wrap:wrap}
 
 @media (max-width:760px){
-  .hero{grid-template-columns:1fr;padding:28px 0 26px;gap:26px}
+  .hero{grid-template-columns:1fr;padding:30px 0 26px;gap:26px}
   /* The animation is decoration; on a phone it costs a third of the first
      screen and pushes the sign-in form below the fold. The headline and the
      form are what the page is for. */
   .viz{display:none}
   .wrap{padding:0 17px}
-  .hero h1{font-size:25px;letter-spacing:-.018em}
-  .hero p{font-size:14.5px}
-  h2{margin-bottom:11px}
+  .hero p{font-size:15px}
   section{padding-bottom:26px}
-  /* One card per row: two columns at this width truncates every value. */
   .grid{grid-template-columns:1fr;gap:10px}
   .signin{max-width:none}
   /* 16px stops iOS zooming the page when a field takes focus. */
   .signin input{font-size:16px}
   .cta{gap:8px}
-  .btn{padding:11px 16px}
-  .stats{gap:16px}
+  .stats{gap:10px;grid-template-columns:1fr 1fr}
+  .posture{grid-template-columns:1fr}
   footer{flex-direction:column;gap:7px;padding:16px 0 26px}
   .bar{height:auto;min-height:48px;padding:9px 0;flex-wrap:wrap;gap:7px}
   .bar .sub{display:none}
+  .eyebrow{font-size:9.5px;letter-spacing:.08em}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<div class="field" aria-hidden="true"><i></i><i></i></div>
 
 <header>
   <div class="wrap bar">
     <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
     <b>Titan</b>
-    <span class="sub">deep agent harness</span>
+    <span class="sub">deep agent harness</span><!--HOME-->
     <span class="spacer"></span>
     <span class="who" id="who" hidden></span>
     <a class="who-admin" id="adminlink" href="/admin" hidden>Admin</a>
@@ -228,6 +215,7 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
 <main class="wrap">
   <div class="hero">
     <div>
+      <span class="eyebrow"><i></i>deep agent harness · this deployment</span>
       <h1 id="headline">An agent harness for work that cannot leave the building.</h1>
       <p id="pitch">Titan runs on hardware you own, against a model you host.
         It reads and writes files, runs commands in a sandbox, searches the
@@ -242,22 +230,6 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
       <svg class="emblem" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tte-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tte-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tte-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tte-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tte-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tte-tcore)"/> </svg>
     </div>
   </div>
-
-  <section class="thesis">
-    <div class="figure"><b>7.80&times;</b><span>harness &gt; model variance</span></div>
-    <div>
-      <h2>Why the scaffold is the product</h2>
-      <p>A controlled study on SWE-bench Verified found harness-induced variance
-        exceeds model-induced variance by <b>7.80&times;</b>, reversing the
-        ranking in 6 of 9 model-pair comparisons. The context management, tool
-        design, and permission model around the model decide more of the outcome
-        than the model does.</p>
-      <p class="muted">Most agents are a wrapper around someone else's API, with
-        the scaffold treated as glue. Titan engineers and evaluates that layer
-        separately, behind a provider abstraction. Better model, better agent.
-        Better harness, better agent. Both compound.</p>
-    </div>
-  </section>
 
   <section>
     <h2>This deployment</h2>
@@ -523,8 +495,10 @@ function signInForm(o){
       }
       // A password set by an administrator is temporary; say so rather than
       // letting it quietly become permanent.
+      // Not an alert: a modal dialog blocks the page and reads as an error.
+      // The console shows it as a note on arrival.
       if(body.must_change_password){
-        alert('This password was set for you. Change it from the console once signed in.');
+        try{ sessionStorage.setItem('titan.must_change', '1'); }catch{}
       }
       location.href = '/console';
     }catch(e){

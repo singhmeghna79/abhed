@@ -86,3 +86,21 @@ Then verify end to end — this sends a real email to $TO:
     ./deploy/sitetests/check-access-live.sh
 
 TEXT
+
+# ------------------------------------------------------------------ demo link
+# The recorded demo and deck at zybuu.com/demo/ answer only to a link signed
+# with DEMO_SECRET (web/zybuu/functions/demo/[[path]].js). The same value is
+# kept in deploy/.demo-secret, mode 0600 and never committed, so that
+# deploy/send-demo.sh can mint links that the Function will accept.
+DEMO_SECRET_FILE="$(dirname "$0")/.demo-secret"
+if [ -z "${DEMO_SECRET:-}" ]; then
+  if [ -f "$DEMO_SECRET_FILE" ]; then
+    DEMO_SECRET="$(cat "$DEMO_SECRET_FILE")"
+  else
+    DEMO_SECRET="$(openssl rand -hex 32)"
+    (umask 077; printf '%s' "$DEMO_SECRET" > "$DEMO_SECRET_FILE")
+    echo "generated demo link secret → $DEMO_SECRET_FILE"
+  fi
+fi
+printf '%s' "$DEMO_SECRET" | npm_config_cache="$CACHE" npx --yes wrangler@3 \
+    pages secret put DEMO_SECRET --project-name "$PROJECT"

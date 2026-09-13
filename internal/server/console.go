@@ -25,7 +25,7 @@ func (s *Server) serveConsole(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy",
-		"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		"default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 	w.Write([]byte(withHome(consoleHTML, s.opts.HomeURL)))
 }
 
@@ -56,9 +56,10 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
   --accent:#0F63C4; --accent-soft:#E2EDFB; --accent-line:#0F63C4;
   --running:#1F6FB8; --done:#1A7F4B; --waiting:#9A6A16; --error:#C0392F;
   --running-bg:#E3EEF8; --done-bg:#E3F3EA; --waiting-bg:#FAF0DC; --error-bg:#FBE9E7;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
-  --rail:272px; --drawer:420px;
+  --accent-2:#7A3FE0; --danger:#C0392F; --danger-bg:#FBE9E7; --glow:0 0 0 transparent;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,Roboto,sans-serif;
+  --rail:280px; --drawer:420px;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
@@ -68,6 +69,7 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
     --accent:#3BA9FF; --accent-soft:#0B2540; --accent-line:#3BA9FF;
     --running:#4C8FD6; --done:#3FAF6C; --waiting:#D4A03C; --error:#E05A52;
     --running-bg:#132436; --done-bg:#0F2419; --waiting-bg:#241C0C; --error-bg:#2A1412;
+    --accent-2:#8B6CFF; --danger:#FF6B6B; --danger-bg:rgba(255,80,80,.14); --glow:0 0 18px rgba(59,169,255,.35);
   }
 }
 :root[data-theme="dark"]{
@@ -77,6 +79,7 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
   --accent:#3BA9FF; --accent-soft:#0B2540; --accent-line:#3BA9FF;
   --running:#4C8FD6; --done:#3FAF6C; --waiting:#D4A03C; --error:#E05A52;
   --running-bg:#132436; --done-bg:#0F2419; --waiting-bg:#241C0C; --error-bg:#2A1412;
+  --accent-2:#8B6CFF; --danger:#FF6B6B; --danger-bg:rgba(255,80,80,.14); --glow:0 0 18px rgba(59,169,255,.35);
 }
 
 *{box-sizing:border-box}
@@ -89,8 +92,10 @@ button,select,textarea,input{font:inherit;color:inherit}
 /* ---------------------------------------------------------------- chrome */
 .top{height:48px;display:flex;align-items:center;gap:14px;padding:0 16px;
   background:var(--surface);border-bottom:1px solid var(--line);flex:none;
-  box-shadow:0 1px 0 rgba(0,0,0,.04),0 2px 8px -6px rgba(0,0,0,.28);
   position:relative;z-index:3}
+/* A hairline of the accent under the bar: the one place the console glows. */
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2) 40%,transparent 80%);opacity:.55}
 .brand{display:flex;align-items:center;gap:8px}
 /* Both of these belong to the phone layout and are switched on there. Hiding
    them here rather than adding them conditionally in JS keeps one DOM at
@@ -111,9 +116,9 @@ button,select,textarea,input{font:inherit;color:inherit}
 .railtoggle:active{background:var(--sunken)}
 .scrim{display:none}
 @media (max-width:760px){.scrim{display:block}}
-.mark{width:23px;height:23px;flex:none;
-  filter:drop-shadow(0 1px 3px rgba(0,0,0,.22))}
-.brand b{font-size:14px;font-weight:650;letter-spacing:-.01em}
+.mark{width:24px;height:24px;flex:none;
+  filter:drop-shadow(0 0 6px rgba(59,169,255,.35))}
+.brand b{font-size:14.5px;font-weight:700;letter-spacing:-.02em}
 .brand span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .top .spacer{flex:1}
 .home{text-decoration:none;color:var(--ink-2);font-family:var(--mono);font-size:11.5px;margin-left:10px;padding:3px 8px;border:1px solid var(--line);border-radius:5px;white-space:nowrap}
@@ -183,21 +188,29 @@ button,select,textarea,input{font:inherit;color:inherit}
 .chipf .x{cursor:pointer;color:var(--muted);font-size:13px;line-height:1}
 .chipf .x:hover{color:var(--warn)}
 .new{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
-  background:var(--sunken);border:1px solid var(--line);border-radius:7px;
-  padding:8px 12px;font-size:12.5px;font-weight:550;cursor:pointer;color:var(--ink);
-  transition:border-color .14s,background .14s}
-.new:hover{border-color:var(--accent);background:var(--accent-soft)}
-.new span{font-size:15px;line-height:1;color:var(--accent)}
+  background:var(--accent);border:1px solid var(--accent);border-radius:9px;
+  padding:9px 12px;font-size:12.5px;font-weight:650;cursor:pointer;color:var(--btn-ink,#04121F);
+  box-shadow:var(--glow);transition:filter .14s,transform .14s}
+.new:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.new span{font-size:15px;line-height:1}
+/* Filter the rail. Instant, client-side, on the prompt text the list already
+   has: a person with sixty chats needs to find one, not scroll for it. */
+.search{width:100%;margin-top:8px;background:var(--sunken);border:1px solid var(--line);border-radius:8px;
+  padding:6px 10px;font-size:12px;color:var(--ink)}
+.search::placeholder{color:var(--muted)}
+.search:focus{outline:none;border-color:var(--accent)}
+.grp{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  padding:10px 14px 4px;position:sticky;top:0;background:var(--surface);z-index:1}
 
 /* The dock is the chat input: under the conversation, grows with the text,
    never scrolls away. */
 .dock{flex:none;padding:10px 22px 16px;
   background:linear-gradient(to bottom,transparent,var(--bg) 24%)}
 .dockwrap{max-width:760px;margin:0 auto;background:var(--surface);
-  border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px;
+  border:1px solid var(--line);border-radius:16px;padding:12px 14px 10px;
   box-shadow:0 2px 12px -6px rgba(0,0,0,.3)}
 .dockwrap:focus-within{border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft),0 2px 12px -6px rgba(0,0,0,.3)}
+  box-shadow:0 0 0 3px var(--accent-soft),var(--glow)}
 .dockrow{display:flex;align-items:center;gap:9px;margin-top:7px}
 .dockhint{flex:1;font-family:var(--mono);font-size:10px;color:var(--muted)}
 textarea{width:100%;min-height:22px;max-height:180px;resize:none;background:none;
@@ -211,9 +224,9 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     linear-gradient(135deg,currentColor 50%,transparent 50%);
   background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;
   background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-.go{width:28px;height:28px;flex:none;background:var(--accent);border:0;color:#fff;
-  border-radius:50%;font-size:14px;line-height:1;cursor:pointer;display:grid;
-  place-items:center;transition:transform .12s}
+.go{width:32px;height:32px;flex:none;background:var(--accent);border:0;color:var(--btn-ink,#04121F);
+  border-radius:50%;font-size:15px;font-weight:700;line-height:1;cursor:pointer;display:grid;
+  place-items:center;transition:transform .12s;box-shadow:var(--glow)}
 .go:hover:not(:disabled){transform:scale(1.06)}
 .go:hover:not(:disabled){filter:brightness(1.08)}
 .go:disabled{opacity:.45;cursor:not-allowed}
@@ -237,15 +250,15 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   background:transparent;color:var(--muted);cursor:pointer;opacity:0;font:inherit;line-height:1;
   display:grid;place-items:center;transition:opacity .12s,background .12s,color .12s}
 .item:hover .del,.item:focus-within .del,.item[aria-current="true"] .del{opacity:1}
-.item .del:hover,.item .del:focus-visible{background:var(--danger-bg,rgba(255,80,80,.14));color:var(--danger,#ff6b6b);opacity:1}
+.item .del:hover,.item .del:focus-visible{background:var(--danger-bg);color:var(--danger);opacity:1}
 .item .del svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .item.confirm .q{color:var(--muted)}
 .item .ask{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink)}
 .item .ask b{font-weight:600}
 .item .ask button{font:inherit;font-size:11px;padding:3px 9px;border-radius:5px;cursor:pointer;
-  border:1px solid var(--line);background:var(--panel,transparent);color:var(--ink)}
-.item .ask button.yes{border-color:var(--danger,#ff6b6b);color:var(--danger,#ff6b6b)}
-.item .ask button.yes:hover{background:var(--danger,#ff6b6b);color:#fff}
+  border:1px solid var(--line);background:transparent;color:var(--ink)}
+.item .ask button.yes{border-color:var(--danger);color:var(--danger)}
+.item .ask button.yes:hover{background:var(--danger);color:#fff}
 @media (hover:none){.item .del{opacity:1}}
 .item .q{font-size:12.5px;line-height:1.45;margin-bottom:5px;color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -272,20 +285,23 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .transcript > *{max-width:760px;margin-left:auto;margin-right:auto}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
   min-height:100%;gap:8px;color:var(--muted);text-align:center;padding:12px 0}
-.empty .k{font-family:var(--mono);font-size:12px}
-.empty .s{font-size:12.5px;max-width:36ch;line-height:1.65}
-.empty .ex{display:grid;grid-template-columns:1fr;gap:6px;margin-top:16px;width:100%;
+.empty .k{font-family:var(--sans);font-size:24px;font-weight:750;letter-spacing:-.035em;color:var(--ink);line-height:1.15}
+.empty .k .hl{background:linear-gradient(92deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.empty .s{font-size:13.5px;max-width:44ch;line-height:1.6}
+.empty .ex{display:grid;grid-template-columns:1fr;gap:8px;margin-top:18px;width:100%;
   max-width:330px}
 /* Six examples in one column push the mark and the word Ready off the top of
    the pane on a laptop. Two columns keep the block inside the viewport where
    there is room; the column view is kept for phones, where a wide grid of
    cards would be two half-width cards you cannot read. */
 @media (min-width:700px){.empty .ex{grid-template-columns:1fr 1fr;max-width:600px;gap:8px}}
-.mark-lg{width:44px;height:44px;opacity:.9;margin-bottom:4px}
-.chip{background:var(--surface);border:1px solid var(--line);border-radius:7px;
-  padding:8px 11px;font-size:12px;color:var(--ink-2);cursor:pointer;text-align:left;
-  transition:border-color .14s,transform .14s}
-.chip:hover{border-color:var(--accent);transform:translateY(-1px);color:var(--ink)}
+.mark-lg{width:56px;height:56px;margin-bottom:6px;filter:drop-shadow(0 0 18px rgba(59,169,255,.45))}
+.chip{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:11px 13px;font-size:12.5px;color:var(--ink-2);cursor:pointer;text-align:left;line-height:1.5;
+  transition:border-color .14s,transform .14s,box-shadow .14s}
+.chip:hover{border-color:var(--accent);transform:translateY(-2px);color:var(--ink);
+  box-shadow:0 14px 30px -18px rgba(59,169,255,.6)}
+.chip .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;font-weight:600}
 
 /* turn grouping: a vertical spine ties a turn's calls together */
 .turn{position:relative;padding-left:20px;margin-bottom:4px}
@@ -299,7 +315,8 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   animation:rise .22s cubic-bezier(.2,.7,.3,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.said{animation:none}}
-.said.user{background:var(--accent-soft);border-color:var(--accent-line)}
+.said.user{background:linear-gradient(135deg,var(--accent-soft),var(--raised));border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.said{border-radius:12px}
 .said .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 
@@ -378,7 +395,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .approve .row{display:flex;gap:8px}
 .approve button{border-radius:5px;padding:5px 13px;font-size:12px;
   font-weight:600;cursor:pointer;border:1px solid var(--line)}
-.approve .yes{background:var(--accent);border-color:var(--accent);color:#fff}
+.approve .yes{background:var(--accent);border-color:var(--accent);color:var(--btn-ink,#04121F);box-shadow:var(--glow)}
 .approve .no{background:var(--surface)}
 
 .note{font-family:var(--mono);font-size:10.5px;color:var(--muted);
@@ -466,6 +483,10 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     white-space:nowrap}
   #switchuser{display:none}
   .brand .sub{display:none}
+  /* The way home stays, as the arrow alone: the word does not fit. */
+  .home{font-size:0;padding:5px 8px}
+  .home span{font-size:12px}
+  .dockhint{display:none}
 
   /* A 16px font on the input is what stops iOS zooming the whole page when
      the keyboard opens — the single most disorienting thing a mobile web app
@@ -535,6 +556,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   <aside class="rail">
     <div class="composer">
       <button class="new" id="new" type="button"><span>+</span> New chat</button>
+      <input class="search" id="search" type="search" placeholder="Search chats" aria-label="Search chats" autocomplete="off">
     </div>
     <div class="rail-head"><span>Chats</span><span id="count"></span></div>
     <div class="list" id="list"></div>
@@ -550,9 +572,9 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     <div class="transcript" id="tx">
       <div class="empty">
         <svg class="mark-lg" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
-        <div class="k">Ready</div>
-        <div class="s">Ask a question, or describe a change. Select a session on the
-          left to replay exactly what it did.</div>
+        <div class="k" id="greet">What should we <span class="hl">work on</span>?</div>
+        <div class="s">Ask a question, describe a change, or attach a document. Every
+          step the agent takes is recorded; pick any chat on the left to replay it.</div>
         <div class="ex" id="examples"></div>
       </div>
     </div>
@@ -700,10 +722,41 @@ async function refresh(){
     $('count').textContent = list.length;
 
     const el = $('list');
+    const q = ($('search') && $('search').value || '').trim().toLowerCase();
+    // Rebuild only when something changed. The poll runs every few seconds,
+    // and rebuilding the rail on every tick tore down whatever the person
+    // was doing in it — a hover, a focused row, an open delete confirmation.
+    const sig = q + '|' + current + '|' + list.map(s => s.id + ':' + s.state + ':' + (s.prompt || '')).join('\n');
+    if(el.dataset.sig === sig) return;
+    if(el.querySelector('.item.confirm')) return;   // never yank a question mid-answer
+    el.dataset.sig = sig;
     el.textContent = '';
-    for(const s of list) el.appendChild(sessionRow(s));
+    let grp = null;
+    for(const s of list){
+      if(q && !(s.prompt || '').toLowerCase().includes(q)) continue;
+      const g = dayGroup(s.created);
+      if(g !== grp){
+        grp = g;
+        const h = document.createElement('div');
+        h.className = 'grp';
+        h.textContent = g;
+        el.appendChild(h);
+      }
+      el.appendChild(sessionRow(s));
+    }
   }catch{}
 }
+
+function dayGroup(iso){
+  const d = new Date(iso), now = new Date();
+  const day = 86400000;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if(d.getTime() >= start) return 'Today';
+  if(d.getTime() >= start - day) return 'Yesterday';
+  if(d.getTime() >= start - 6 * day) return 'This week';
+  return 'Earlier';
+}
+if($('search')) $('search').addEventListener('input', () => refresh());
 
 // sessionRow builds one entry in the rail. It is a div acting as a button
 // rather than a <button>, because the delete control inside it is itself a
@@ -760,14 +813,21 @@ function confirmDelete(row, s, meta){
   label.innerHTML = '<b>Delete this chat?</b>';
   const yes = document.createElement('button'); yes.type='button'; yes.className='yes'; yes.textContent='Delete';
   const no  = document.createElement('button'); no.type='button';  no.textContent='Keep';
-  const restore = () => { row.classList.remove('confirm'); ask.replaceWith(meta); row.focus(); };
+  const restore = () => { row.classList.remove('confirm'); ask.replaceWith(meta); row.focus(); $('list').dataset.sig = ''; refresh(); };
   no.onclick = (e) => { e.stopPropagation(); restore(); };
   yes.onclick = async (e) => {
     e.stopPropagation();
     yes.disabled = true; yes.textContent = 'Deleting…';
-    await deleteSession(s.id, restore);
+    if(await deleteSession(s.id, restore)){
+      // The row goes first: refresh() leaves the rail alone while a
+      // confirmation is open, and this one is answered.
+      row.remove();
+      $('list').dataset.sig = '';
+      refresh();
+    }
   };
   ask.onkeydown = (e) => { if(e.key === 'Escape'){ e.stopPropagation(); restore(); } };
+  ask.append(label, yes, no);
   meta.replaceWith(ask);
   yes.focus();
 }
@@ -782,17 +842,19 @@ async function deleteSession(id, onFail){
     if(r.status === 501){
       note('This deployment keeps an append-only record; chats cannot be deleted here.');
       onFail && onFail();
-      return;
+      return false;
     }
     if(!r.ok && r.status !== 204){
       note('Could not delete this chat (' + r.status + ').');
       onFail && onFail();
-      return;
+      return false;
     }
-    if(current === id) newChat(); else await refresh();
+    if(current === id) newChat();
+    return true;
   }catch(err){
     note('Could not delete this chat: ' + (err && err.message || err));
     onFail && onFail();
+    return false;
   }
 }
 
@@ -1579,6 +1641,12 @@ async function whoami(){
   }
 
   $('who').textContent = me.email || me.name || me.subject;
+  try{
+    if(sessionStorage.getItem('titan.must_change') === '1'){
+      sessionStorage.removeItem('titan.must_change');
+      note('This password was set for you. Change it: titan user passwd <you>, or ask your administrator.');
+    }
+  }catch{}
   $('who').title = 'tenant ' + me.tenant +
     (me.groups && me.groups.length ? ' · ' + me.groups.join(', ') : '');
   $('whobox').hidden = false;
@@ -1627,8 +1695,7 @@ function drawExamples(){
     b.className = 'chip';
     b.type = 'button';
     const strong = document.createElement('div');
-    strong.style.cssText = 'font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;' +
-      'text-transform:uppercase;color:var(--muted);margin-bottom:3px';
+    strong.className = 'lbl';
     strong.textContent = label;
     b.append(strong, document.createTextNode(text));
     b.onclick = () => { $('q').value = text; $('q').focus(); };

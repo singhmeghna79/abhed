@@ -46,6 +46,9 @@ export async function onRequestPost({ request, env }) {
   const email = field("email");
   const company = field("company");
   const use = field("use");
+  // A checkbox: present with value "yes" or absent. Anything else is treated
+  // as unchecked rather than echoed into the email.
+  const demo = field("demo") === "yes";
 
   if (!name || !email) return back(request, "missing");
   // Not a validating regex — those reject real addresses. Just enough to catch
@@ -69,6 +72,8 @@ export async function onRequestPost({ request, env }) {
     "Use case:",
     use || "—",
     "",
+    `Demo:    ${demo ? "requested — send with ./deploy/send-demo.sh" : "not requested"}`,
+    "",
     `From: ${request.headers.get("CF-Connecting-IP") ?? "unknown"}`,
     `At:   ${new Date().toISOString()}`,
   ].join("\n");
@@ -86,7 +91,7 @@ export async function onRequestPost({ request, env }) {
         // The requester's address, so a reply goes to them rather than to the
         // sending domain.
         reply_to: email,
-        subject: `Titan access request — ${name}${company ? ` (${company})` : ""}`,
+        subject: `Titan access request — ${name}${company ? ` (${company})` : ""}${demo ? " · wants demo" : ""}`,
         text: body,
       }),
     });

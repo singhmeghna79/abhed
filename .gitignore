@@ -19,3 +19,11 @@ internal/docsite/site/*
 # in a repository is a password published.
 deploy/.db-password
 deploy/.db-admin-password
+
+# Demo artefacts are built by deploy/demo/build.sh and published with the
+# site; they are large binaries and are not source.
+web/zybuu/demo/*.mp4
+web/zybuu/demo/*.webm
+web/zybuu/demo/*.pptx
+web/zybuu/demo/*.jpg
+deploy/.demo-secret

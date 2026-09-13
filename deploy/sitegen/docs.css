@@ -37,9 +37,9 @@
   --warn:        #9A4B16;
   --warn-soft:   #F8E9DF;
 
-  --mono:  "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --serif: "Source Serif 4", Iowan Old Style, Georgia, serif;
-  --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 
   /* One rhythm, used everywhere. Terminal rows, not arbitrary spacing. */
   --row: 26px;
@@ -116,7 +116,8 @@ img, svg { max-width: 100%; }
 /* ------------------------------------------------------------------ type */
 /* Mono for anything the machine says; serif for anything a person wrote. That
    split is the whole typographic idea and it is applied without exception. */
-h1, h2, h3, h4, .kicker, .btn, code, pre, .mono { font-family: var(--mono); }
+h1, h2, h3, h4, .btn { font-family: var(--sans); letter-spacing: -0.025em; }
+.kicker, code, pre, .mono { font-family: var(--mono); }
 
 h1 {
   margin: 0 0 18px;
