@@ -226,9 +226,27 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   text-transform:uppercase;color:var(--muted)}
 .list{flex:1;overflow-y:auto;min-height:0}
 .item{width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);
-  padding:10px 14px 10px 12px;cursor:pointer;display:block;border-left:2px solid transparent}
-.item:hover{background:var(--sunken)}
+  padding:10px 14px 10px 12px;cursor:pointer;display:block;border-left:2px solid transparent;
+  position:relative;font:inherit;color:inherit}
+.item:hover,.item:focus-within{background:var(--sunken)}
 .item[aria-current="true"]{background:var(--sunken);border-left-color:var(--accent)}
+.item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* Delete is revealed on hover or keyboard focus so the list stays quiet, and
+   it is a real button so it is reachable without a mouse. */
+.item .del{position:absolute;top:8px;right:8px;width:24px;height:24px;border:0;border-radius:6px;
+  background:transparent;color:var(--muted);cursor:pointer;opacity:0;font:inherit;line-height:1;
+  display:grid;place-items:center;transition:opacity .12s,background .12s,color .12s}
+.item:hover .del,.item:focus-within .del,.item[aria-current="true"] .del{opacity:1}
+.item .del:hover,.item .del:focus-visible{background:var(--danger-bg,rgba(255,80,80,.14));color:var(--danger,#ff6b6b);opacity:1}
+.item .del svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.item.confirm .q{color:var(--muted)}
+.item .ask{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink)}
+.item .ask b{font-weight:600}
+.item .ask button{font:inherit;font-size:11px;padding:3px 9px;border-radius:5px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel,transparent);color:var(--ink)}
+.item .ask button.yes{border-color:var(--danger,#ff6b6b);color:var(--danger,#ff6b6b)}
+.item .ask button.yes:hover{background:var(--danger,#ff6b6b);color:#fff}
+@media (hover:none){.item .del{opacity:1}}
 .item .q{font-size:12.5px;line-height:1.45;margin-bottom:5px;color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .item .m{display:flex;align-items:center;gap:7px;font-family:var(--mono);
@@ -683,30 +701,99 @@ async function refresh(){
 
     const el = $('list');
     el.textContent = '';
-    for(const s of list){
-      const b = document.createElement('button');
-      b.className = 'item';
-      b.type = 'button';
-      if(s.id === current) b.setAttribute('aria-current','true');
-
-      const q = document.createElement('div');
-      q.className = 'q';
-      q.textContent = s.prompt || '(no prompt recorded)';
-
-      const m = document.createElement('div');
-      m.className = 'm';
-      const pill = document.createElement('span');
-      pill.className = 'pill ' + s.state;
-      pill.textContent = s.state.replace(/_/g,' ');
-      const when = document.createElement('span');
-      when.textContent = ago(s.created);
-      m.append(pill, when);
-
-      b.append(q, m);
-      b.onclick = () => openSession(s.id, s.state);
-      el.appendChild(b);
-    }
+    for(const s of list) el.appendChild(sessionRow(s));
   }catch{}
+}
+
+// sessionRow builds one entry in the rail. It is a div acting as a button
+// rather than a <button>, because the delete control inside it is itself a
+// button and buttons cannot nest.
+function sessionRow(s){
+  const row = document.createElement('div');
+  row.className = 'item';
+  row.setAttribute('role','button');
+  row.tabIndex = 0;
+  row.dataset.id = s.id;
+  if(s.id === current) row.setAttribute('aria-current','true');
+
+  const q = document.createElement('div');
+  q.className = 'q';
+  q.textContent = s.prompt || '(no prompt recorded)';
+
+  const m = document.createElement('div');
+  m.className = 'm';
+  const pill = document.createElement('span');
+  pill.className = 'pill ' + s.state;
+  pill.textContent = s.state.replace(/_/g,' ');
+  const when = document.createElement('span');
+  when.textContent = ago(s.created);
+  m.append(pill, when);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'del';
+  del.title = 'Delete this chat';
+  del.setAttribute('aria-label', 'Delete this chat');
+  del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+  del.onclick = (e) => { e.stopPropagation(); confirmDelete(row, s, m); };
+
+  row.append(q, m, del);
+  const open = () => openSession(s.id, s.state);
+  row.onclick = (e) => { if(!row.classList.contains('confirm')) open(); };
+  row.onkeydown = (e) => {
+    if(e.target !== row) return;
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); }
+    if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); confirmDelete(row, s, m); }
+  };
+  return row;
+}
+
+// confirmDelete swaps the row's meta line for an inline yes/no. Inline rather
+// than a browser dialog: the question stays next to the thing it is about,
+// and nothing blocks the rest of the page.
+function confirmDelete(row, s, meta){
+  if(row.classList.contains('confirm')) return;
+  row.classList.add('confirm');
+  const ask = document.createElement('div');
+  ask.className = 'ask';
+  const label = document.createElement('span');
+  label.innerHTML = '<b>Delete this chat?</b>';
+  const yes = document.createElement('button'); yes.type='button'; yes.className='yes'; yes.textContent='Delete';
+  const no  = document.createElement('button'); no.type='button';  no.textContent='Keep';
+  const restore = () => { row.classList.remove('confirm'); ask.replaceWith(meta); row.focus(); };
+  no.onclick = (e) => { e.stopPropagation(); restore(); };
+  yes.onclick = async (e) => {
+    e.stopPropagation();
+    yes.disabled = true; yes.textContent = 'Deleting…';
+    await deleteSession(s.id, restore);
+  };
+  ask.onkeydown = (e) => { if(e.key === 'Escape'){ e.stopPropagation(); restore(); } };
+  meta.replaceWith(ask);
+  yes.focus();
+}
+
+// deleteSession asks the server to remove a chat. A 501 means this
+// deployment's store is append-only and deletion was never on offer — said
+// plainly, not swallowed. If the open chat is the one deleted, the transcript
+// pane is cleared so the page does not keep showing what no longer exists.
+async function deleteSession(id, onFail){
+  try{
+    const r = await fetch('/v1/sessions/' + id, {method:'DELETE', credentials:'same-origin'});
+    if(r.status === 501){
+      note('This deployment keeps an append-only record; chats cannot be deleted here.');
+      onFail && onFail();
+      return;
+    }
+    if(!r.ok && r.status !== 204){
+      note('Could not delete this chat (' + r.status + ').');
+      onFail && onFail();
+      return;
+    }
+    if(current === id) newChat(); else await refresh();
+  }catch(err){
+    note('Could not delete this chat: ' + (err && err.message || err));
+    onFail && onFail();
+  }
 }
 
 function ago(iso){
@@ -1393,7 +1480,7 @@ window.addEventListener('resize', () => {
   if(window.innerWidth > 760 && railOpen()) setRail(false);
 });
 
-$('new').onclick = () => {
+function newChat(){
   setRail(false);
   if(es){ es.close(); es = null; }
   current = null; live = false; lastSeq = 0; turnEl = null;
@@ -1407,7 +1494,8 @@ $('new').onclick = () => {
   drawEmpty();
   refresh();
   $('q').focus();
-};
+}
+$('new').onclick = newChat;
 
 // The textarea grows with its content, like every chat input people know.
 function autogrow(){
@@ -1452,20 +1540,15 @@ function closeDrawer(){
 $('dclose').onclick = closeDrawer;
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDrawer(); });
 
+// The empty state is authored once, in the page markup, and captured here so
+// "New chat" restores exactly what the page loaded with — the same mark, the
+// same words — rather than a second copy that drifts.
+const EMPTY_HTML = (document.querySelector('#tx .empty') || {}).innerHTML || '';
 function drawEmpty(){
   const tx = $('tx');
   tx.textContent = '';
   const wrap = node('empty');
-  wrap.innerHTML =
-    '<svg class="mark-lg" viewBox="0 0 24 24" aria-hidden="true">' +
-    '<rect x="3" y="3" width="18" height="3" rx="1"/>' +
-    '<rect x="9" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>' +
-    '<rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>' +
-    '<rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>' +
-    '<rect x="3" y="18" width="18" height="3" rx="1"/></svg>' +
-    '<div class="k">Ready</div>' +
-    '<div class="s">Ask a question, or describe a change. Follow-ups continue ' +
-    'the same conversation.</div><div class="ex" id="examples"></div>';
+  wrap.innerHTML = EMPTY_HTML;
   tx.appendChild(wrap);
   drawExamples();
 }

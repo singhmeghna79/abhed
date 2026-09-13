@@ -74,3 +74,24 @@ earlier turns rescues one message too large to send.
 Compaction is visible: `/cost` reports how many have happened, and each one is
 an event with its token accounting. It is a capacity number, not a curiosity —
 every compaction invalidates the prefix cache and pays cold prefill again.
+
+## Deleting a chat
+
+In the console, hover a chat in the list (or focus it with the keyboard) and
+press the bin, or press Delete; confirm inline. The same is
+`DELETE /v1/sessions/<id>`. Only the chat's owner can delete it, and a running
+chat is stopped first.
+
+What "delete" means depends on the store, and the console says so rather than
+pretending:
+
+- **Postgres** marks the session deleted. It disappears from every list, get
+  and replay — nothing reads it through the API again — but the transcript
+  rows stay, because the events table refuses `DELETE` by trigger and that
+  refusal is a property this store promises. The mark records who deleted it
+  and when. Someone with the database can still see it; someone with only the
+  API cannot.
+- **Memory** drops the events outright.
+- A store built without deletion answers `501`, and the console reports that
+  this deployment keeps an append-only record. A delete button that silently
+  does nothing would be a privacy bug wearing a feature's clothes.

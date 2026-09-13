@@ -29,7 +29,9 @@ func openStore(t *testing.T, tenant string) *Postgres {
 	cfg.Tenant = tenant
 	p, err := Open(context.Background(), cfg)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		// Open refuses a superuser, and the isolation tests below would then
+		// report leaks that are really the test database's fault. Say which.
+		t.Fatalf("open (TITAN_TEST_DSN must be a plain role, not a superuser): %v", err)
 	}
 	t.Cleanup(p.Close)
 	return p

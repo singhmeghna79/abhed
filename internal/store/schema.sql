@@ -230,3 +230,16 @@ CREATE POLICY access_events_tenant_isolation ON access_events
   WITH CHECK (tenant_id = current_setting('app.tenant_id', true));
 
 INSERT INTO schema_version (version) VALUES (2) ON CONFLICT DO NOTHING;
+
+-- Schema version 3: a session a user has deleted from their console.
+--
+-- Events are append-only by trigger, so a delete cannot remove the transcript
+-- rows and does not try. It marks the session; every read path treats a marked
+-- session as absent. The rows remain for the audit the deployment promised,
+-- reachable only by someone with the database, never through the API again.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS deleted_by TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS sessions_live_idx ON sessions (tenant_id, started_at DESC)
+  WHERE deleted_at IS NULL;
+
+INSERT INTO schema_version (version) VALUES (3) ON CONFLICT DO NOTHING;

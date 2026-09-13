@@ -98,6 +98,25 @@ func Open(ctx context.Context, cfg Config) (*Postgres, error) {
 		return nil, fmt.Errorf("ping %s: %w", redactDSN(cfg.DSN), err)
 	}
 
+	// Row-level security is the tenant boundary, and Postgres does not apply it
+	// to a superuser or a BYPASSRLS role — not even with FORCE. A deployment
+	// connected that way has every isolation policy in the schema and none of
+	// the isolation. Refusing to start is the only honest response: a control
+	// that is silently off is worse than one that is visibly missing.
+	var privileged bool
+	if err := pool.QueryRow(ctx,
+		`SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user`).Scan(&privileged); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("check role privileges: %w", err)
+	}
+	if privileged {
+		pool.Close()
+		return nil, fmt.Errorf("refusing to run as a superuser or BYPASSRLS role: " +
+			"row-level security would be bypassed and tenants would not be isolated. " +
+			"Connect as a plain role that owns the tables (deploy/run.sh provisions one; " +
+			"see docs/guide/02-configuration.md)")
+	}
+
 	p := &Postgres{pool: pool, tenant: cfg.Tenant, subs: make(map[string][]chan agent.Event)}
 	if err := p.Migrate(ctx); err != nil {
 		pool.Close()
@@ -251,7 +270,10 @@ func (p *Postgres) Since(sessionID string, seq int64) ([]agent.Event, error) {
 
 	rows, err := p.pool.Query(ctx, `
 		SELECT id, session_id, COALESCE(parent_id,''), seq, type, payload, actor, trust, created_at
-		FROM events WHERE session_id = $1 AND seq > $2 ORDER BY seq`, sessionID, seq)
+		FROM events
+		WHERE session_id = $1 AND seq > $2
+		  AND NOT EXISTS (SELECT 1 FROM sessions WHERE id = $1 AND deleted_at IS NOT NULL)
+		ORDER BY seq`, sessionID, seq)
 	if err != nil {
 		return nil, fmt.Errorf("query events for %s: %w", sessionID, err)
 	}
@@ -285,7 +307,7 @@ func (p *Postgres) ListSessions(ctx context.Context, limit int) ([]SessionRecord
 		SELECT id, tenant_id, user_id, workspace, model, mode, COALESCE(prompt,''),
 		       started_at, ended_at, COALESCE(terminal_reason,''),
 		       turns, tokens_in, tokens_out, tokens_cached, compactions
-		FROM sessions ORDER BY started_at DESC LIMIT $1`, limit)
+		FROM sessions WHERE deleted_at IS NULL ORDER BY started_at DESC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +332,7 @@ func (p *Postgres) GetSession(ctx context.Context, id string) (SessionRecord, er
 		SELECT id, tenant_id, user_id, workspace, model, mode, COALESCE(prompt,''),
 		       started_at, ended_at, COALESCE(terminal_reason,''),
 		       turns, tokens_in, tokens_out, tokens_cached, compactions
-		FROM sessions WHERE id = $1`, id).Scan(
+		FROM sessions WHERE id = $1 AND deleted_at IS NULL`, id).Scan(
 		&s.ID, &s.Tenant, &s.User, &s.Workspace, &s.Model, &s.Mode, &s.Prompt,
 		&s.StartedAt, &s.EndedAt, &s.TerminalReason,
 		&s.Turns, &s.TokensIn, &s.TokensOut, &s.TokensCached, &s.Compactions)
@@ -321,6 +343,29 @@ func (p *Postgres) GetSession(ctx context.Context, id string) (SessionRecord, er
 }
 
 var ErrNotFound = errors.New("not found")
+
+// DeleteSession marks a session deleted. The transcript rows stay — the events
+// table refuses DELETE by trigger, and that refusal is a property the
+// deployment promised — but Events, ListSessions and GetSession all treat a
+// marked session as absent from then on, which is what the person who pressed
+// delete needed: nothing reads it through the API again. The marking is not
+// a second delete path around the audit log; it is the audit log recording
+// that a delete happened, and by whom.
+//
+// Deleting a session that is already deleted, or that belongs to another
+// tenant (RLS makes it invisible), is not an error: the caller asked for a
+// state and that is the state.
+func (p *Postgres) DeleteSession(sessionID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := p.pool.Exec(ctx, `
+		UPDATE sessions SET deleted_at = now(), deleted_by = user_id
+		WHERE id = $1 AND deleted_at IS NULL`, sessionID)
+	if err != nil {
+		return fmt.Errorf("delete session %s: %w", sessionID, err)
+	}
+	return nil
+}
 
 // SaveCheckpoint records a file's prior content, backing /undo.
 func (p *Postgres) SaveCheckpoint(ctx context.Context, sessionID string, seq int64, path string, before []byte) error {

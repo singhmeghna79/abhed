@@ -37,6 +37,12 @@ DB_IMAGE="${TITAN_DB_IMAGE:-docker.io/library/postgres:16-alpine}"
 # password committed to a repo is a password published, and this one guards
 # every transcript the deployment holds.
 DB_PASSWORD="${TITAN_DB_PASSWORD:-}"
+# Two roles. `titan_admin` is the cluster superuser and is used only by this
+# script to provision; `titan` is the plain role the server connects as. The
+# split is not ceremony: Postgres does not apply row-level security to a
+# superuser, so a Titan connected as one has every isolation policy in the
+# schema and none of the isolation. The server refuses to start that way.
+DB_ADMIN_PASSWORD="${TITAN_DB_ADMIN_PASSWORD:-}"
 WITH_DB="${TITAN_WITH_DB:-1}"
 
 # podman, not docker: this machine has both half-installed, DOCKER_HOST points
@@ -84,6 +90,16 @@ if [ -z "$DB_PASSWORD" ]; then
     echo "generated database password → $DB_SECRET"
   fi
 fi
+DB_ADMIN_SECRET="$(dirname "$CONFIG")/.db-admin-password"
+if [ -z "$DB_ADMIN_PASSWORD" ]; then
+  if [ -f "$DB_ADMIN_SECRET" ]; then
+    DB_ADMIN_PASSWORD="$(cat "$DB_ADMIN_SECRET")"
+  else
+    DB_ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')"
+    (umask 077; printf '%s' "$DB_ADMIN_PASSWORD" > "$DB_ADMIN_SECRET")
+    echo "generated database admin password → $DB_ADMIN_SECRET"
+  fi
+fi
 
 # ------------------------------------------------------------------ database
 #
@@ -114,8 +130,8 @@ if [ "$WITH_DB" = "1" ]; then
       --name "$DB_NAME" \
       --network "$NETWORK" \
       --restart unless-stopped \
-      --env POSTGRES_USER=titan \
-      --env POSTGRES_PASSWORD="$DB_PASSWORD" \
+      --env POSTGRES_USER=titan_admin \
+      --env POSTGRES_PASSWORD="$DB_ADMIN_PASSWORD" \
       --env POSTGRES_DB=titan \
       --volume "$DB_VOLUME":/var/lib/postgresql/data:rw \
       --health-cmd 'pg_isready -U titan -d titan' \
@@ -133,6 +149,55 @@ if [ "$WITH_DB" = "1" ]; then
     fi
     printf '.'; sleep 1
   done
+
+  # Provision the plain role the server connects as: `titan_app`, no
+  # privileges beyond owning its tables. Idempotent, every start.
+  #
+  # A data directory initialised by an earlier version of this script has
+  # `titan` as its bootstrap superuser, and Postgres will not let the bootstrap
+  # user be demoted. So that role keeps its superuser bit, becomes the admin
+  # role for that deployment, and gets the admin password; a new plain role
+  # takes over ownership of everything in the database and the server
+  # connects as that. Existing sessions and accounts are untouched — only the
+  # privilege that was quietly voiding row-level security is out of the DSN.
+  db_sql() { "$RUNTIME" exec -i "$DB_NAME" psql -v ON_ERROR_STOP=1 -q -U "$1" -d titan; }
+  db_can() { "$RUNTIME" exec "$DB_NAME" psql -U "$1" -d titan -c 'SELECT 1' >/dev/null 2>&1; }
+  if db_can titan_admin; then
+    DB_ADMIN_ROLE=titan_admin
+  elif db_can titan; then
+    DB_ADMIN_ROLE=titan
+    echo "migrating $DB_NAME: 'titan' stays the bootstrap superuser; Titan will connect as 'titan_app'"
+    db_sql titan <<SQL
+ALTER ROLE titan PASSWORD '${DB_ADMIN_PASSWORD}';
+SQL
+  else
+    echo "error: cannot open $DB_NAME as titan_admin or titan" >&2
+    exit 1
+  fi
+  db_sql "$DB_ADMIN_ROLE" <<SQL
+DO \$\$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'titan_app') THEN CREATE ROLE titan_app LOGIN; END IF;
+END \$\$;
+ALTER ROLE titan_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD '${DB_PASSWORD}';
+ALTER DATABASE titan OWNER TO titan_app;
+ALTER SCHEMA public OWNER TO titan_app;
+DO \$\$ DECLARE r record; BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('ALTER TABLE public.%I OWNER TO titan_app', r.tablename);
+  END LOOP;
+  FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
+    EXECUTE format('ALTER SEQUENCE public.%I OWNER TO titan_app', r.sequencename);
+  END LOOP;
+  FOR r IN SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
+           FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' LOOP
+    EXECUTE format('ALTER FUNCTION public.%I(%s) OWNER TO titan_app', r.proname, r.args);
+  END LOOP;
+END \$\$;
+SQL
+  if [ "$("$RUNTIME" exec "$DB_NAME" psql -U "$DB_ADMIN_ROLE" -d titan -tAc "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'titan_app'" 2>/dev/null)" != "f" ]; then
+    echo "error: the titan_app database role is privileged; refusing to start Titan against it" >&2
+    exit 1
+  fi
 fi
 
 "$RUNTIME" rm -f "$NAME" >/dev/null 2>&1 || true
@@ -143,7 +208,7 @@ if [ "$WITH_DB" = "1" ]; then
   # never has to appear in the config file that gets mounted read-only.
   DB_ARGS=(
     --network "$NETWORK"
-    --env "TITAN_DATABASE_URL=postgres://titan:${DB_PASSWORD}@${DB_NAME}:5432/titan?sslmode=disable"
+    --env "TITAN_DATABASE_URL=postgres://titan_app:${DB_PASSWORD}@${DB_NAME}:5432/titan?sslmode=disable"
   )
 fi
 

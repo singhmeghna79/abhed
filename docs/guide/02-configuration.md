@@ -101,7 +101,12 @@ This is a boundary, not a jail: it is not sufficient for genuinely hostile code.
 them durable and replayable, and is what `/sessions`, `/resume` and audit need.
 
 **Do not connect as a superuser.** Row-level security is what isolates tenants,
-and a superuser bypasses it.
+and Postgres does not apply it to a superuser or a `BYPASSRLS` role, not even
+with `FORCE`. Titan checks the role it connected as and **refuses to start** if
+it is privileged, because a control that is silently off is worse than one
+that is visibly missing. `deploy/run.sh` provisions two roles for this reason:
+a superuser it uses only to provision, and a plain `titan_app` role that owns
+the tables and is the only one in the server's DSN.
 
 ## Where settings come from
 
