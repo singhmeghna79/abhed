@@ -95,8 +95,8 @@ window.VIDEOS['03-install'] = () => {
     // b8: hardening
     { beat: 'b8', build(s) {
       title(s, 'Locked down by default', 'The container <span class="hl">cannot be talked out of it.</span>');
-      const items = ['--user 10001 · non-root', '--cap-drop ALL', '--read-only root filesystem', '--security-opt no-new-privileges', '--memory 2g · --cpus 2 · --pids-limit 512', 'tmpfs /tmp noexec,nosuid', 'config.json mounted read-only', 'skills mounted read-only'];
-      items.forEach((t, i) => { const n = Parts.pill(s, t, { x: 96 + (i % 2) * 620, y: 470 + Math.floor(i / 2) * 84, at: 1.4 + i * 0.9 }); n.style.fontSize = '25px'; });
+      const items = ['--user 10001 · non-root', '--cap-drop ALL', '--read-only root filesystem', '--security-opt no-new-privileges', '--memory 2g · --cpus 2 · --pids 512', 'tmpfs /tmp noexec,nosuid', 'config.json mounted read-only', 'skills mounted read-only'];
+      items.forEach((t, i) => { const n = Parts.pill(s, t, { x: 96 + (i % 2) * 640, y: 470 + Math.floor(i / 2) * 84, at: 1.4 + i * 0.9 }); n.style.fontSize = '24px'; });
       Parts.callout(s, 'A managed config at /etc/titan wins over every other source — bypass mode can be refused, and the policy cannot be edited from inside.', { x: 1330, y: 500, w: 500, at: 8.6 });
     } },
 
