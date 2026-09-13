@@ -101,8 +101,13 @@
       const n = pos(el('div', 'screen'), x, y, w, h);
       if (still) n.innerHTML = `<img src="${ASSETS[still] || still}">`;
       else n.innerHTML = `<video muted preload="auto" src="${ASSETS[src] || src}"></video>`;
-      if (cap) n.appendChild(el('div', 'cap', cap));
       s.el.appendChild(n); s.at(at, 0.8, fx.scaleIn(n, 0.94), ease.out);
+      if (cap) {
+        // Below the frame, never over the footage: a caption on top of a
+        // screen hides the one part of the screen that names what it is.
+        const c = pos(el('div', 'pill', cap), x, y + h + 16); c.style.fontSize = '20px'; s.el.appendChild(c);
+        s.at(at + 0.4, 0.5, fx.rise(c, 10));
+      }
       const v = n.querySelector('video');
       if (v) s.each((t) => { v.dataset.t = Math.max(0, from + (t - at) * speed); });
       return n;

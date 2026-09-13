@@ -17,6 +17,23 @@ window.VIDEOS['04-using'] = () => {
     });
     return out;
   };
+  // One event per line, as the JSON surfaces emit them, summarised to what a
+  // reader can take in: sequence, type, and the tool or text it carries.
+  const eventLines = (text, start, step = 0.45, max = 9) => {
+    const out = []; let t = start, n = 0;
+    for (const raw of (text || '').split('\n')) {
+      if (n >= max) break;
+      let ev; try { ev = JSON.parse(raw); } catch { continue; }
+      if (ev.type === 'ready' || ev.type === 'bye') { out.push(['dim', JSON.stringify(ev), t]); t += step; n++; continue; }
+      if (ev.event) ev = ev.event;
+      if (!ev.type) continue;
+      const pl = ev.payload || {};
+      const detail = pl.tool ? pl.tool + (pl.args ? ' ' + JSON.stringify(pl.args).slice(0, 34) : '') : (pl.text ? JSON.stringify(pl.text).slice(0, 44) : (pl.reason || ''));
+      const cls = ev.type.startsWith('action.approved') ? 'ok' : ev.type.startsWith('action') ? 'tool' : ev.type === 'observation' ? 'res' : ev.type === 'user.message' ? 'cmd' : 'dim';
+      out.push([cls, `#${String(ev.seq).padStart(2)}  ${ev.type.padEnd(17)} ${detail}`, t]); t += step; n++;
+    }
+    return out;
+  };
   const screenFull = (s, key, at, cap, from = 0, speed = 1) => Parts.screen(s, { x: 210, y: 330, w: 1500, h: 844, src: key, at, cap, from, speed });
   const screenSide = (s, key, at, cap, from = 0, speed = 1) => Parts.screen(s, { x: 560, y: 236, w: 1300, h: 731, src: key, at, cap, from, speed });
   // console scenes: a narrow left column, the footage large on the right
@@ -114,10 +131,10 @@ window.VIDEOS['04-using'] = () => {
 
     { beat: 'b13', build(s) {
       title(s, 'Pipelines, other languages, your own code', 'Three more <span class="hl">surfaces.</span>', 0.1, 'm', 900);
-      const json = cliLines(ASSETS.run3, 1.6, 0.5, 6, 78);
-      Parts.terminal(s, { x: 96, y: 400, w: 860, h: 300, title: 'titan -output-format json', at: 1.0, size: 19, lines: [['cmd', '$ titan -mode plan -output-format json -p "…"', 1.2]].concat(json.map(([c, l, t]) => [c === 'cmd' ? 'dim' : c, l, t + 0.6])) });
-      const rpc = cliLines(ASSETS.run4, 6.4, 0.5, 6, 78);
-      Parts.terminal(s, { x: 96, y: 730, w: 860, h: 300, title: 'titan rpc — JSONL over stdio', at: 6.0, size: 19, lines: [['cmd', '{"method":"start","params":{"prompt":"List the files…","mode":"plan"}}', 6.2]].concat(rpc.map(([c, l, t]) => ['dim', l, t + 0.6])) });
+      const json = eventLines(ASSETS.run3, 2.0, 0.45, 8);
+      Parts.terminal(s, { x: 96, y: 400, w: 860, h: 300, title: 'titan -output-format json — one event per line', at: 1.0, size: 19, lines: [['cmd', '$ titan -mode plan -output-format json -p "How many functions…"', 1.2]].concat(json) });
+      const rpc = eventLines(ASSETS.run4, 6.8, 0.45, 7);
+      Parts.terminal(s, { x: 96, y: 730, w: 860, h: 300, title: 'titan rpc — JSONL over stdio', at: 6.0, size: 19, lines: [['cmd', '{"method":"start","workspace":"/workspace/tempconv","mode":"plan"}', 6.2], ['cmd', '{"method":"prompt","prompt":"List the files in this workspace…"}', 6.5]].concat(rpc) });
       Parts.terminal(s, { x: 1000, y: 400, w: 820, h: 630, title: 'main.go — the SDK', at: 11.0, size: 20, lines: [
         ['cmd', 'a, _ := titan.New(ctx, titan.Options{', 11.2], ['dim', '    Workspace: "/srv/work",', 11.4], ['dim', '    Deny:      []string{"bash(rm -rf *)"},', 11.6],
         ['dim', '    Approve:   askYourUser,', 11.8], ['dim', '})', 12.0], ['cmd', '', 12.1], ['cmd', 'var out Review', 12.6],
