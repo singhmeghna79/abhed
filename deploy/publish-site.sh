@@ -45,6 +45,11 @@ echo
 # The demo is published with the site, behind the signed-link gate. Warn when
 # the artefacts are missing rather than fail: the site is publishable without
 # them, and /demo/ answers 404 behind the gate until they exist.
+MEDIA_DIR="$(dirname "${BASH_SOURCE[0]}")/../web/zybuu/media"
+if [ ! -f "$MEDIA_DIR/zybuu-announcement.mp4" ]; then
+    echo "!!  web/zybuu/media/zybuu-announcement.mp4 missing (the homepage film; copy it from web/zybuu/demo/series/01-zybuu.mp4)"
+    echo
+fi
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")/../web/zybuu/demo"
 if [ ! -f "$DEMO_DIR/titan-demo.mp4" ] || [ ! -f "$DEMO_DIR/titan-deck.pptx" ]; then
     echo "!!  demo artefacts missing in web/zybuu/demo (run deploy/demo/build.sh); /demo/ will 404"

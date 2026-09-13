@@ -35,3 +35,5 @@ deploy/demo/node_modules
 deploy/demo/package.json
 web/zybuu/demo/series/
 deploy/demo/series/node_modules
+web/zybuu/media/*.mp4
+web/zybuu/media/*.jpg

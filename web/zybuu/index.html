@@ -413,6 +413,14 @@ td:first-child { color: var(--ink); font-weight: 600; }
 .compare .card.us dd{color:var(--ink)}
 .fine{margin:14px 0 0;font-size:13px;color:var(--muted);max-width:70ch}
 
+.film{position:relative;max-width:1060px;border-radius:22px;overflow:hidden;border:1px solid var(--line);background:#000;
+  box-shadow:0 40px 90px -40px rgba(0,0,0,.85),0 0 0 1px color-mix(in srgb,var(--live) 22%,transparent),0 0 70px -20px color-mix(in srgb,var(--live) 45%,transparent)}
+.film video{display:block;width:100%;aspect-ratio:16/9;max-width:100%}
+.film::before{content:"";position:absolute;inset:-1px;border-radius:23px;pointer-events:none;padding:1px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--live) 55%,transparent),transparent 40%,transparent 60%,color-mix(in srgb,var(--live-2) 50%,transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+@media (max-width:720px){.film{border-radius:14px}}
+
 .about{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:40px;align-items:start;margin-top:8px}
 @media (max-width:900px){.about{grid-template-columns:1fr;gap:22px}}
 .about .body{max-width:60ch}
@@ -458,6 +466,7 @@ td:first-child { color: var(--ink); font-weight: 600; }
         <a class="btn lg" href="/titan/">See Titan
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         <a class="btn ghost lg" href="/titan/#access">Request access</a>
+        <a class="btn ghost lg" href="#film"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Watch the film · 2:04</a>
       </div>
       <div class="chips">
         <span class="chip"><b>20</b> model providers</span>
@@ -484,6 +493,19 @@ td:first-child { color: var(--ink); font-weight: 600; }
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="film">
+  <div class="wrap">
+    <p class="kicker">The announcement</p>
+    <h2>Two minutes on why Zybuu exists.</h2>
+    <p class="sub">Who we are, the wall enterprises hit, what we build instead, and the first product. Narrated, and made by the same team.</p>
+    <div class="film">
+      <video controls preload="metadata" playsinline poster="/media/zybuu-announcement.jpg" src="/media/zybuu-announcement.mp4"
+        aria-label="Zybuu: infrastructure for AI under your control, two minutes"></video>
+    </div>
+    <p class="fine">The full series — Titan, installing it, using it — is shared on request through the access form.</p>
   </div>
 </section>
 

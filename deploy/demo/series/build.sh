@@ -82,5 +82,12 @@ PY
     mkdir -p "$ROOT/web/zybuu/demo/series"
     cp "$OUT/$id.mp4" "$ROOT/web/zybuu/demo/series/$id.mp4"
     echo "  -> web/zybuu/demo/series/$id.mp4 ($(du -h "$OUT/$id.mp4" | cut -f1))"
+    # The announcement film is public, on the homepage; the rest stay gated.
+    if [ "$id" = "01-zybuu" ]; then
+      mkdir -p "$ROOT/web/zybuu/media"
+      cp "$OUT/$id.mp4" "$ROOT/web/zybuu/media/zybuu-announcement.mp4"
+      ffmpeg -y -v error -ss 9.5 -i "$OUT/$id.mp4" -frames:v 1 -q:v 3 "$ROOT/web/zybuu/media/zybuu-announcement.jpg"
+      echo "  -> web/zybuu/media/zybuu-announcement.mp4 (public, on the homepage)"
+    fi
   fi
 done
