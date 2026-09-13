@@ -88,6 +88,10 @@ type SubagentRequest struct {
 	Description string
 	AgentType   string
 	MaxTurns    int
+	// Workspace, when set, roots the subagent there instead of in the
+	// parent's workspace — a git worktree, for parallel work that must not
+	// collide. The child's file and shell boundary is that directory.
+	Workspace string
 }
 
 func (Task) Name() string  { return "task" }
@@ -221,14 +225,27 @@ func (f *SubagentFactory) Spawn(ctx context.Context, req SubagentRequest) (strin
 		profile = "main"
 	}
 
+	// Where the subagent works. Usually the parent's workspace and session;
+	// for isolated parallel work, its own worktree with its own scoping
+	// boundary, so two children cannot write over each other and neither can
+	// reach the parent's tree.
+	workspace, session := f.Workspace, f.Session
+	if req.Workspace != "" {
+		var err error
+		if session, err = tools.NewSession(req.Workspace); err != nil {
+			return "", fmt.Errorf("subagent workspace: %w", err)
+		}
+		workspace = req.Workspace
+	}
+
 	// Fresh context: the subagent gets its own system prompt and memory file,
 	// and none of the parent's turns.
 	sysPrompt := BuildSystemPrompt(BuildOptions{
 		Profile:       profile,
-		Workspace:     f.Workspace,
+		Workspace:     workspace,
 		Model:         f.Adapter.Profile().Name,
 		ContextWindow: f.Adapter.Profile().ContextWindow,
-		MemoryFiles:   DiscoverMemoryFiles(f.Workspace),
+		MemoryFiles:   DiscoverMemoryFiles(workspace),
 	})
 
 	// A narrow role gets a narrow tool set: an explore subagent that can write
@@ -246,7 +263,7 @@ func (f *SubagentFactory) Spawn(ctx context.Context, req SubagentRequest) (strin
 		cfg.MaxTurns = 30 // subagents are for bounded subtasks
 	}
 
-	sub := NewLoop(f.Adapter, registry, f.Policy, f.Approver, f.Session, rec, cfg)
+	sub := NewLoop(f.Adapter, registry, f.Policy, f.Approver, session, rec, cfg)
 	// Deliberately no Compactor: a subagent that needs compaction was given too
 	// large a task, and silently compacting hides that from the operator.
 
@@ -254,6 +271,7 @@ func (f *SubagentFactory) Spawn(ctx context.Context, req SubagentRequest) (strin
 		"description": req.Description,
 		"agent_type":  req.AgentType,
 		"depth":       f.Depth,
+		"workspace":   workspace,
 	})
 
 	reason, err := sub.Run(ctx, req.Prompt)

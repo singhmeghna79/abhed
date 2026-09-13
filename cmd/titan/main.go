@@ -38,6 +38,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/rag"
 	"github.com/yuvrajsingh/titan/internal/remote"
 	"github.com/yuvrajsingh/titan/internal/sandbox"
+	"github.com/yuvrajsingh/titan/internal/schedule"
 	"github.com/yuvrajsingh/titan/internal/server"
 	"github.com/yuvrajsingh/titan/internal/skills"
 	"github.com/yuvrajsingh/titan/internal/store"
@@ -277,6 +278,8 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		Session:  sess, Budget: budget, Config: loopCfg, Workspace: workspace,
 	}
 	registry.Add(agent.Task{Spawn: factory.Spawn, Profiles: agent.Profiles})
+	registry.Add(agent.Tasks{Spawn: factory.Spawn, Profiles: agent.Profiles,
+		Workspace: workspace, MaxParallel: cfg.Limits.MaxParallelSubagents})
 
 	headless := prompt != ""
 	jsonOut := format == "json"
@@ -1019,11 +1022,31 @@ func serveCmd(workspace, addr string) int {
 		fmt.Fprintf(os.Stderr, "  telemetry %s\n", cfg.Telemetry.Endpoint)
 	}
 
+	// Schedules: parsed before the server starts so a bad expression is a
+	// startup error, not a job that never fires. The scheduler needs the
+	// server to start runs and the server needs the scheduler to list them,
+	// so the runner is bound after construction.
+	var sched *schedule.Scheduler
+	if len(cfg.Schedules) > 0 {
+		jobs := make([]schedule.Job, 0, len(cfg.Schedules))
+		for _, sc := range cfg.Schedules {
+			jobs = append(jobs, schedule.Job{Name: sc.Name, Cron: sc.Cron, Prompt: sc.Prompt,
+				Mode: sc.Mode, Provider: sc.Provider, Disabled: sc.Disabled})
+		}
+		var err error
+		sched, err = schedule.New(jobs, nil, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			return 2
+		}
+	}
+
 	srv := server.New(server.Options{
 		Addr:         addr,
 		Workspace:    workspace,
 		HomeURL:      cfg.Server.HomeURL,
 		EventTap:     tap,
+		Scheduler:    sched,
 		Config:       cfg,
 		Adapter:      buildAdapter(provider),
 		Registry:     registry,
@@ -1047,6 +1070,12 @@ func serveCmd(workspace, addr string) int {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if sched != nil {
+		sched.Bind(srv.RunScheduled)
+		sched.Start(ctx)
+		fmt.Fprintf(os.Stderr, "  schedules %d job(s)\n", len(cfg.Schedules))
+	}
 
 	bs := ui.NewStyle(os.Stdout)
 	fmt.Printf("%s %s %s  %s\n", bs.Cyan(ui.Glyph),

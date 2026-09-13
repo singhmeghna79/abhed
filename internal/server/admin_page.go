@@ -143,6 +143,20 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     </table>
     <div class="empty" id="empty" hidden>Nobody has requested access yet.</div>
   </div>
+
+  <h1 style="margin-top:34px">Scheduled runs</h1>
+  <p class="sub">Prompts the clock starts. Each run is an ordinary session,
+    started as <code>schedule:&lt;name&gt;</code>, with nobody to approve an
+    ask — so a job that needs to write runs in a mode that lets it.</p>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th>Job</th><th>When</th><th>Next</th><th>Last</th><th>Runs</th><th></th>
+      </tr></thead>
+      <tbody id="srows"></tbody>
+    </table>
+    <div class="empty" id="sempty" hidden>No schedules are configured.</div>
+  </div>
 </main>
 
 <dialog id="dlg"><form method="dialog" class="dlg">
@@ -300,6 +314,59 @@ $('go').addEventListener('click', function () {
   });
 });
 
+function loadSchedules() {
+  fetch('/v1/admin/schedules').then(function (r) { return r.ok ? r.json() : { schedules: [] }; })
+  .then(function (d) {
+    var rows = $('srows'); rows.textContent = '';
+    var list = d.schedules || [];
+    $('sempty').hidden = list.length > 0;
+    list.forEach(function (j) {
+      var tr = document.createElement('tr');
+      var name = document.createElement('td');
+      var b = document.createElement('b'); b.textContent = j.name;
+      var p = document.createElement('div'); p.className = 'mono';
+      p.textContent = (j.prompt || '').slice(0, 90) + ((j.prompt || '').length > 90 ? '…' : '');
+      name.appendChild(b); name.appendChild(p);
+      var cron = document.createElement('td'); cron.className = 'mono';
+      cron.textContent = j.cron + (j.mode ? ' · ' + j.mode : '');
+      var next = document.createElement('td');
+      next.textContent = j.disabled ? 'disabled' : (j.running ? 'running now' : whenExact(j.next_run));
+      var last = document.createElement('td');
+      last.textContent = j.last_run && !j.last_run.startsWith('0001') ? whenExact(j.last_run) : '—';
+      if (j.last_error) {
+        var e = document.createElement('div'); e.className = 'mono'; e.style.color = 'var(--stop)';
+        e.textContent = j.last_error; last.appendChild(e);
+      } else if (j.last_session) {
+        var sdiv = document.createElement('div'); sdiv.className = 'mono';
+        sdiv.textContent = j.last_session; last.appendChild(sdiv);
+      }
+      var runs = document.createElement('td'); runs.className = 'mono';
+      runs.textContent = j.runs + (j.skipped ? ' (' + j.skipped + ' skipped)' : '');
+      var act = document.createElement('td');
+      if (!j.disabled) {
+        var btn = document.createElement('button'); btn.textContent = 'Run now';
+        btn.disabled = !!j.running;
+        btn.addEventListener('click', function () {
+          btn.disabled = true;
+          fetch('/v1/admin/schedules/' + encodeURIComponent(j.name) + '/run', { method: 'POST' })
+            .then(function (r) { return r.json().then(function (x) { if (!r.ok) throw new Error(x.error || r.status); return x; }); })
+            .then(function (x) { say('Started ' + j.name + ' as session ' + x.session_id + '.', 'ok'); loadSchedules(); })
+            .catch(function (e) { say('Could not start ' + j.name + ': ' + e.message, 'err'); btn.disabled = false; });
+        });
+        act.appendChild(btn);
+      }
+      [name, cron, next, last, runs, act].forEach(function (td) { tr.appendChild(td); });
+      rows.appendChild(tr);
+    });
+  }).catch(function () { $('sempty').hidden = false; });
+}
+
+function whenExact(iso) {
+  var d = new Date(iso);
+  if (isNaN(d) || d.getFullYear() < 2000) return '—';
+  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
 function load() {
   fetch('/v1/admin/access').then(function (r) {
     if (r.status === 403) throw new Error('This page needs an administrator account.');
@@ -320,6 +387,7 @@ function load() {
 }
 
 load();
+loadSchedules();
 </script>
 </html>
 `

@@ -34,6 +34,12 @@ type Result struct {
 	IsError   bool
 	Truncated bool
 	ExitCode  *int
+	// Final asks the loop to end the run, completed, once this result has been
+	// recorded. It exists for tools that ARE the answer — a structured-output
+	// contract is delivered by calling a tool, and the run is over the moment
+	// that call is accepted. Without it the model would have to say something
+	// afterwards to terminate the turn, and that something is not the answer.
+	Final bool
 }
 
 func ok(format string, a ...any) Result {

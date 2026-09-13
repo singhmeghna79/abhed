@@ -470,6 +470,8 @@ func TestAdminRoutesRequireTheAdminGroup(t *testing.T) {
 		// Access records name every person who ever asked, and revoke ends
 		// somebody's account. An ordinary user reaching either would be a
 		// disclosure and a denial-of-service respectively.
+		{"GET", "/v1/admin/schedules"},
+		{"POST", "/v1/admin/schedules/nightly/run"},
 		{"GET", "/v1/admin/access"},
 		{"GET", "/v1/admin/access/g-x/history"},
 		{"POST", "/v1/admin/access/g-x/revoke"},

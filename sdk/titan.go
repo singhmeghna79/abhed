@@ -21,6 +21,7 @@ package titan
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -104,10 +105,11 @@ type Provider struct {
 
 // Agent is an embedded Titan.
 type Agent struct {
-	loop  *agent.Loop
-	store *agent.MemStore
-	host  *extension.Host
-	id    string
+	registry *tools.Registry
+	loop     *agent.Loop
+	store    *agent.MemStore
+	host     *extension.Host
+	id       string
 }
 
 // New builds an agent.
@@ -200,7 +202,7 @@ func New(ctx context.Context, opts Options) (*Agent, error) {
 		sess, rec, loopCfg)
 	loop.Compactor = agent.NewCompactor(adapter, loopCfg.CompactAt)
 
-	a := &Agent{loop: loop, store: store, host: host, id: id}
+	a := &Agent{loop: loop, store: store, host: host, id: id, registry: registry}
 	if opts.OnEvent != nil {
 		go func() {
 			for ev := range store.Subscribe(id) {
@@ -221,6 +223,61 @@ func (a *Agent) Run(ctx context.Context, prompt string) (string, error) {
 		return a.lastMessage(), fmt.Errorf("titan: ended as %s", reason)
 	}
 	return a.lastMessage(), nil
+}
+
+// RunJSON runs a prompt whose answer must be a JSON value matching schema,
+// and decodes it into out.
+//
+// This is what makes the harness embeddable rather than merely runnable: a
+// program gets a typed value back, not prose to parse. It works on every
+// provider because the answer is delivered by calling a tool whose input
+// schema is the caller's schema; the harness validates and either accepts —
+// ending the run — or tells the model, path by path, what to fix. The schema
+// supports types, required, enum, bounds, patterns, nesting, $ref and
+// anyOf/oneOf/allOf; a keyword the validator would not enforce is refused at
+// the start rather than ignored.
+//
+// A run that ends without a valid answer returns ErrNoResult, which carries
+// the model's last message for diagnostics.
+func (a *Agent) RunJSON(ctx context.Context, prompt string, schema json.RawMessage, out any) error {
+	raw, err := a.RunStructured(ctx, prompt, schema)
+	if err != nil {
+		return err
+	}
+	if out == nil {
+		return nil
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		return fmt.Errorf("titan: result matched the schema but not the target type: %w", err)
+	}
+	return nil
+}
+
+// RunStructured is RunJSON without the decode: the validated JSON as sent.
+func (a *Agent) RunStructured(ctx context.Context, prompt string, schema json.RawMessage) (json.RawMessage, error) {
+	raw, reason, err := agent.RunStructured(ctx, a.loop, a.registry, prompt, schema)
+	if err != nil {
+		var nr agent.ErrNoResult
+		if errors.As(err, &nr) {
+			return nil, ErrNoResult{Reason: string(nr.Reason), LastMessage: nr.Last}
+		}
+		return nil, fmt.Errorf("titan: %w", err)
+	}
+	if reason != agent.TermCompleted {
+		return raw, fmt.Errorf("titan: ended as %s", reason)
+	}
+	return raw, nil
+}
+
+// ErrNoResult is returned by RunJSON when the run ended without the model
+// delivering an answer that matched the schema.
+type ErrNoResult struct {
+	Reason      string
+	LastMessage string
+}
+
+func (e ErrNoResult) Error() string {
+	return "titan: run ended (" + e.Reason + ") without a result matching the schema"
 }
 
 // Continue sends a follow-up on the same conversation.

@@ -40,7 +40,10 @@ type Config struct {
 	Storage         StorageConfig          `json:"storage"`
 	Server          ServerConfig           `json:"server,omitempty"`
 	Telemetry       TelemetryConfig        `json:"telemetry,omitempty"`
-	Auth            AuthConfig             `json:"auth"`
+	// Schedules are prompts run on a timetable by `titan serve`. Each run is an
+	// ordinary session — listed, recorded, replayable — that the clock started.
+	Schedules []ScheduleConfig `json:"schedules,omitempty"`
+	Auth      AuthConfig       `json:"auth"`
 
 	// Managed is set when the config came from the org-managed path.
 	Managed bool `json:"-"`
@@ -388,6 +391,9 @@ type LimitsConfig struct {
 	MaxBudgetTokens int  `json:"max_budget_tokens"`
 	MaxSubagents    int  `json:"max_subagents"`
 	NestedSubagents bool `json:"nested_subagents"`
+	// MaxParallelSubagents bounds how many of a `tasks` call's subagents run
+	// at once. Zero means all of them, up to the tool's own cap of eight.
+	MaxParallelSubagents int `json:"max_parallel_subagents,omitempty"`
 }
 
 func Default() Config {
@@ -672,4 +678,22 @@ type TelemetryConfig struct {
 	Headers map[string]string `json:"headers,omitempty"`
 	// ServiceName is the resource attribute a backend groups traces under.
 	ServiceName string `json:"service_name,omitempty"`
+}
+
+// ScheduleConfig is one recurring run.
+type ScheduleConfig struct {
+	// Name identifies the schedule in the admin view and in the session list,
+	// where the run appears as user "schedule:<name>".
+	Name string `json:"name"`
+	// Cron is a five-field expression (minute hour day month weekday) or one
+	// of @hourly, @daily, @weekly, @monthly. Evaluated in the server's local
+	// time.
+	Cron   string `json:"cron"`
+	Prompt string `json:"prompt"`
+	// Mode narrows permissions for the run. A scheduled run has no human to
+	// approve anything, so an "ask" is refused; "auto" or "plan" are the modes
+	// that make sense here. Empty uses the configured default.
+	Mode     string `json:"mode,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	Disabled bool   `json:"disabled,omitempty"`
 }

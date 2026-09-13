@@ -8,6 +8,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"github.com/yuvrajsingh/titan/internal/mcp"
 	"github.com/yuvrajsingh/titan/internal/model"
 	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/titan/internal/schedule"
 	"github.com/yuvrajsingh/titan/internal/skills"
 	"github.com/yuvrajsingh/titan/internal/store"
 	"github.com/yuvrajsingh/titan/internal/tools"
@@ -84,6 +86,9 @@ type Options struct {
 	Logger    *slog.Logger
 	// Store defaults to an in-memory store when nil.
 	Store EventStore
+	// Scheduler, when the config has schedules. The server owns starting the
+	// runs; the scheduler owns the clock and the no-overlap rule.
+	Scheduler *schedule.Scheduler
 	// EventTap sees every event as it is appended, on the appending
 	// goroutine. It must return immediately; the telemetry exporter honours
 	// that by queueing and dropping rather than waiting. Nil means no tap.
@@ -222,6 +227,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /v1/admin/invites", s.admin(s.createInvite))
 	mux.Handle("GET /v1/admin/invites", s.admin(s.listInvites))
 	mux.Handle("GET /v1/admin/users", s.admin(s.listUsers))
+	mux.Handle("GET /v1/admin/schedules", s.admin(s.listSchedules))
+	mux.Handle("POST /v1/admin/schedules/{name}/run", s.admin(s.runSchedule))
 	mux.Handle("GET /v1/admin/access", s.admin(s.listAccess))
 	mux.Handle("GET /v1/admin/access/{id}/history", s.admin(s.accessHistory))
 	mux.Handle("POST /v1/admin/access/{id}/revoke", s.admin(s.revokeAccess))
@@ -491,6 +498,29 @@ type createResponse struct {
 	SessionID string `json:"session_id"`
 }
 
+// startSpec is everything session creation needs, independent of where the
+// request came from. HTTP fills it from the request and its identity; the
+// scheduler fills it from a config entry and the clock. Both paths run the
+// same code below, so a scheduled run is an ordinary session in every way
+// except who started it.
+type startSpec struct {
+	Prompt   string
+	Mode     string
+	Provider string
+	User     string
+	Tenant   string
+	// Approver answers "ask" decisions. Nil means the live session itself,
+	// which parks the run until a person answers in the console. A scheduled
+	// run has no person, so it passes an approver that refuses.
+	Approver agent.Approver
+	// OnEnd is called when the run finishes, however it finishes.
+	OnEnd func(reason agent.TerminalReason, err error)
+}
+
+// errBadMode is returned by startSession when the requested mode would widen
+// permissions; the HTTP handler turns it into a 403.
+var errBadMode = errors.New("mode may only narrow permissions; a client may request \"plan\" and nothing else")
+
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -501,14 +531,33 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "prompt is required")
 		return
 	}
+	sessionID, err := s.startSession(r.Context(), startSpec{
+		Prompt: req.Prompt, Mode: req.Mode, Provider: req.Provider,
+		User: userOf(r.Context()), Tenant: tenantOf(r.Context()),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, errBadMode):
+			writeError(w, http.StatusForbidden, err.Error())
+		case strings.HasPrefix(err.Error(), "provider:"):
+			writeError(w, http.StatusBadRequest, strings.TrimPrefix(err.Error(), "provider: "))
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	writeJSON(w, http.StatusAccepted, createResponse{SessionID: sessionID})
+}
 
+// startSession persists, builds and starts a session, returning once the
+// agent is running. The context passed in governs creation only; the run
+// itself gets its own, cancelled through the live session.
+func (s *Server) startSession(ctx context.Context, spec startSpec) (string, error) {
 	// The mode is resolved before anything is persisted or started, because a
 	// rejected mode must not leave a half-created session behind.
-	mode, ok := requestMode(s.opts.Config.Permissions.Mode, req.Mode)
+	mode, ok := requestMode(s.opts.Config.Permissions.Mode, spec.Mode)
 	if !ok {
-		writeError(w, http.StatusForbidden,
-			"mode may only narrow permissions; a client may request \"plan\" and nothing else")
-		return
+		return "", errBadMode
 	}
 
 	// One snapshot for the whole of session creation. Taking it once means a
@@ -519,11 +568,10 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	// Resolved before anything is persisted or started: a session half-created
 	// against a provider that does not exist is worse than a clean refusal.
 	adapter := s.opts.Adapter
-	if req.Provider != "" {
-		a, _, err := s.resolveProvider(req.Provider)
+	if spec.Provider != "" {
+		a, _, err := s.resolveProvider(spec.Provider)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
+			return "", fmt.Errorf("provider: %w", err)
 		}
 		adapter = a
 	}
@@ -532,22 +580,21 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 
 	// Events reference sessions, so the session row must exist first.
 	if s.sessions != nil {
-		if err := s.sessions.CreateSession(r.Context(), store.SessionRecord{
+		if err := s.sessions.CreateSession(ctx, store.SessionRecord{
 			ID: sessionID,
 			// Leave Tenant empty so the store applies its own configured
 			// tenant. With auth.mode=none every request is "default", which
 			// would otherwise collide with a store scoped to a real tenant and
 			// fail row-level security on the very first session.
-			Tenant:    storeTenant(s.opts.Config, tenantOf(r.Context())),
-			User:      userOf(r.Context()),
+			Tenant:    storeTenant(s.opts.Config, spec.Tenant),
+			User:      spec.User,
 			Workspace: s.opts.Workspace,
 			Model:     adapter.Profile().Name,
 			Mode:      mode,
-			Prompt:    req.Prompt,
+			Prompt:    spec.Prompt,
 			StartedAt: time.Now().UTC(),
 		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "persist session: "+err.Error())
-			return
+			return "", fmt.Errorf("persist session: %w", err)
 		}
 	}
 
@@ -555,8 +602,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 
 	sess, err := tools.NewSession(s.opts.Workspace)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+		return "", err
 	}
 	// Extra roots come from the operator's config, applied to every session.
 	// A refusal here is a misconfiguration, not a per-request problem: fail
@@ -568,9 +614,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	dirs = append(dirs, s.opts.SkillDirs...)
 	for _, dir := range dirs {
 		if err := sess.AddRoot(dir); err != nil {
-			writeError(w, http.StatusInternalServerError,
-				"additional_dirs: "+err.Error())
-			return
+			return "", fmt.Errorf("additional_dirs: %w", err)
 		}
 	}
 
@@ -581,8 +625,8 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	_ = pol.AddAllow(s.opts.Config.Permissions.Allow...)
 
 	live := &liveSession{
-		ID: sessionID, User: userOf(r.Context()), Tenant: tenantOf(r.Context()),
-		Created: time.Now(), Prompt: req.Prompt, State: "running",
+		ID: sessionID, User: spec.User, Tenant: spec.Tenant,
+		Created: time.Now(), Prompt: spec.Prompt, State: "running",
 		approvals: make(chan approvalReply, 1),
 	}
 
@@ -597,11 +641,15 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	})
 	cfg.MaxTurns = s.opts.Config.Limits.MaxTurns
 
-	loop := agent.NewLoop(adapter, registry, pol, live, sess, rec, cfg)
+	var approver agent.Approver = live
+	if spec.Approver != nil {
+		approver = spec.Approver
+	}
+	loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
 	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	live.Loop = loop
 
-	ctx, cancel := context.WithCancel(context.Background())
+	runCtx, cancel := context.WithCancel(context.Background())
 	live.Cancel = cancel
 	live.cancel = cancel
 	live.Turns = 1
@@ -612,10 +660,13 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		defer cancel()
-		reason, err := loop.Run(ctx, req.Prompt)
+		reason, err := loop.Run(runCtx, spec.Prompt)
 		live.mu.Lock()
 		live.State = "done"
 		live.mu.Unlock()
+		if spec.OnEnd != nil {
+			spec.OnEnd(reason, err)
+		}
 		if err != nil {
 			s.log.Error("session failed", "session", sessionID, "error", err)
 			return
@@ -623,7 +674,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		s.log.Info("session ended", "session", sessionID, "reason", reason)
 	}()
 
-	writeJSON(w, http.StatusAccepted, createResponse{SessionID: sessionID})
+	return sessionID, nil
 }
 
 type sessionSummary struct {
@@ -1411,4 +1462,53 @@ func (t tapStore) Append(ev agent.Event) error {
 		t.tap(ev)
 	}
 	return err
+}
+
+// ---------------------------------------------------------------- schedules
+
+// RunScheduled starts a session for a schedule. It is the scheduler's Runner:
+// it returns once the session is running, and tells the scheduler when the
+// run ends so the job may fire again.
+//
+// A scheduled run has nobody to ask, so its approver refuses: an "ask" under
+// the configured mode becomes a denial, recorded like any other. Operators who
+// want a scheduled job to edit files give it a mode or allow rules that do not
+// need a person — that is a choice made in config, on the record, not a
+// default made here.
+func (s *Server) RunScheduled(ctx context.Context, job schedule.Job) (string, error) {
+	return s.startSession(ctx, startSpec{
+		Prompt:   job.Prompt,
+		Mode:     job.Mode,
+		Provider: job.Provider,
+		User:     "schedule:" + job.Name,
+		Approver: agent.AutoApprove{Yes: false},
+		OnEnd: func(reason agent.TerminalReason, err error) {
+			if s.opts.Scheduler != nil {
+				s.opts.Scheduler.Finished(job.Name)
+			}
+		},
+	})
+}
+
+func (s *Server) listSchedules(w http.ResponseWriter, r *http.Request) {
+	if s.opts.Scheduler == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"schedules": []any{},
+			"note": "no schedules are configured on this deployment"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"schedules": s.opts.Scheduler.Status()})
+}
+
+func (s *Server) runSchedule(w http.ResponseWriter, r *http.Request) {
+	if s.opts.Scheduler == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no schedules are configured"})
+		return
+	}
+	id, err := s.opts.Scheduler.RunNow(r.Context(), r.PathValue("name"))
+	if err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+		return
+	}
+	s.log.Info("schedule run by admin", "job", r.PathValue("name"), "by", userOf(r.Context()), "session", id)
+	writeJSON(w, http.StatusAccepted, map[string]string{"session_id": id})
 }

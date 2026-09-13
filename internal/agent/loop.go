@@ -689,7 +689,6 @@ func toolDefs(r *tools.Registry) []model.ToolDef {
 	return out
 }
 
-
 // fitResult bounds what one tool result can occupy in history.
 //
 // Compaction summarizes what is already there; it cannot help with a single
@@ -752,7 +751,6 @@ func (h *LoopHolder) RecordPipelineStage(skill, stage, detail string, data map[s
 		h.loop.RecordPipelineStage(skill, stage, detail, data)
 	}
 }
-
 
 // runCalls executes a turn's tool calls and appends their results.
 //
@@ -830,6 +828,14 @@ func (l *Loop) runCalls(ctx context.Context, calls []model.ToolCall) TerminalRea
 	for _, o := range results {
 		if o.terminal != "" {
 			return o.terminal
+		}
+	}
+	// A tool that IS the answer ends the run. The result is already recorded
+	// and appended, so the transcript is complete; what is skipped is the
+	// model's next turn, which would only restate it.
+	for _, o := range results {
+		if o.result.Final {
+			return TermCompleted
 		}
 	}
 	return ""
