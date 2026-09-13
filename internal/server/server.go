@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1136,17 +1137,24 @@ type overviewResponse struct {
 	// either an open form or nothing at all — with only AllowSignup, an
 	// invite-only deployment is indistinguishable from a closed one and the
 	// UI correctly hides a door that is in fact open.
-	InviteSignup  bool     `json:"invite_signup"`
-	ProviderLabel string   `json:"provider_label,omitempty"`
-	User          string   `json:"user,omitempty"`
-	Tenant        string   `json:"tenant,omitempty"`
-	WebSearch     string   `json:"web_search"`
-	Retrieval     bool     `json:"retrieval"`
-	MCPServers    int      `json:"mcp_servers"`
-	Tools         []string `json:"tools"`
-	Sessions      int      `json:"sessions"`
-	Events        int64    `json:"events"`
-	Running       int      `json:"running"`
+	InviteSignup  bool   `json:"invite_signup"`
+	ProviderLabel string `json:"provider_label,omitempty"`
+	User          string `json:"user,omitempty"`
+	Tenant        string `json:"tenant,omitempty"`
+	// Admin is whether the signed-in identity is in the admin group. It
+	// exists so the UI can show the way to /admin to the people who can use
+	// it. It is NOT what protects /admin: every admin route is wrapped in
+	// s.admin() on the server, so a client that flips this in the browser
+	// gets a link to a page that answers 403. Hiding a control is courtesy;
+	// the guard is the boundary.
+	Admin      bool     `json:"admin"`
+	WebSearch  string   `json:"web_search"`
+	Retrieval  bool     `json:"retrieval"`
+	MCPServers int      `json:"mcp_servers"`
+	Tools      []string `json:"tools"`
+	Sessions   int      `json:"sessions"`
+	Events     int64    `json:"events"`
+	Running    int      `json:"running"`
 }
 
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
@@ -1198,6 +1206,7 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 		if id, found := local.FromCookie(r); found {
 			o.Authenticated = true
 			o.User = orDefaultStr(id.Email, id.Subject)
+			o.Admin = slices.Contains(id.Groups, s.adminGroup())
 			o.Tenant = id.Tenant
 		}
 	}

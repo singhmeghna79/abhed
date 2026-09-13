@@ -16,6 +16,7 @@ const landingHTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Titan</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22tf%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2255%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22tcore%22%20cx=%2240%25%22%20cy=%2235%25%22%20r=%2270%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22/%3E%20%3Cstop%20offset=%2270%25%22%20stop-color=%22%23DDEFFF%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%239ED2FF%22/%3E%20%3C/radialGradient%3E%20%3CradialGradient%20id=%22tglow%22%20cx=%2250%25%22%20cy=%2250%25%22%20r=%2250%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%22.5%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3C/defs%3E%20%3Cg%20fill=%22none%22%20stroke=%22url(%23tf)%22%20stroke-width=%2228%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%20%3Cpath%20d=%22M104%2034%20H64%20a20%2020%200%200%200%20-20%2020%20V202%20a20%2020%200%200%200%2020%2020%20H104%22/%3E%20%3Cpath%20d=%22M152%2034%20H192%20a20%2020%200%200%201%2020%2020%20V202%20a20%2020%200%200%201%20-20%2020%20H152%22/%3E%20%3C/g%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2260%22%20fill=%22url(%23tglow)%22/%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2231%22%20fill=%22url(%23tcore)%22/%3E%20%3C/svg%3E">
 <style>
 :root{
   --bg:#F4F6FA; --surface:#FFFFFF; --sunken:#E6EBF3;
@@ -61,6 +62,8 @@ header{border-bottom:1px solid var(--line);background:var(--surface)}
 .bar .who{font-family:var(--mono);font-size:11px;color:var(--ink-2);
   background:var(--sunken);border:1px solid var(--line);border-radius:11px;
   padding:2px 9px}
+.bar .who-admin{font-family:var(--mono);font-size:11px;color:var(--ink-2);text-decoration:none;padding:3px 9px;border:1px solid var(--line);border-radius:5px;margin-left:8px}
+.bar .who-admin:hover{color:var(--accent);border-color:var(--accent)}
 
 /* ---------------------------------------------------------------- hero */
 .hero{padding:46px 0 38px;display:grid;grid-template-columns:minmax(0,1fr) auto;
@@ -213,51 +216,30 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;
 
 <header>
   <div class="wrap bar">
-    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true">
-      <defs><linearGradient id="tgh" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#3FA9F5"/>
-        <stop offset="55%" stop-color="#1F6FB8"/>
-        <stop offset="100%" stop-color="#123E6B"/>
-      </linearGradient></defs>
-      <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#tgh)"/>
-      <g fill="#fff">
-        <rect x="66" y="74" width="124" height="26" rx="5"/>
-        <rect x="114" y="100" width="28" height="72"/>
-        <rect x="80" y="172" width="96" height="24" rx="5"/>
-      </g>
-    </svg>
+    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
     <b>Titan</b>
-    <span class="sub">on-prem coding agent</span>
+    <span class="sub">deep agent harness</span>
     <span class="spacer"></span>
     <span class="who" id="who" hidden></span>
+    <a class="who-admin" id="adminlink" href="/admin" hidden>Admin</a>
   </div>
 </header>
 
 <main class="wrap">
   <div class="hero">
     <div>
-      <h1 id="headline">A coding agent for code that cannot leave the building.</h1>
+      <h1 id="headline">An agent harness for work that cannot leave the building.</h1>
       <p id="pitch">Titan runs on hardware you own, against a model you host.
-        Air-gap capable, sandboxed, and every action recorded — because the
-        teams who need an agent most are the ones who cannot send their source
+        It reads and writes files, runs commands in a sandbox, searches the
+        web, reads images and documents, and operates infrastructure — with
+        every action recorded and replayable. Air-gap capable, because the
+        teams who need an agent most are the ones who cannot send their data
         to an API.</p>
       <div class="cta" id="cta"></div>
     </div>
     <div class="viz">
       <canvas id="net" aria-hidden="true"></canvas>
-      <svg class="emblem" viewBox="0 0 256 256" aria-hidden="true">
-        <defs><linearGradient id="tge" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#3FA9F5"/>
-          <stop offset="55%" stop-color="#1F6FB8"/>
-          <stop offset="100%" stop-color="#123E6B"/>
-        </linearGradient></defs>
-        <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#tge)"/>
-        <g fill="#fff">
-          <rect x="66" y="74" width="124" height="26" rx="5"/>
-          <rect x="114" y="100" width="28" height="72"/>
-          <rect x="80" y="172" width="96" height="24" rx="5"/>
-        </g>
-      </svg>
+      <svg class="emblem" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tte-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tte-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tte-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tte-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tte-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tte-tcore)"/> </svg>
     </div>
   </div>
 
@@ -395,6 +377,8 @@ async function load(){
   if(o.authenticated){
     $('who').textContent = o.user + (o.tenant ? ' · ' + o.tenant : '');
     $('who').hidden = false;
+    // Drawn for admins only; guarded on the server regardless.
+    $('adminlink').hidden = !o.admin;
   }
 
   renderFacts(o);

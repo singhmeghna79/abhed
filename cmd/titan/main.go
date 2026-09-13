@@ -1,4 +1,4 @@
-// Command titan is an on-prem coding agent.
+// Command titan is an on-prem deep agent harness: it runs where the data is,
 //
 // Usage:
 //

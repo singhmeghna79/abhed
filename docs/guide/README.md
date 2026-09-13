@@ -1,6 +1,6 @@
 # Titan documentation
 
-Titan is an on-prem coding agent. It runs where your code is, against whichever
+Titan is an on-prem deep agent harness. It runs where your data is, against whichever
 model you point it at, and records everything it does.
 
 ## Start here

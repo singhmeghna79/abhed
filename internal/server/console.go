@@ -38,7 +38,7 @@ func withHome(page, home string) string {
 	}
 	esc := html.EscapeString(home)
 	return strings.ReplaceAll(page, "<!--HOME-->",
-		`<a href="`+esc+`" class="home" title="Back to the site">&#8599;</a>`)
+		`<a href="`+esc+`" class="home" title="Back to zybuu.com">zybuu.com <span aria-hidden="true">&#8599;</span></a>`)
 }
 
 var consoleHTML = strings.ReplaceAll(`<!doctype html>
@@ -47,6 +47,7 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Titan Console</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22tf%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2255%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22tcore%22%20cx=%2240%25%22%20cy=%2235%25%22%20r=%2270%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22/%3E%20%3Cstop%20offset=%2270%25%22%20stop-color=%22%23DDEFFF%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%239ED2FF%22/%3E%20%3C/radialGradient%3E%20%3CradialGradient%20id=%22tglow%22%20cx=%2250%25%22%20cy=%2250%25%22%20r=%2250%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%22.5%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3C/defs%3E%20%3Cg%20fill=%22none%22%20stroke=%22url(%23tf)%22%20stroke-width=%2228%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%20%3Cpath%20d=%22M104%2034%20H64%20a20%2020%200%200%200%20-20%2020%20V202%20a20%2020%200%200%200%2020%2020%20H104%22/%3E%20%3Cpath%20d=%22M152%2034%20H192%20a20%2020%200%200%201%2020%2020%20V202%20a20%2020%200%200%201%20-20%2020%20H152%22/%3E%20%3C/g%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2260%22%20fill=%22url(%23tglow)%22/%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2231%22%20fill=%22url(%23tcore)%22/%3E%20%3C/svg%3E">
 <style>
 :root{
   --bg:#F4F6FA; --surface:#FFFFFF; --raised:#FFFFFF; --sunken:#E6EBF3;
@@ -115,8 +116,8 @@ button,select,textarea,input{font:inherit;color:inherit}
 .brand b{font-size:14px;font-weight:650;letter-spacing:-.01em}
 .brand span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .top .spacer{flex:1}
-.home{text-decoration:none;color:var(--muted);font-size:13px;margin-left:8px}
-.home:hover{color:var(--accent)}
+.home{text-decoration:none;color:var(--ink-2);font-family:var(--mono);font-size:11.5px;margin-left:10px;padding:3px 8px;border:1px solid var(--line);border-radius:5px;white-space:nowrap}
+.home:hover{color:var(--accent);border-color:var(--accent)}
 .stat{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;
   align-items:center;gap:6px;white-space:nowrap}
 .stat b{color:var(--ink-2);font-weight:500}
@@ -252,12 +253,17 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
 .transcript{flex:1;overflow-y:auto;padding:22px 22px 8px;min-height:0}
 .transcript > *{max-width:760px;margin-left:auto;margin-right:auto}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  height:100%;gap:8px;color:var(--muted);text-align:center}
+  min-height:100%;gap:8px;color:var(--muted);text-align:center;padding:12px 0}
 .empty .k{font-family:var(--mono);font-size:12px}
 .empty .s{font-size:12.5px;max-width:36ch;line-height:1.65}
-.mark-lg{width:40px;height:40px;fill:var(--accent);opacity:.28;margin-bottom:2px}
-.empty .ex{display:flex;flex-direction:column;gap:6px;margin-top:16px;width:100%;
+.empty .ex{display:grid;grid-template-columns:1fr;gap:6px;margin-top:16px;width:100%;
   max-width:330px}
+/* Six examples in one column push the mark and the word Ready off the top of
+   the pane on a laptop. Two columns keep the block inside the viewport where
+   there is room; the column view is kept for phones, where a wide grid of
+   cards would be two half-width cards you cannot read. */
+@media (min-width:700px){.empty .ex{grid-template-columns:1fr 1fr;max-width:600px;gap:8px}}
+.mark-lg{width:44px;height:44px;opacity:.9;margin-bottom:4px}
 .chip{background:var(--surface);border:1px solid var(--line);border-radius:7px;
   padding:8px 11px;font-size:12px;color:var(--ink-2);cursor:pointer;text-align:left;
   transition:border-color .14s,transform .14s}
@@ -480,21 +486,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     </svg>
   </button>
   <div class="brand">
-    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true">
-      <!-- A column set inside a hexagon: the same mark the CLI draws in
-           box characters, and brand/titan-mark.svg at full detail. -->
-      <defs><linearGradient id="tgc" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#3FA9F5"/>
-        <stop offset="55%" stop-color="#1F6FB8"/>
-        <stop offset="100%" stop-color="#123E6B"/>
-      </linearGradient></defs>
-      <path d="M128 8 236 70v116L128 248 20 186V70Z" fill="url(#tgc)"/>
-      <g fill="#fff">
-        <rect x="66" y="74" width="124" height="26" rx="5"/>
-        <rect x="114" y="100" width="28" height="72"/>
-        <rect x="80" y="172" width="96" height="24" rx="5"/>
-      </g>
-    </svg>
+    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
     <a href="/" style="text-decoration:none;color:inherit;display:flex;
        align-items:baseline;gap:8px" title="Overview"><b>Titan</b><span
        id="ver">console</span></a><!--HOME-->
@@ -508,6 +500,8 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
   <div class="stat">active <b id="active">0</b></div>
   <div class="stat" id="whobox" hidden>
     <span class="who-chip" id="who"></span>
+    <a class="ghost" id="adminlink" href="/admin" hidden
+       title="Who has access, and who no longer does">Admin</a>
     <a class="ghost" id="switchuser" href="/switch-user"
        title="Sign in as a different user">Switch</a>
     <a class="ghost" id="signout" href="/logout">Sign out</a>
@@ -537,13 +531,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     </div>
     <div class="transcript" id="tx">
       <div class="empty">
-        <svg class="mark-lg" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="3" rx="1"/>
-          <rect x="9" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
-          <rect x="11.7" y="7.5" width="1.6" height="9" rx=".6"/>
-          <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
-          <rect x="3" y="18" width="18" height="3" rx="1"/>
-        </svg>
+        <svg class="mark-lg" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
         <div class="k">Ready</div>
         <div class="s">Ask a question, or describe a change. Select a session on the
           left to replay exactly what it did.</div>
@@ -1513,6 +1501,21 @@ async function whoami(){
   $('whobox').hidden = false;
 }
 
+// What this deployment can do, and whether the person here may administer
+// it. Runs regardless of sign-in: the examples depend on which tools exist,
+// not on who is looking. The server decides who is an admin; the UI only
+// decides whether to draw the link. Flipping it in devtools yields a link to a
+// page that answers 403, because every /admin route is guarded server-side.
+async function capabilities(){
+  try{
+    const o = await api('/v1/overview');
+    TOOLS = new Set(o && o.tools ? o.tools : []);
+    const a = $('adminlink');
+    if(a && o && o.admin) a.hidden = false;
+  }catch{ TOOLS = new Set(); }
+  drawExamples();
+}
+
 // A first-run console that only says "ask something" teaches nothing. These
 // are the three shapes Titan handles, so the examples double as documentation.
 // Deliberately generic. The first example was "What is z/OS and where is it
@@ -1520,17 +1523,23 @@ async function whoami(){
 // a first-run screen sets the expectation of what the tool is FOR, so a niche
 // example narrows the product in the reader's mind before they have typed
 // anything.
+let TOOLS = null;
 const EXAMPLES = [
-  ['Explain a concept',  'Explain how TLS certificate validation works.'],
-  ['Understand code',    'What does the Valid function do in this codebase?'],
-  ['Make a change',      'The tests in pkg/auth are failing. Find the bug and fix it.'],
+  ['Understand code', 'What does the Valid function do in this codebase?', null],
+  ['Make a change', 'The tests in pkg/auth are failing. Find the bug and fix it.', 'edit'],
+  ['Research', 'Search for the CVEs published this month that affect OpenSSL 3 and tell me which ones matter on Debian 12.', 'web_search'],
+  ['Read a document', 'Read the attached design doc and list every external system it depends on.', 'read'],
+  ['Explain a concept', 'Explain how TLS certificate validation works.', null],
+  ['Operate', 'Which pods in the staging namespace have restarted in the last hour, and why?', 'k8s_get'],
 ];
 
 function drawExamples(){
   const box = $('examples');
   if(!box) return;
   box.textContent = '';
-  for(const [label, text] of EXAMPLES){
+  for(const [label, text, needs] of EXAMPLES){
+    // Until the overview arrives, show the tool-free examples only.
+    if(needs && (!TOOLS || !TOOLS.has(needs))) continue;
     const b = document.createElement('button');
     b.className = 'chip';
     b.type = 'button';
@@ -1573,7 +1582,7 @@ function hideThinking(){
   el.remove();
 }
 
-drawExamples(); whoami(); health(); refresh(); loadProviders();
+drawExamples(); whoami(); capabilities(); health(); refresh(); loadProviders();
 setInterval(health, 10000);
 setInterval(refresh, 5000);
 </script>

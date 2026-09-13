@@ -6,38 +6,36 @@ import (
 	"strings"
 )
 
-// Titan's mark is a column set inside a hexagon.
+// Titan's mark is an open frame around a single point.
 //
-// Both halves carry meaning. The hexagon is the shared vocabulary of
-// infrastructure marks — Kubernetes, Docker, Terraform, Vault — and reads as
-// "a component in a system", which is what Titan is. Inside it, a T built as a
-// column: capital, fluted shaft, base. Titan is a harness, the structure that
-// carries weight so the model can work, and the research this project rests on
-// found the harness, not the model, to be the dominant variable.
+// The frame is the harness; the point is the model it carries. The research
+// this project rests on found the scaffold around the model, not the model, to
+// be the dominant variable, and the mark says exactly that — the frame is the
+// product. It is drawn open on the right, at the model's eye line, because a
+// harness is something a model is placed into rather than a sealed box.
 //
 // Rendered in three sizes because a mark has to survive both places it lives:
-// a single terminal cell and a 128px browser header. The flutes are drawn only
-// in the large form; below about 32px they fill in and muddy the shape.
+// a single terminal cell and a 128px browser header.
 
-// MarkLarge is the startup banner: the hexagon with the column-T inside it,
-// the same construction as brand/titan-mark.svg. Half-block characters give
-// the diagonal edges a slope that full blocks cannot.
-const MarkLarge = `    ▄▄████▄▄    
-  ▟███▀▀▀▀███▙  
- ██▘ ▄▄▄▄▄▄ ▝██ 
-▐█▘   ▀██▀   ▜█▌
-▐█▖    ██    ▟█▌
- ██▖  ▄██▄  ▗██ 
-  ▜███▄▄▄▄███▛  
-    ▀▀████▀▀    `
+// MarkLarge is the startup banner: the frame with the point inside it, the
+// same construction as brand/titan-mark.svg. Eight lines, because Banner lays
+// the run facts beside it and both columns have to end together.
+const MarkLarge = `▛▀▀▀▀▀▀▀▀▀▜ 
+▌         ▐ 
+▌   ▄██▄   ▐
+▌  ██████   
+▌  ██████   
+▌   ▀██▀   ▐
+▌         ▐ 
+▙▄▄▄▄▄▄▄▄▄▟ `
 
 // MarkSmall is the two-line form for a compact header.
-const MarkSmall = `▗▄██▄▖
-▝█▀█▀█▘`
+const MarkSmall = `▛▀●▀▜
+▙▄▄▄▟`
 
-// Glyph is the single-character form for prompts and log lines: a hexagon,
-// which is the one shape of the mark that survives a single terminal cell.
-const Glyph = "⬢"
+// Glyph is the single-character form for prompts and log lines: a point inside
+// a ring, which is the one form of the mark that survives one terminal cell.
+const Glyph = "◎"
 
 // Banner renders the startup identity block.
 //
@@ -53,7 +51,7 @@ func Banner(s Style, version, model, workspace, sandbox, storage string) string 
 	// seven lines instead of twelve.
 	rows := []string{
 		s.Bold("TITAN") + "  " + s.Dim(version),
-		s.Dim("on-prem coding agent"),
+		s.Dim("deep agent harness · on-prem"),
 		"",
 		s.Dim("model    ") + model,
 		s.Dim("work     ") + workspace,
