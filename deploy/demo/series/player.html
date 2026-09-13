@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Titan series player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="lib/theme.css">
+<script src="lib/engine.js"></script>
+<script src="lib/parts.js"></script>
+</head>
+<body>
+<div id="stage">
+  <div id="field" aria-hidden="true"><i class="a"></i><i class="b"></i></div>
+  <div id="root"></div>
+</div>
+<script>
+// The renderer drives this page: __load(videoId, beats, assets) builds the
+// scenes, __seek(t) positions everything at t seconds, __duration() says how
+// long the video is. A <script> per video registers window.VIDEOS[id].
+window.VIDEOS = window.VIDEOS || {};
+let video = null;
+window.__load = async function (id, beats, assets) {
+  const defs = window.VIDEOS[id];
+  if (!defs) throw new Error('no video ' + id);
+  window.ASSETS = assets || {};
+  await document.fonts.ready;
+  video = new Motion.Video(defs(), beats, document.getElementById('root'));
+  return video.duration;
+};
+window.__seek = async function (t) {
+  video.seek(t);
+  // a scene's embedded footage seeks with the clock: wait for the frame
+  const vids = [...document.querySelectorAll('video[data-t]')];
+  await Promise.all(vids.map((v) => new Promise((res) => {
+    const want = Number(v.dataset.t);
+    if (!isFinite(want) || v.style.display === 'none' || v.readyState < 1) return res();
+    if (Math.abs(v.currentTime - want) < 0.01) return res();
+    const done = () => { v.removeEventListener('seeked', done); res(); };
+    v.addEventListener('seeked', done);
+    v.currentTime = want;
+    setTimeout(done, 400);
+  })));
+  const f = document.getElementById('field');
+  f.children[0].style.transform = `translate(${Math.sin(t / 19) * 90}px, ${Math.cos(t / 23) * 60}px)`;
+  f.children[1].style.transform = `translate(${Math.cos(t / 17) * -80}px, ${Math.sin(t / 21) * 70}px)`;
+};
+window.__duration = () => video.duration;
+</script>
+<script id="videos"></script>
+</body>
+</html>

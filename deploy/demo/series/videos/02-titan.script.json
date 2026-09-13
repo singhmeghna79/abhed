@@ -1,0 +1,15 @@
+[
+ {"id":"b1","text":"Titan is Zybuu's first product: a deep agent harness.","hold":0.6},
+ {"id":"b2","text":"A harness is everything around the model. The loop. The tool contracts. The permission engine. The sandbox. The record. Change the harness, and the same model becomes a different product.","hold":0.5},
+ {"id":"b3","text":"Titan runs where your data is. One static binary, from a laptop to an air-gapped rack, with a signed offline bundle for the rack.","hold":0.4},
+ {"id":"b4","text":"It runs any model. Twenty providers over three wire formats, including the one on your own GPUs. Changing vendors is a line of configuration, not a migration.","hold":0.4},
+ {"id":"b5","text":"Every action is sandboxed by default, inside a boundary the operator sets and the agent cannot lift. Deny rules are absolute: no mode, no plugin, and no profile can widen what an operator forbade.","hold":0.4},
+ {"id":"b6","text":"Writes are a permission, not a default. A change waits for a person, and the decision is recorded with who made it. When nobody is there to ask, the answer is no.","hold":0.4},
+ {"id":"b7","text":"Every action is on the record: an append-only event log, replayable step by step, and exportable as OpenTelemetry traces into the tools you already run.","hold":0.4},
+ {"id":"b8","text":"It embeds without weakening. The Go S D K gives your own software the same loop with the same guarantees, and structured output returns validated JSON, not prose.","hold":0.4},
+ {"id":"b9","text":"Parallel subagents work in isolated git worktrees, so two writers can never collide. Scheduled runs turn recurring work into sessions on the record.","hold":0.4},
+ {"id":"b10","text":"Extend it without forking it: extensions that can veto but never permit, skills, M C P servers, and custom providers.","hold":0.4},
+ {"id":"b11","text":"Five ways to run it, one set of rules: interactive, headless, JSON, R P C, and a multi-user server with a web console.","hold":0.4},
+ {"id":"b12","text":"And what Titan does not do, said plainly. No certifications yet. No S L A. A human red team still outstanding. Everything else, it proves in its own test suite.","hold":0.6},
+ {"id":"b13","text":"Titan. The agent harness for work that cannot leave the building.","hold":1.2}
+]

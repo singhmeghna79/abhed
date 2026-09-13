@@ -33,3 +33,5 @@ web/zybuu/titan/access-policy.html
 # Playwright for the demo recording, installed by deploy/demo/build.sh.
 deploy/demo/node_modules
 deploy/demo/package.json
+web/zybuu/demo/series/
+deploy/demo/series/node_modules

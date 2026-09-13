@@ -19,6 +19,11 @@ video{width:100%;aspect-ratio:16/9;max-width:100%;border-radius:16px;border:1px 
 .btn{display:inline-flex;align-items:center;gap:8px;background:var(--live);color:#04121F;border-radius:11px;padding:11px 18px;font-weight:650;text-decoration:none;font-size:14.5px;box-shadow:0 0 22px rgba(59,169,255,.38)}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid #27364B;box-shadow:none}
 .note{font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--muted);margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+.series{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:8px}
+@media (max-width:720px){.series{grid-template-columns:1fr}}
+.series video{aspect-ratio:16/9;border-radius:14px}
+.series b{display:block;margin-top:12px;font-size:17px;letter-spacing:-.01em}
+.series span{display:block;color:var(--ink-2);font-size:14px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -31,6 +36,13 @@ video{width:100%;aspect-ratio:16/9;max-width:100%;border-radius:16px;border:1px 
     <a class="btn" href="titan-deck.pptx">Download the deck (.pptx)</a>
     <a class="btn ghost" href="https://zybuu.com/titan/">Titan on zybuu.com</a>
     <a class="btn ghost" href="mailto:support@zybuu.com">Talk to us</a>
+  </div>
+  <div class="k" style="margin-top:54px">The series · four short films</div>
+  <div class="series">
+    <div><video controls preload="metadata" src="series/01-zybuu.mp4"></video><b>1 · Zybuu</b><span>Who we are, and the vision: infrastructure for AI under your control.</span></div>
+    <div><video controls preload="metadata" src="series/02-titan.mp4"></video><b>2 · Titan</b><span>The harness: what it is, what it guarantees, what it does not claim.</span></div>
+    <div><video controls preload="metadata" src="series/03-install.mp4"></video><b>3 · Installing</b><span>From source, the container, and the signed air-gapped bundle.</span></div>
+    <div><video controls preload="metadata" src="series/04-using.mp4"></video><b>4 · Using it</b><span>The console for people, the command line for engineers, one record.</span></div>
   </div>
   <div class="note">Confidential. This link was issued to you and expires; please do not repost it. Questions: support@zybuu.com.</div>
 </div>
