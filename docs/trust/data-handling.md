@@ -1,0 +1,111 @@
+# Data handling
+
+What Titan stores, where it lives, how long it lives, what an operator can
+do about it, and who else touches data for the hosted console.
+
+## What Titan stores
+
+From `internal/store/schema.sql`, on the Postgres storage driver:
+
+| Table | Contents |
+|---|---|
+| `sessions` | One row per agent session: tenant, user, workspace, model, the opening prompt, turn/token counts, cost, terminal reason |
+| `events` | Every event in a session, append-only: tool calls, **tool output**, model responses, approvals and refusals — tagged `trusted` or `untrusted` per event |
+| `checkpoints` | The content of a file immediately before the agent changed it, keyed to the event that changed it — this is what `/undo` reads |
+| `models` | The registry of configured model endpoints and their capability profile |
+| `access_grants` / `access_events` | Who requested and holds console access, and the append-only history of how that changed |
+
+Accounts (username, email, tenant, groups, bcrypt password hash) are stored
+either in this same Postgres database or, without `storage.driver: postgres`
+configured, in `<workspace>/.titan/users.json` mode `0600`
+(`docs/ops/enabling-auth.md`, "Where accounts live").
+
+**Uploads** are files the agent reads or writes inside the session workspace
+— on the hosted console this is the container's workspace volume
+(`deploy/run.sh`'s `TITAN_VOLUME`), not a host path. They are not a separate
+store; they are ordinary files in that workspace, and their content that
+passes through the agent loop is captured in `events` as tool output like
+anything else the agent reads.
+
+## Where
+
+Self-hosted: wherever the operator points `storage.dsn`. Hosted console: a
+Postgres container on the operator's own machine
+(`deploy/run.sh`'s `titan-db` container, `DB_VOLUME`), with no published
+port — reachable only from the container network, never the LAN or the host
+(`deploy/run.sh` comment: "No published port").
+
+Without the Postgres driver configured, sessions and events live in memory
+and do not survive a restart at all (`internal/sitecheck/claims_test.go`'s
+`TestDurabilityClaimsNameTheDriver` pins this exact distinction: "accounts
+survive... transcripts survive... postgres... default... they do not").
+
+## Retention
+
+**Indefinite by default.** Nothing in `internal/store/schema.sql` expires a
+row. The schema comment says retention is "handled by dropping partitions or
+by a privileged archival role, never by mutating rows in place" — that
+mechanism is not implemented in this repository today; there is no scheduled
+job that drops old partitions. Rows persist until an operator does something
+about it at the database level.
+
+**Deleting a session marks it; the rows stay.** Schema version 3 in
+`internal/store/schema.sql` adds `sessions.deleted_at` and `deleted_by`.
+The comment is explicit about what this does and does not do: "Events are
+append-only by trigger, so a delete cannot remove the transcript rows and
+does not try. It marks the session; every read path treats a marked session
+as absent. The rows remain for the audit the deployment promised, reachable
+only by someone with the database, never through the API again." A deleted
+session is gone from the console and the API; it is not gone from the
+database.
+
+**Access grants and revocations are permanent, by design.** Revoking access
+disables the account rather than deleting it, "so the record of what
+happened survives — that is the point of an audit log"
+(`docs/access-policy.md`, "How revocation works"). `access_events` is
+append-only by trigger, same as `events`.
+
+## What the operator can export or delete
+
+- **Export**: `docs/access-policy.md` tells a hosted-console user to "export
+  before you lose access, or ask" — there is a session-export path in the
+  console for a user's own sessions while their account is active. An
+  operator with database access can export anything directly via `pg_dump`
+  (see `docs/trust/backup-restore.md`).
+- **Delete**: A user can delete their own session from the console UI, which
+  marks it per schema version 3 above — it stops being reachable through the
+  product but the rows remain in Postgres. An operator with direct database
+  access is the only path to actually removing rows, and doing so against an
+  append-only `events` table means operating below the API (the immutability
+  triggers block `UPDATE`/`DELETE` from any client, including an
+  administrator's own SQL session, unless they drop or bypass the trigger
+  first — which is a deliberate, high-friction operation, not a supported
+  workflow).
+- **Accounts**: `titan user remove <username>` deletes the account
+  immediately. It does not delete that user's session history — "Removing
+  the account ends their access; the audit log of what they did stays, which
+  is the point of keeping it" (`deploy/GO-LIVE.md`, "Turning it off").
+
+## Subprocessors — hosted console at titan.zybuu.com
+
+Zybuu is a one-person company (`docs/vision.md`), and the hosted console runs
+on the founder's own hardware. Stated plainly, per this folder's convention:
+
+| Subprocessor | What it handles | Where documented |
+|---|---|---|
+| **Cloudflare** | DNS and the `zybuu.com` zone; Cloudflare Pages hosts the marketing site and generated docs; the tunnel/reverse-proxy path carries traffic to `titan.zybuu.com` | `deploy/GO-LIVE.md` (DNS record, Pages publishing, the docs Worker) |
+| **Resend** | Transactional mail: access-request acknowledgements, invite delivery, revocation notices | `deploy/GO-LIVE.md` ("The homepage form"), `internal/server/admin.go`'s `mailRevocation` |
+| **The founder's own hardware** | Runs the console, the Postgres database, and the model the console's agent uses | `deploy/GO-LIVE.md`: "The site is up only while this Mac is awake and online"; `docs/access-policy.md`: "that is a model running on the same machine, so prompts do not leave it" |
+
+No other third party receives console data. There is no analytics vendor and
+no tracking (`docs/access-policy.md`: "Nothing is sold, and there is no
+analytics or tracking").
+
+## Self-hosted deployments
+
+**No subprocessors.** A customer running Titan on their own infrastructure —
+laptop, private datacenter, or air-gapped rack — sends data nowhere but the
+model endpoint they themselves configure (`docs/vision.md`: "It runs where
+the data is... It runs any model... Changing vendors is a line of config").
+Zybuu has no access to a self-hosted deployment's data, database, or logs
+unless the operator explicitly shares them (for example, to report a bug).

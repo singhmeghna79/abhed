@@ -1,0 +1,111 @@
+# Contributing to Titan
+
+Titan is maintained by one person at Zybuu. That shapes everything below:
+review latency is real, and a PR that makes review easy gets merged faster
+than one that is merely correct.
+
+## Building and testing
+
+```bash
+go build ./...
+go test ./...
+```
+
+**Local quirk:** on the maintainer's machine, `GOROOT` is set to something Go
+1.26 doesn't like, so commands here are actually run as:
+
+```bash
+env -u GOROOT go build ./...
+env -u GOROOT go test ./...
+```
+
+You almost certainly don't have that environment variable set, so plain
+`go test ./...` is what you should use and what CI runs. If `go build`/`go
+test` fail in a way that looks like a toolchain/GOROOT problem rather than a
+real bug, that's the mismatch — not something to work around in the code.
+
+Some tests need more:
+
+- `go test ./... -short` skips the slower network-exfiltration checks; drop
+  `-short` to run them.
+- Postgres integration tests need `TITAN_TEST_DSN` pointed at a real database
+  (`internal/store`).
+- The site honesty checks in `internal/sitecheck` read `web/zybuu/*.html`
+  directly and will fail (loudly, on purpose) if those files are missing or
+  the claims in them drift from the code.
+
+## How this repository actually works
+
+These aren't aspirational — they're enforced, in the sense that a PR
+violating them gets asked to fix it before merge.
+
+**Comments explain why, not what.** Read `internal/server/admin.go` or
+`internal/store/schema.sql` for the tone: a comment exists to record a
+decision or a bug that was found and fixed (see the `FORCE ROW LEVEL
+SECURITY` comment in `internal/store/schema.sql`, or the ordering comment in
+`internal/server/admin.go` about identity being read before it's
+established). A comment that restates the line below it is worse than no
+comment — it's something else to go stale.
+
+**A test must fail without the change.** Before you write the fix, write (or
+run) the test that fails because the bug exists. If you can't make a test go
+red on the old code, the PR needs a different kind of evidence that it does
+something — a test that passes on old and new code alike hasn't tested
+anything. This project's own history is full of bugs found exactly this way:
+row-level security silently inert because a table owner bypasses it without
+`FORCE`, an auth middleware ordered so it read identity before establishing
+it, a bundle manifest that listed its own digest. Each was caught by a test
+written to attack the thing, not confirm it.
+
+**No claim on the site without a guard in `internal/sitecheck`.** If your PR
+touches `web/zybuu/*.html` and adds or changes a number, a claim about test
+counts, provider counts, attack counts, or a compliance statement, it needs a
+corresponding check in `internal/sitecheck` (see `claims_test.go`) or it will
+be reverted. The site's whole argument is that its numbers are checkable —
+that only holds if drift fails the build instead of shipping quietly.
+
+**Secrets never go in the repo.** Not in a commit, not in a config file
+checked in, not in a test fixture. `deploy/run.sh` generates
+`deploy/.db-password` at runtime and keeps it out of git for exactly this
+reason (see the comment above `DB_SECRET` in that script). If a change needs
+a credential, it should come from an environment variable or a file outside
+the tree — follow the pattern in `deploy/run.sh` and
+`docs/ops/enabling-auth.md` (`TITAN_OIDC_SECRET`, `TITAN_DATABASE_URL`,
+etc.), not a new hardcoded value.
+
+**Errors are written for whoever reads them next**, which for a policy
+rejection or a failed edit is the model, and for a startup failure is the
+operator. Match the existing tone: name what was tried, what would fix it
+(see the sandbox's refusal message in `internal/sandbox/sandbox.go` — it
+names every backend it tried and why each failed).
+
+## Sign-off (DCO)
+
+Every commit must be signed off, certifying you wrote it or otherwise have
+the right to submit it under this project's license (Apache 2.0):
+
+```bash
+git commit -s -m "your message"
+```
+
+That appends a `Signed-off-by: Your Name <you@example.com>` trailer using
+your configured `user.name` and `user.email`. PRs with unsigned commits will
+be asked to amend and re-push before merge.
+
+## Sending a change
+
+1. Open an issue first for anything that isn't a small, obvious fix — a
+   one-person review queue means a discussion up front saves a rewritten PR
+   later.
+2. Keep the PR scoped to one thing. A PR that fixes a bug and reformats an
+   unrelated file is two PRs' worth of review for the price of one diff
+   that's hard to read.
+3. Include the test that fails without your change, per above.
+4. Expect review latency measured in days, not hours. This is one person
+   reading every PR against a codebase where the history above is typical of
+   the bugs that get through when review is rushed. A ping after a week is
+   fine; a ping after a day is not going to make it faster.
+
+## Code of conduct
+
+Participation in this project is governed by `CODE_OF_CONDUCT.md`.

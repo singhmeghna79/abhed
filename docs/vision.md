@@ -68,9 +68,20 @@ and the deployment are left for that team to build. Titan is the assembled,
 hardened thing, with a framework underneath it — extensions, skills, MCP,
 custom providers — for the parts that should be yours.
 
+**Against open-source harnesses such as OpenHands and Goose.** The closest
+competitors, and the ones to respect: any model, sandboxed, with real
+communities and published benchmarks. Titan's difference is narrower and
+specific — the audit record and the policy engine are in the core and
+enforced by the database, the deployment is one signed binary with an
+offline bundle, and the SDK carries the same guarantees into your own code.
+
 The pattern is the same in each case: the incumbents own the developer who
-can accept their terms. Titan is for the organisations that cannot, and they
-are not a niche. They are most of the regulated economy.
+can accept their terms, and most regulated firms can — a cloud region and a
+no-retention agreement satisfy them. Titan is for the ones that cannot:
+defence and intelligence contractors, sovereign and public-sector
+deployments, operational networks with no route out, and the banks whose
+policy is no cloud at all. That is a smaller market than "the regulated
+economy", and it is the honest one.
 
 ## What we are not claiming
 

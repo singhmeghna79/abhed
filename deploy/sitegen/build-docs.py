@@ -30,6 +30,8 @@ SECTIONS = [
     ("guide", "Guide", "Using Titan day to day."),
     ("architecture", "Architecture", "How it is built, and why."),
     ("ops", "Operations", "Running it in a real environment."),
+    ("trust", "Trust", "What a security review will ask, answered from the code."),
+    ("benchmarks", "Benchmarks", "Measured, reproducible, published whatever they say."),
 ]
 
 

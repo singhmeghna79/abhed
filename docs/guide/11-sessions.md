@@ -75,6 +75,24 @@ Compaction is visible: `/cost` reports how many have happened, and each one is
 an event with its token accounting. It is a capacity number, not a curiosity —
 every compaction invalidates the prefix cache and pays cold prefill again.
 
+## Continuing a finished chat, on any node
+
+A finished session is not a dead end. Posting a message to it continues it
+from the record: the conversation is rebuilt from the event log the same way
+a fork is, the new events extend the same sequence, the turn budget carries
+over, and the policy is the one the deployment runs now. This is what lets a
+session outlive the process that started it — after a restart, or on a
+different replica behind a load balancer.
+
+On the Postgres store the continuation is claimed atomically, so two replicas
+asked to continue the same session at once cannot both do it; the second
+answers `409`. Only the session's owner can continue it.
+
+What this is not: a running turn on a node that dies is not migrated. It
+ends, is recorded as interrupted, and the session can be continued from
+there. High availability of *sessions* is this; high availability of
+*turns in flight* is not something Titan claims.
+
 ## Deleting a chat
 
 In the console, hover a chat in the list (or focus it with the keyboard) and

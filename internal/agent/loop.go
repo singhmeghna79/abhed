@@ -307,6 +307,17 @@ func (l *Loop) SetAdapter(a model.Adapter) {
 // Messages exposes the current history for inspection and testing.
 func (l *Loop) Messages() []model.Message { return l.messages }
 
+// SetHistory seeds a fresh loop with a conversation reconstructed from the
+// record (see Fork), so a session can be continued by a process that never
+// ran it. turns is how many the earlier process used; the budget is for the
+// whole conversation, and a continuation does not get a fresh one.
+func (l *Loop) SetHistory(msgs []model.Message, turns int) {
+	l.messages = append([]model.Message(nil), msgs...)
+	if turns > l.turns {
+		l.turns = turns
+	}
+}
+
 // turn runs one round trip: model output plus any tool executions.
 func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	req := model.Request{

@@ -306,6 +306,17 @@ func NewRecorder(store Store, sessionID, parentID string) *Recorder {
 	return &Recorder{store: store, sessionID: sessionID, parentID: parentID}
 }
 
+// Advance moves the sequence past events already in the store, so a session
+// continued from its record keeps one monotonic sequence rather than
+// colliding with the rows it is continuing from.
+func (r *Recorder) Advance(seq int64) {
+	r.mu.Lock()
+	if seq > r.seq {
+		r.seq = seq
+	}
+	r.mu.Unlock()
+}
+
 func (r *Recorder) Record(t EventType, actor Actor, trust Trust, payload any) (Event, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {

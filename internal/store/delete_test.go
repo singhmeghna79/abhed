@@ -62,3 +62,37 @@ func TestDeleteSessionHidesEverywhereButKeepsRows(t *testing.T) {
 		t.Errorf("audit rows: events=%d deleted_by=%q, want 1 and \"tester\"", events, deletedBy)
 	}
 }
+
+// Continuing a finished session must be claimed by exactly one process. The
+// claim is a conditional update on the row, so two replicas racing for the
+// same session cannot both win, and a deleted or still-running session
+// cannot be claimed at all.
+func TestClaimResumeIsExclusive(t *testing.T) {
+	p := openStore(t, "t-claim")
+	ctx := context.Background()
+	id := "sess-claim-" + t.Name()
+	newSession(t, p, id, "t-claim")
+
+	if ok, _ := p.ClaimResume(ctx, id); ok {
+		t.Fatal("a session that never ended was claimable")
+	}
+	if _, err := p.pool.Exec(ctx, `UPDATE sessions SET ended_at = now() WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	first, err := p.ClaimResume(ctx, id)
+	if err != nil || !first {
+		t.Fatalf("first claim: ok=%v err=%v", first, err)
+	}
+	if second, _ := p.ClaimResume(ctx, id); second {
+		t.Fatal("a second claim succeeded while the first still held the session")
+	}
+	if _, err := p.pool.Exec(ctx, `UPDATE sessions SET ended_at = now() WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.DeleteSession(id); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := p.ClaimResume(ctx, id); ok {
+		t.Fatal("a deleted session was claimable")
+	}
+}

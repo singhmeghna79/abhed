@@ -2181,6 +2181,29 @@ func doctor(workspace string) int {
 		return 1
 	}
 
+	// The sandbox is checked by running something through it, not by asking
+	// whether it is configured. Inside a hardened container bubblewrap could
+	// not mount /proc and every command failed; doctor said "process — via
+	// bwrap" and nothing else, because it never tried. Now it tries.
+	fmt.Print("checking sandbox exec... ")
+	if sb, err := buildSandbox(cfg, workspace); err != nil {
+		fmt.Printf("SKIPPED\n  %v\n", err)
+	} else {
+		sctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		out, err := sb.Command(sctx, workspace, "echo titan-sandbox-ok").CombinedOutput()
+		cancel()
+		if err != nil || !strings.Contains(string(out), "titan-sandbox-ok") {
+			fmt.Println("FAILED")
+			fmt.Printf("  tier %s could not run a command: %v\n", sb.Tier(), err)
+			if msg := strings.TrimSpace(string(out)); msg != "" {
+				fmt.Printf("  %s\n", msg)
+			}
+			fmt.Println("  The agent's bash tool would fail the same way. Fix the sandbox before relying on it.")
+			return 1
+		}
+		fmt.Printf("ok\n  ran a command under the %s tier\n", sb.Tier())
+	}
+
 	fmt.Println("\nReady.")
 	return 0
 }

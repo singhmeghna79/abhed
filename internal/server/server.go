@@ -62,6 +62,14 @@ type SessionRecorder interface {
 	ListSessions(ctx context.Context, limit int) ([]store.SessionRecord, error)
 }
 
+// SessionResumer is implemented by stores that can hand a finished session
+// to exactly one process for continuation. Without it, a session that ended
+// with a server process stays ended; with it, any node can pick any session
+// up from the record.
+type SessionResumer interface {
+	ClaimResume(ctx context.Context, sessionID string) (bool, error)
+}
+
 type Options struct {
 	Addr      string
 	Workspace string
@@ -599,10 +607,50 @@ func (s *Server) startSession(ctx context.Context, spec startSpec) (string, erro
 	}
 
 	rec := agent.NewRecorder(s.store, sessionID, "")
+	live, loop, err := s.buildLive(sessionID, spec, mode, adapter, registry, skillReg, rec)
+	if err != nil {
+		return "", err
+	}
+
+	runCtx, cancel := context.WithCancel(context.Background())
+	live.Cancel = cancel
+	live.cancel = cancel
+	live.Turns = 1
+
+	s.mu.Lock()
+	s.running[sessionID] = live
+	s.mu.Unlock()
+
+	go func() {
+		defer cancel()
+		reason, err := loop.Run(runCtx, spec.Prompt)
+		live.mu.Lock()
+		live.State = "done"
+		live.mu.Unlock()
+		if spec.OnEnd != nil {
+			spec.OnEnd(reason, err)
+		}
+		if err != nil {
+			s.log.Error("session failed", "session", sessionID, "error", err)
+			return
+		}
+		s.log.Info("session ended", "session", sessionID, "reason", reason)
+	}()
+
+	return sessionID, nil
+}
+
+
+// buildLive constructs the in-process session and its loop: the scoped
+// workspace, the policy from config, the system prompt, the approver. One
+// function for both a new session and a continued one, so the two cannot
+// drift in what they permit.
+func (s *Server) buildLive(sessionID string, spec startSpec, mode string, adapter model.Adapter,
+	registry *tools.Registry, skillReg *skills.Registry, rec *agent.Recorder) (*liveSession, *agent.Loop, error) {
 
 	sess, err := tools.NewSession(s.opts.Workspace)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 	// Extra roots come from the operator's config, applied to every session.
 	// A refusal here is a misconfiguration, not a per-request problem: fail
@@ -614,7 +662,7 @@ func (s *Server) startSession(ctx context.Context, spec startSpec) (string, erro
 	dirs = append(dirs, s.opts.SkillDirs...)
 	for _, dir := range dirs {
 		if err := sess.AddRoot(dir); err != nil {
-			return "", fmt.Errorf("additional_dirs: %w", err)
+			return nil, nil, fmt.Errorf("additional_dirs: %w", err)
 		}
 	}
 
@@ -648,34 +696,100 @@ func (s *Server) startSession(ctx context.Context, spec startSpec) (string, erro
 	loop := agent.NewLoop(adapter, registry, pol, approver, sess, rec, cfg)
 	loop.Compactor = agent.NewCompactor(adapter, cfg.CompactAt)
 	live.Loop = loop
+	return live, loop, nil
+}
 
-	runCtx, cancel := context.WithCancel(context.Background())
-	live.Cancel = cancel
-	live.cancel = cancel
-	live.Turns = 1
+// resumeSession continues a finished session from its record, on this node.
+//
+// The conversation is rebuilt from the event log the same way a fork is, the
+// recorder is advanced past the events already stored, and the store is asked
+// to claim the session so that only one process continues it. The prompt is
+// then applied as a continuation: the turn budget carries over, the policy is
+// the one this deployment runs now, and every new event lands in the same
+// sequence as the old ones. This is what lets a session outlive the process
+// that started it — and, behind a load balancer, the node.
+func (s *Server) resumeSession(ctx context.Context, id string, prompt, user, tenant string) (*liveSession, error) {
+	events, err := s.store.Events(id)
+	if err != nil {
+		return nil, fmt.Errorf("read record: %w", err)
+	}
+	if len(events) == 0 {
+		return nil, errNoSession
+	}
+	// Ownership and mode come from the stored row when there is one.
+	var rec store.SessionRecord
+	if s.sessions != nil {
+		recs, err := s.sessions.ListSessions(ctx, 500)
+		if err != nil {
+			return nil, fmt.Errorf("read sessions: %w", err)
+		}
+		found := false
+		for _, r := range recs {
+			if r.ID == id {
+				rec, found = r, true
+			}
+		}
+		if !found {
+			return nil, errNoSession
+		}
+	}
+	if s.sessions != nil && !ownsSession(rec.Tenant, rec.User, tenant, user) {
+		return nil, errNoSession
+	}
+
+	// Exactly one continuer. A durable store arbitrates; without one there
+	// is only this process, and the live map is the arbiter.
+	if claimer, ok := s.sessions.(SessionResumer); ok {
+		claimed, err := claimer.ClaimResume(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !claimed {
+			return nil, errBusySession
+		}
+	}
+
+	msgs, err := agent.Fork(events, 0)
+	if err != nil {
+		return nil, fmt.Errorf("rebuild conversation: %w", err)
+	}
+	mode, ok := requestMode(s.opts.Config.Permissions.Mode, rec.Mode)
+	if !ok {
+		mode, _ = requestMode(s.opts.Config.Permissions.Mode, "")
+	}
+	registry, skillReg, _ := s.state.snapshot()
+	recorder := agent.NewRecorder(s.store, id, "")
+	recorder.Advance(events[len(events)-1].Seq)
+
+	spec := startSpec{Prompt: rec.Prompt, Mode: mode, User: user, Tenant: tenant}
+	if spec.Prompt == "" {
+		spec.Prompt = prompt
+	}
+	live, loop, err := s.buildLive(id, spec, mode, s.opts.Adapter, registry, skillReg, recorder)
+	if err != nil {
+		return nil, err
+	}
+	loop.SetHistory(msgs, rec.Turns)
+	live.Turns = rec.Turns
+	// Idle until the caller's prompt starts it: postMessage treats a running
+	// session as one to steer, and there is nothing running yet to steer.
+	live.State = "done"
 
 	s.mu.Lock()
-	s.running[sessionID] = live
+	if _, already := s.running[id]; already {
+		s.mu.Unlock()
+		return nil, errBusySession
+	}
+	s.running[id] = live
 	s.mu.Unlock()
-
-	go func() {
-		defer cancel()
-		reason, err := loop.Run(runCtx, spec.Prompt)
-		live.mu.Lock()
-		live.State = "done"
-		live.mu.Unlock()
-		if spec.OnEnd != nil {
-			spec.OnEnd(reason, err)
-		}
-		if err != nil {
-			s.log.Error("session failed", "session", sessionID, "error", err)
-			return
-		}
-		s.log.Info("session ended", "session", sessionID, "reason", reason)
-	}()
-
-	return sessionID, nil
+	s.log.Info("session resumed from record", "session", id, "user", user, "events", len(events))
+	return live, nil
 }
+
+var (
+	errNoSession   = errors.New("session not found")
+	errBusySession = errors.New("session is already running")
+)
 
 type sessionSummary struct {
 	ID      string    `json:"id"`
@@ -921,13 +1035,6 @@ func (s *Server) replaySession(w http.ResponseWriter, r *http.Request) {
 // second message edit what the first one looked at.
 func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	live, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
-	if !ok {
-		writeError(w, http.StatusNotFound,
-			"session not found — it may have ended with this server process")
-		return
-	}
-
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -936,6 +1043,31 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(req.Prompt) == "" {
 		writeError(w, http.StatusBadRequest, "prompt is required")
 		return
+	}
+
+	live, ok := s.session(id, tenantOf(r.Context()), userOf(r.Context()))
+	if !ok {
+		// Not running here is not the end of it. A finished session is
+		// continued from its record — by this process after a restart, or by
+		// another node entirely — provided the caller owns it.
+		if !validSessionID(id) || !s.mayAccess(r, id) {
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		resumed, err := s.resumeSession(r.Context(), id, req.Prompt, userOf(r.Context()), tenantOf(r.Context()))
+		switch {
+		case errors.Is(err, errNoSession):
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		case errors.Is(err, errBusySession):
+			writeError(w, http.StatusConflict, "session is being continued elsewhere")
+			return
+		case err != nil:
+			s.log.Error("resume failed", "session", id, "error", err)
+			writeError(w, http.StatusInternalServerError, "could not continue the session")
+			return
+		}
+		live = resumed
 	}
 
 	live.mu.Lock()

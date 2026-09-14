@@ -415,6 +415,21 @@ pre.code .g{color:#6FD0FF}
 .callout strong{color:var(--ink)}
 .api{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .api code{font-size:12.5px;padding:4px 9px;border-radius:999px}
+
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.tiers{grid-template-columns:1fr}}
+.tiers .card{gap:10px}
+.tiers .card h3{font-size:20px}
+.tiers .price{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1;margin:4px 0 6px}
+.tiers .price span{font-size:14px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:6px}
+.tiers .card p{flex:1}
+.tiers .btn{align-self:flex-start;margin-top:6px}
+.partner{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 28px;border-radius:var(--r);
+  border:1px solid color-mix(in srgb,var(--live-2) 45%,transparent);background:linear-gradient(120deg,color-mix(in srgb,var(--live-2) 12%,var(--surface)),var(--surface) 60%)}
+.partner h3{margin:0 0 6px;font-size:20px}
+.partner p{margin:0;color:var(--ink-2);font-size:15px;max-width:70ch}
+.partner p b{color:var(--ink)}
+@media (max-width:720px){.partner{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 
@@ -431,6 +446,7 @@ pre.code .g{color:#6FD0FF}
       <a href="#install">Install</a>
       <a href="#why" class="hide-sm">Why Titan</a>
       <a href="#harness" class="hide-sm">Harness</a>
+      <a href="#pricing" class="hide-sm">Pricing</a>
       <a href="https://titan.zybuu.com/docs/">Docs</a>
       <a class="btn" href="https://titan.zybuu.com">Open console</a>
     </nav>
@@ -858,7 +874,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>584</b><span>test functions across the engine</span></div>
+      <div><b>586</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
@@ -902,7 +918,9 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
             <td>Sessions live in one process. There is no horizontal scaling
               and no failover; a restart ends running turns. Accounts survive
               it. Transcripts survive it on the <span class="req-pg">Postgres</span>
-              store — on the default in-memory store they do not.</td>
+              store — on the default in-memory store they do not. A finished
+              session can then be continued from its record by any node; a
+              turn that was in flight cannot.</td>
           </tr>
           <tr>
             <td>Postgres only</td>
@@ -933,6 +951,47 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     </div>
   </div>
 </section>
+<section id="pricing">
+  <div class="wrap">
+    <p class="kicker">Pricing</p>
+    <h2>Open core. <span class="hl">Pay for the governed deployment.</span></h2>
+    <p class="sub">
+      The harness, the CLI, the SDK and the audit log are free and will stay
+      free. What an organisation pays for is running it for many people under
+      policy, and someone to call. Launch pricing, per deployment and per seat —
+      never per token, because you run your own models.
+    </p>
+    <div class="tiers">
+      <div class="card">
+        <h3>Community</h3>
+        <div class="price">Free</div>
+        <p>Open source. CLI, SDK, harness, single-tenant server, local accounts, the append-only audit log. Community support.</p>
+        <a class="btn ghost" href="#install">Install it</a>
+      </div>
+      <div class="card">
+        <h3>Team</h3>
+        <div class="price">$49<span>/seat/month</span></div>
+        <p>Multi-user server with OIDC, the admin and access dashboard, access policy, scheduled runs, email support. Self-hosted. Ten-seat minimum, billed yearly.</p>
+        <a class="btn ghost" href="#access">Talk to us</a>
+      </div>
+      <div class="card glow">
+        <h3>Enterprise</h3>
+        <div class="price">$60k<span>/site/year + $79/seat/month</span></div>
+        <p>Everything in Team plus multi-tenant isolation, audit retention and export, the signed air-gap bundle with verification, managed policy, telemetry export, a named support contact and questionnaire support. Air-gapped sites add $25k.</p>
+        <a class="btn" href="#access">Request a conversation</a>
+      </div>
+    </div>
+    <div class="partner">
+      <div>
+        <h3>Design partner · ninety days</h3>
+        <p>Deployment done with you on your infrastructure, a direct line to the founder, roadmap influence, and conversion to Enterprise at a locked price. Three to five partners, in the segments Titan is built for. <b>$25k.</b></p>
+      </div>
+      <a class="btn lg" href="#access">Apply</a>
+    </div>
+    <p class="fine">Prices are launch pricing as of September 2026 and may change before general availability; a signed agreement fixes yours. What Titan does not yet have — certifications, an SLA, high availability — is stated in the limitations above, not hidden in a contract.</p>
+  </div>
+</section>
+
 <section id="access">
   <div class="wrap">
     <div class="cta-band">

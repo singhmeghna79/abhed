@@ -344,6 +344,21 @@ func (p *Postgres) GetSession(ctx context.Context, id string) (SessionRecord, er
 
 var ErrNotFound = errors.New("not found")
 
+// ClaimResume marks a finished session as running again, atomically, so
+// that only one process continues it. It reports false when the session is
+// unknown, deleted, or already running — including when another node claimed
+// it a moment ago, which is the case this exists for: two replicas behind a
+// load balancer must not both continue the same conversation.
+func (p *Postgres) ClaimResume(ctx context.Context, sessionID string) (bool, error) {
+	tag, err := p.pool.Exec(ctx, `
+		UPDATE sessions SET ended_at = NULL, terminal_reason = NULL
+		WHERE id = $1 AND ended_at IS NOT NULL AND deleted_at IS NULL`, sessionID)
+	if err != nil {
+		return false, fmt.Errorf("claim session %s: %w", sessionID, err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // DeleteSession marks a session deleted. The transcript rows stay — the events
 // table refuses DELETE by trigger, and that refusal is a property the
 // deployment promised — but Events, ListSessions and GetSession all treat a
