@@ -97,9 +97,12 @@ deployment, not yet at a customer's.
 through the SDK: they have an agent they cannot ship because of where it would
 run, and Abhed is the shortest path to shipping it.
 
-**Charge** per deployment, annually, by tier — hosted, private, air-gapped —
-with support. The tiers are the same product; what differs is what the
-customer needs proven and who is on the hook for it. Prices are not announced.
+**Charge** per deployment and per seat, annually, by tier — Community,
+Team, Enterprise, with air-gapped delivery as an addition — never per token.
+The tiers are the same product; what differs is what the customer needs
+proven and who is on the hook for it. Launch prices are published on the
+product page (`zybuu.com/abhed/#pricing`) so a buyer can size a purchase
+without a call.
 
 **Expand** with further products on the same infrastructure layer, each
 scoped the way Abhed is (`abhed.zybuu.com`), sharing the store, the identity,

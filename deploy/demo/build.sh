@@ -13,6 +13,12 @@
 # narration, and the demo page says so nowhere because it does not need to —
 # the words are ours; only the reading is a machine's.
 set -euo pipefail
+# A recording takes long enough for the Mac to sleep, and a sleeping Mac
+# stalls Chrome mid-scene: the clip keeps its length while nothing moves.
+# Keep the machine awake for exactly as long as this script runs.
+if command -v caffeinate >/dev/null 2>&1 && [ -z "${DEMO_AWAKE:-}" ]; then
+  DEMO_AWAKE=1 exec caffeinate -dims "$0" "$@"
+fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 OUT="${1:-$ROOT/.demo-build}"
