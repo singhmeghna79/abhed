@@ -842,7 +842,7 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 			fmt.Printf("  %s %v\n", s.Red("✕"), err)
 			return false
 		}
-		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
 			fmt.Printf("  %s %v\n", s.Red("✕"), err)
 			return false
 		}

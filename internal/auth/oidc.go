@@ -230,11 +230,22 @@ func (k jwk) publicKey() (crypto.PublicKey, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &ecdsa.PublicKey{
-			Curve: curve,
-			X:     new(big.Int).SetBytes(x),
-			Y:     new(big.Int).SetBytes(y),
-		}, nil
+		// Uncompressed SEC 1 point: 0x04 || X || Y, each coordinate left-padded
+		// to the curve size. The parser validates the point is on the curve,
+		// which the struct literal it replaces never did.
+		size := (curve.Params().BitSize + 7) / 8
+		if len(x) > size || len(y) > size {
+			return nil, fmt.Errorf("jwk %q: coordinate longer than the curve", k.Kid)
+		}
+		point := make([]byte, 1+2*size)
+		point[0] = 4
+		copy(point[1+size-len(x):], x)
+		copy(point[1+2*size-len(y):], y)
+		pub, err := ecdsa.ParseUncompressedPublicKey(curve, point)
+		if err != nil {
+			return nil, fmt.Errorf("jwk %q: %w", k.Kid, err)
+		}
+		return pub, nil
 	}
 	return nil, fmt.Errorf("unsupported key type %q", k.Kty)
 }

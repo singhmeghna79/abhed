@@ -188,6 +188,20 @@ func (ix *Index) Build(ctx context.Context, opts BuildOptions) error {
 // Update re-indexes a single file, so editing during a session does not require
 // a full rebuild — the property that makes indexing viable at monorepo scale.
 func (ix *Index) Update(ctx context.Context, path string) error {
+	// Callers resolve paths through the session boundary before they get
+	// here, but an exported method should not rely on every future caller
+	// remembering to. The index is scoped to its root; a path outside it is
+	// refused rather than read.
+	if ix.root != "" {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(ix.root, abs)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("index: %s is outside the indexed root", path)
+		}
+	}
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err

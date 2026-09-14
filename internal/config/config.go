@@ -447,7 +447,10 @@ func Default() Config {
 			MaxSubagents: 20, NestedSubagents: false,
 		},
 		Storage: StorageConfig{Driver: "memory", Tenant: "default", MaxConns: 10},
-		Auth:    AuthConfig{Mode: "none"},
+		// Secure by default: a cookie that would travel over plain HTTP has
+		// to be asked for. Browsers accept Secure cookies on localhost, so
+		// local development does not need the exception it used to get.
+		Auth:    AuthConfig{Mode: "none", CookieSecure: true},
 		Sandbox: SandboxConfig{
 			MinTier:      "process",
 			AllowNetwork: false,
@@ -659,7 +662,8 @@ func WriteDefault(path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	// A config can carry keys. Owner-only, like every other file that can.
+	return os.WriteFile(path, append(data, '\n'), 0o600)
 }
 
 // TelemetryConfig exports the event stream as OpenTelemetry traces.

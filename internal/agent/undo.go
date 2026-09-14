@@ -119,7 +119,8 @@ func (u *UndoLog) Undo() ([]string, error) {
 			restored = append(restored, "removed "+filepath.Base(path))
 			continue
 		}
-		if err := os.WriteFile(path, cp.Before, 0o644); err != nil {
+		// A snapshot holds whatever the file held, secrets included: owner-only.
+		if err := os.WriteFile(path, cp.Before, 0o600); err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", path, err))
 			continue
 		}

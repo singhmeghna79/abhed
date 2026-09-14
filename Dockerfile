@@ -15,7 +15,10 @@
 # The Roots check remains, and is now defence in depth rather than the only wall.
 
 # ---------------------------------------------------------------- build stage
-FROM golang:1.26-bookworm AS build
+# Pinned to a patch release on purpose: go.mod names the same one, so the
+# stdlib CVEs govulncheck reports against an older toolchain cannot come back
+# on a day the floating tag happens to resolve differently.
+FROM golang:1.26.8-bookworm AS build
 
 WORKDIR /src
 
@@ -44,6 +47,7 @@ FROM debian:bookworm-slim
 # ca-certificates is required to verify TLS to the model endpoint. git and the
 # rest are what an agent working in a repository actually reaches for.
 RUN apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
       git \
@@ -83,11 +87,14 @@ RUN pip3 install --no-cache-dir --break-system-packages \
       openpyxl==3.1.5 \
       python-pptx==1.0.2 \
       reportlab==4.2.5 \
-      pypdf==5.1.0 \
+      pypdf==6.18.1 \
       matplotlib==3.9.2 \
       graphviz==0.20.3 \
  && python3 -c "import docx, openpyxl, pptx, reportlab, pypdf, matplotlib, graphviz; \
-      print('document writers ready')"
+      print('document writers ready')" \
+ `# pip was only ever needed to install these; leaving it in the image is` \
+ `# attack surface with no job.` \
+ && apt-get purge -y python3-pip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # pypdf is here for READING, not writing, and it earns its place.
 #

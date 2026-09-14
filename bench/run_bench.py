@@ -67,13 +67,33 @@ def fresh_workspace(slug: str, run_dir: Path) -> Path:
     return ws
 
 
+IGNORED_DIR_PARTS = {"__pycache__", ".pytest_cache", ".aider.tags.cache.v4", ".git"}
+IGNORED_FILE_PREFIXES = (".aider",)
+
+
+def _is_ignored(rel_path: str) -> bool:
+    parts = Path(rel_path).parts
+    if any(p in IGNORED_DIR_PARTS for p in parts):
+        return True
+    if parts and parts[0].startswith(IGNORED_FILE_PREFIXES):
+        return True
+    return False
+
+
 def snapshot_files(ws: Path) -> dict:
-    """path -> mtime+size fingerprint, to detect files touched other than <slug>.py."""
+    """path -> mtime+size fingerprint, to detect files touched other than <slug>.py.
+
+    Excludes __pycache__/.pytest_cache/aider metadata: byproducts of running
+    pytest or aider itself, not meaningful "the agent edited another file" signal.
+    """
     out = {}
     for f in ws.rglob("*"):
         if f.is_file():
+            rel = str(f.relative_to(ws))
+            if _is_ignored(rel):
+                continue
             st = f.stat()
-            out[str(f.relative_to(ws))] = (st.st_mtime_ns, st.st_size)
+            out[rel] = (st.st_mtime_ns, st.st_size)
     return out
 
 
@@ -246,6 +266,8 @@ def run_aider(slug: str, run_dir: Path) -> dict:
         str(AIDER_BIN),
         "--model", "ollama_chat/gemma4:26b",
         "--yes-always", "--no-auto-commits", "--no-git",
+        "--read", "INSTRUCTIONS.md",
+        "--read", f"{mod}_test.py",
         "--message", prompt_for(slug),
         f"{mod}.py",
     ]
