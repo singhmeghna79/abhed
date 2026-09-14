@@ -3,13 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abhed — the agent harness for work that cannot leave the building</title>
-<meta name="description" content="Abhed is a deep agent harness: five run surfaces, twenty model providers behind one abstraction, a tiered execution sandbox and a replayable audit trail. It runs on your own hardware against a model you host.">
-<meta property="og:title" content="Abhed — an agent harness that runs where your data cannot leave">
-<meta property="og:description" content="Five run surfaces, twenty providers, policy and audit that hold when embedded.">
+<title>Abhed — On-prem, air-gap-capable AI agent harness | Zybuu</title>
+<meta name="description" content="Abhed is an Apache-2.0 agent harness for your own hardware, air-gapped if needed: twenty model providers, a tiered execution sandbox, absolute deny rules, a replayable audit log, a CLI, a server with a console and a Go SDK.">
+<link rel="canonical" href="https://zybuu.com/abhed/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:site_name" content="Zybuu">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://zybuu.com/abhed/">
+<meta property="og:title" content="Abhed — the agent harness for work that cannot leave the building">
+<meta property="og:description" content="On-prem and air-gap capable. Twenty model providers, a tiered sandbox, absolute deny rules and a replayable audit log — CLI, server and Go SDK.">
+<meta property="og:image" content="https://zybuu.com/media/og-abhed.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Abhed: the agent harness for work that cannot leave the building">
+<meta property="og:locale" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Abhed — the agent harness for work that cannot leave the building">
+<meta name="twitter:description" content="On-prem and air-gap capable. Twenty model providers, a tiered sandbox, absolute deny rules and a replayable audit log — CLI, server and Go SDK.">
+<meta name="twitter:image" content="https://zybuu.com/media/og-abhed.png">
+<meta name="twitter:image:alt" content="Abhed: the agent harness for work that cannot leave the building">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22zt%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2250%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22zl%22%20cx=%2222%25%22%20cy=%2218%25%22%20r=%2280%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%22.26%22/%3E%20%3Cstop%20offset=%2260%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3Cmask%20id=%22zcut%22%3E%20%3Crect%20width=%22256%22%20height=%22256%22%20fill=%22%23fff%22/%3E%20%3Cg%20fill=%22%23000%22%3E%20%3Crect%20x=%2270%22%20y=%2262%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Crect%20x=%2260%22%20y=%22160%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Cpath%20d=%22M156%2096%20H200%20L100%20160%20H56%20Z%22/%3E%20%3C/g%3E%20%3C/mask%3E%20%3C/defs%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zt)%22%20mask=%22url(%23zcut)%22/%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zl)%22%20mask=%22url(%23zcut)%22/%3E%20%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -431,6 +443,141 @@ pre.code .g{color:#6FD0FF}
 .partner p b{color:var(--ink)}
 @media (max-width:720px){.partner{flex-direction:column;align-items:flex-start}}
 </style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "SoftwareApplication",
+   "@id": "https://zybuu.com/abhed/#software",
+   "name": "Abhed",
+   "url": "https://zybuu.com/abhed/",
+   "image": "https://zybuu.com/media/og-abhed.png",
+   "applicationCategory": "DeveloperApplication",
+   "applicationSubCategory": "AI agent harness",
+   "operatingSystem": "Linux, macOS",
+   "programmingLanguage": "Go",
+   "license": "https://www.apache.org/licenses/LICENSE-2.0",
+   "isAccessibleForFree": true,
+   "description": "Abhed is a deep agent harness: the loop, the tool contracts, the permission engine and the sandbox. It runs on your own hardware, against a model you host — one static binary, from a laptop to an air-gapped rack, with a signed offline bundle for the rack. Twenty model providers behind one abstraction, a tiered execution sandbox, absolute deny rules, an append-only replayable audit log, and a Go SDK. Five run surfaces: interactive CLI, headless, JSON output, JSONL RPC, and a multi-user server with a web console.",
+   "featureList": [
+    "Runs where the data is: one static binary, from a laptop to an air-gapped rack, with a signed offline bundle",
+    "Runs any model: twenty providers over three wire formats, including a model on your own GPUs",
+    "Sandboxed by default, inside a boundary the operator sets and the agent cannot lift",
+    "Every action on the record: an append-only event log, replayable step by step, exportable as OpenTelemetry traces",
+    "Embeds through a Go SDK; the console is a reference application built on it",
+    "Extensions, skills and MCP servers for the parts that should be yours",
+    "Deny rules are absolute and hold in every permission mode"
+   ],
+   "softwareHelp": {
+    "@type": "CreativeWork",
+    "name": "Abhed documentation",
+    "url": "https://abhed.zybuu.com/docs/"
+   },
+   "publisher": {
+    "@id": "https://zybuu.com/#organization"
+   },
+   "author": {
+    "@id": "https://zybuu.com/#organization"
+   },
+   "offers": [
+    {
+     "@type": "Offer",
+     "name": "Community",
+     "url": "https://zybuu.com/abhed/#pricing",
+     "price": "0",
+     "priceCurrency": "USD",
+     "description": "Open source. CLI, SDK, harness, single-tenant server, local accounts, the append-only audit log. Community support."
+    },
+    {
+     "@type": "Offer",
+     "name": "Team",
+     "url": "https://zybuu.com/abhed/#pricing",
+     "priceCurrency": "USD",
+     "priceSpecification": {
+      "@type": "UnitPriceSpecification",
+      "price": "49",
+      "priceCurrency": "USD",
+      "unitText": "per seat per month",
+      "billingDuration": "P1Y"
+     },
+     "eligibleQuantity": {
+      "@type": "QuantitativeValue",
+      "minValue": 10,
+      "unitText": "seats"
+     },
+     "description": "Multi-user server with OIDC, the admin and access dashboard, access policy, scheduled runs, email support. Self-hosted. Ten-seat minimum, billed yearly."
+    },
+    {
+     "@type": "Offer",
+     "name": "Enterprise",
+     "url": "https://zybuu.com/abhed/#pricing",
+     "priceCurrency": "USD",
+     "priceSpecification": [
+      {
+       "@type": "UnitPriceSpecification",
+       "price": "60000",
+       "priceCurrency": "USD",
+       "unitText": "per site per year"
+      },
+      {
+       "@type": "UnitPriceSpecification",
+       "price": "79",
+       "priceCurrency": "USD",
+       "unitText": "per seat per month"
+      },
+      {
+       "@type": "UnitPriceSpecification",
+       "price": "25000",
+       "priceCurrency": "USD",
+       "unitText": "per air-gapped site, added to the site price"
+      }
+     ],
+     "description": "Everything in Team plus multi-tenant isolation, audit retention and export, the signed air-gap bundle with verification, managed policy, telemetry export, a named support contact and questionnaire support."
+    },
+    {
+     "@type": "Offer",
+     "name": "Design partner",
+     "url": "https://zybuu.com/abhed/#pricing",
+     "price": "25000",
+     "priceCurrency": "USD",
+     "description": "Ninety days. Deployment done with you on your infrastructure, a direct line to the founder, roadmap influence, and conversion to Enterprise at a locked price. Three to five partners."
+    }
+   ]
+  },
+  {
+   "@type": "Organization",
+   "@id": "https://zybuu.com/#organization",
+   "name": "Zybuu",
+   "url": "https://zybuu.com/",
+   "logo": {
+    "@type": "ImageObject",
+    "url": "https://zybuu.com/media/zybuu-mark.png",
+    "width": 512,
+    "height": 512
+   },
+   "email": "support@zybuu.com"
+  },
+  {
+   "@type": "BreadcrumbList",
+   "itemListElement": [
+    {
+     "@type": "ListItem",
+     "position": 1,
+     "name": "Zybuu",
+     "item": "https://zybuu.com/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
+     "name": "Abhed",
+     "item": "https://zybuu.com/abhed/"
+    }
+   ]
+  }
+ ]
+}
+</script>
 </head>
 
 <body>
@@ -508,27 +655,27 @@ pre.code .g{color:#6FD0FF}
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></div>
         <h3>Runs where the data is</h3>
-        <p>One static binary, from a laptop to an air-gapped rack, with a signed offline bundle for the rack.</p>
+        <p>One static binary, from a laptop to an air-gapped rack, with a <a href="https://abhed.zybuu.com/docs/ops/air-gap">signed offline bundle</a> for the rack.</p>
       </div>
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/></svg></div>
         <h3>Runs any model</h3>
-        <p>Twenty providers over three wire formats, including the one on your own GPUs. Changing vendors is a line of config.</p>
+        <p><a href="https://abhed.zybuu.com/docs/guide/03-providers">Twenty providers</a> over three wire formats, including the one on your own GPUs. Changing vendors is a line of config.</p>
       </div>
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
         <h3>Sandboxed by default</h3>
-        <p>Inside a boundary the operator sets and the agent cannot lift, with an approval policy the operator owns.</p>
+        <p>Inside a boundary the operator sets and the agent cannot lift, with an <a href="https://abhed.zybuu.com/docs/guide/04-permissions">approval policy</a> the operator owns.</p>
       </div>
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg></div>
         <h3>Every action on the record</h3>
-        <p>An append-only event log, replayable step by step, with every approval and refusal and who made it. Exportable as traces.</p>
+        <p>An append-only event log, replayable step by step, with every approval and refusal and who made it. <a href="https://abhed.zybuu.com/docs/guide/12-observability">Exportable as traces</a>.</p>
       </div>
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg></div>
         <h3>Embeds without weakening</h3>
-        <p>The SDK gives a program the same loop with the same guarantees. The console is a reference app built on it.</p>
+        <p><a href="https://abhed.zybuu.com/docs/guide/09-sdk">The SDK</a> gives a program the same loop with the same guarantees. The console is a reference app built on it.</p>
       </div>
     </div>
   </div>
@@ -726,7 +873,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <div class="grid">
       <div class="card">
         <h3>Extensions</h3>
-        <p>Separate processes speaking JSONL, in any language, on seven live events —
+        <p><a href="https://abhed.zybuu.com/docs/guide/07-extensions">Separate processes speaking JSONL</a>, in any language, on seven live events —
           tool calls, results, context, compaction, agent start, tool listing
           and invocation. They may <strong>veto,
           never permit</strong>: an extension that could grant permission could
@@ -734,14 +881,14 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       </div>
       <div class="card">
         <h3>Skills</h3>
-        <p>A directory with a procedure in it. Only the name and description
+        <p><a href="https://abhed.zybuu.com/docs/guide/06-skills">A directory with a procedure in it</a>. Only the name and description
           reach the prompt — about fifteen tokens each — and the body is fetched
           when the agent decides it applies. A skill may also declare a pipeline
           the harness executes rather than asks the model to follow.</p>
       </div>
       <div class="card">
         <h3>MCP</h3>
-        <p>Registered servers only, disabled until explicitly enabled, with an
+        <p><a href="https://abhed.zybuu.com/docs/guide/08-mcp">Registered servers only</a>, disabled until explicitly enabled, with an
           optional tool allowlist, and credentials read from the environment
           rather than a config file. Discovery does not imply trust.</p>
       </div>
@@ -761,7 +908,9 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <p class="body" style="margin-bottom:24px">
       Most of what an agent harness offers can be added later as an extension.
       Two things cannot: a log you can replay, and an isolation boundary the
-      database enforces. Both have to be in the core, which is where these are.
+      database enforces. Both have to be in the core, which is where these are. How the record is built is in the
+      <a href="https://abhed.zybuu.com/docs/architecture/10-data-model">data model</a>; what a security reviewer will ask is answered in the
+      <a href="https://abhed.zybuu.com/docs/trust/security-posture">security posture</a>.
     </p>
     <p class="body" style="margin-bottom:24px">
       <strong>They are not on by default.</strong> Abhed ships with an
@@ -898,7 +1047,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       The suite is small and single-file, and says nothing about multi-file
       work. Method, per-task table, and the mid-run correction to the aider
       invocation are all in
-      <a href="/docs/benchmarks/results.html">the benchmark results</a>; the raw
+      <a href="https://abhed.zybuu.com/docs/benchmarks/results">the benchmark results</a>; the raw
       run records are in the repository, and the figures above are recomputed
       from them by the site tests, never typed in.
     </p>
