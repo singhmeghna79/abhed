@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // providedTool is a tool an extension supplies, adapted to the tool interface.
@@ -90,7 +90,7 @@ func (h *Host) Tools(ctx context.Context) ([]tools.Tool, []error) {
 			}
 			seen[def.Name] = e.Name()
 
-			// Titan cannot know what someone else's tool does, so an
+			// Abhed cannot know what someone else's tool does, so an
 			// unspecified tool is assumed to mutate: that routes it through
 			// approval rather than letting it run unattended.
 			mutates := true

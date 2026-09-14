@@ -8,7 +8,7 @@ import (
 
 // Think must be omitted entirely when unset, not sent as false. A server that
 // defaults to thinking on would otherwise have it silently disabled by every
-// Titan request, which is a behaviour change nobody asked for.
+// Abhed request, which is a behaviour change nobody asked for.
 func TestThinkOmittedWhenUnset(t *testing.T) {
 	c := NewOpenAICompatible("http://x/v1", "", "m", Profile{})
 	body, err := json.Marshal(c.buildRequest(Request{

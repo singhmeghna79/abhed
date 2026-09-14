@@ -12,7 +12,7 @@ func tools() []ToolDef {
 	}
 }
 
-// The exact text qwen3-coder:30b emitted under Titan's system prompt, which
+// The exact text qwen3-coder:30b emitted under Abhed's system prompt, which
 // ended the session after one turn with no work done.
 func TestSalvageQwenFunctionSyntax(t *testing.T) {
 	text := "I'll review this codebase.\n\n<function=glob>\n<parameter=pattern>\n**\n</parameter>\n</function>\n</tool_call>"

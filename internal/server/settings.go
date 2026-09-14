@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/mcp"
-	"github.com/yuvrajsingh/titan/internal/skills"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/mcp"
+	"github.com/yuvrajsingh/abhed/internal/skills"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Changing what the agent can do, without a restart.

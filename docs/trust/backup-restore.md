@@ -19,18 +19,18 @@ below — this document describes the mechanism, not a running schedule.
 
 Two things, both named in `deploy/run.sh`:
 
-1. **The database**, via `pg_dump` from the `titan-db` container, connecting
-   as `titan_admin` (the provisioning superuser — see
+1. **The database**, via `pg_dump` from the `abhed-db` container, connecting
+   as `abhed_admin` (the provisioning superuser — see
    `docs/trust/security-posture.md` for why the application itself never
    connects this way).
 2. **The two named volumes** the container engine manages directly:
-   - `titan-workspace` (`$TITAN_VOLUME`) — the files the agent reads and
+   - `abhed-workspace` (`$ABHED_VOLUME`) — the files the agent reads and
      writes.
-   - `titan-state` (`$TITAN_STATE_VOLUME`) — account and session state kept
+   - `abhed-state` (`$ABHED_STATE_VOLUME`) — account and session state kept
      outside the workspace (`deploy/run.sh`'s comment: "Accounts live on
      their own volume rather than in the workspace").
 
-   `titan-db-data` (`$TITAN_DB_VOLUME`), the Postgres data directory itself,
+   `abhed-db-data` (`$ABHED_DB_VOLUME`), the Postgres data directory itself,
    is what `pg_dump` reads from live and does not need a separate raw-volume
    backup if the `pg_dump` step runs — a logical dump is the recommended
    path because it is consistent and version-portable, where a raw copy of
@@ -39,27 +39,27 @@ Two things, both named in `deploy/run.sh`:
 ## How to back up
 
 ```bash
-# 1. Database — logical dump via pg_dump, run inside the titan-db container.
-podman exec -t titan-db pg_dump -U titan_admin -d titan \
-  --format=custom --file=/tmp/titan-$(date +%F).dump
-podman cp titan-db:/tmp/titan-$(date +%F).dump ./backups/
+# 1. Database — logical dump via pg_dump, run inside the abhed-db container.
+podman exec -t abhed-db pg_dump -U abhed_admin -d abhed \
+  --format=custom --file=/tmp/abhed-$(date +%F).dump
+podman cp abhed-db:/tmp/abhed-$(date +%F).dump ./backups/
 
 # 2. Workspace and state volumes — a throwaway helper container tars each
 #    volume's contents; no dedicated backup tooling exists, so this is the
 #    same pattern deploy/run.sh itself uses for one-off container work.
 podman run --rm \
-  --volume titan-workspace:/data:ro \
+  --volume abhed-workspace:/data:ro \
   --volume "$(pwd)/backups":/backup \
-  docker.io/library/alpine tar czf /backup/titan-workspace-$(date +%F).tgz -C /data .
+  docker.io/library/alpine tar czf /backup/abhed-workspace-$(date +%F).tgz -C /data .
 
 podman run --rm \
-  --volume titan-state:/data:ro \
+  --volume abhed-state:/data:ro \
   --volume "$(pwd)/backups":/backup \
-  docker.io/library/alpine tar czf /backup/titan-state-$(date +%F).tgz -C /data .
+  docker.io/library/alpine tar czf /backup/abhed-state-$(date +%F).tgz -C /data .
 ```
 
 Substitute `docker` for `podman` if that is the runtime in use — `run.sh`
-itself is written to accept either via `TITAN_RUNTIME`.
+itself is written to accept either via `ABHED_RUNTIME`.
 
 `deploy/.db-password` and `deploy/.db-admin-password` are not part of this
 backup by design: they are regenerable secrets, not data, and a backup
@@ -69,30 +69,30 @@ archive is a worse place for a database credential than the mode-0600 file
 ## Restore order
 
 Order matters because the server applies its schema on connect
-(`deploy/run.sh`'s comment: "Titan applies its schema on connect
+(`deploy/run.sh`'s comment: "Abhed applies its schema on connect
 (internal/store/postgres.go), but only once the server is actually accepting
 connections"):
 
-1. **Bring up a fresh `titan-db` container** against empty
-   `titan-db-data`/replacement volumes, and let `deploy/run.sh` provision
-   `titan_admin`/`titan_app` as it normally does on first run.
-2. **Restore the database** into it, before starting the Titan server:
+1. **Bring up a fresh `abhed-db` container** against empty
+   `abhed-db-data`/replacement volumes, and let `deploy/run.sh` provision
+   `abhed_admin`/`abhed_app` as it normally does on first run.
+2. **Restore the database** into it, before starting the Abhed server:
    ```bash
-   podman cp ./backups/titan-2026-09-14.dump titan-db:/tmp/restore.dump
-   podman exec -t titan-db pg_restore -U titan_admin -d titan \
+   podman cp ./backups/abhed-2026-09-14.dump abhed-db:/tmp/restore.dump
+   podman exec -t abhed-db pg_restore -U abhed_admin -d abhed \
      --clean --if-exists /tmp/restore.dump
    ```
-3. **Restore the workspace and state volumes** before the Titan container
+3. **Restore the workspace and state volumes** before the Abhed container
    starts, so it never observes a partially-restored workspace:
    ```bash
    podman run --rm \
-     --volume titan-workspace:/data \
+     --volume abhed-workspace:/data \
      --volume "$(pwd)/backups":/backup \
-     docker.io/library/alpine sh -c "rm -rf /data/* && tar xzf /backup/titan-workspace-2026-09-14.tgz -C /data"
-   # repeat for titan-state
+     docker.io/library/alpine sh -c "rm -rf /data/* && tar xzf /backup/abhed-workspace-2026-09-14.tgz -C /data"
+   # repeat for abhed-state
    ```
-4. **Start Titan** (`./deploy/run.sh serve -addr 0.0.0.0:8080`) only after
-   steps 2 and 3 complete, and confirm with `titan doctor` and the
+4. **Start Abhed** (`./deploy/run.sh serve -addr 0.0.0.0:8080`) only after
+   steps 2 and 3 complete, and confirm with `abhed doctor` and the
    `/v1/health` endpoint per `deploy/GO-LIVE.md`'s verify steps.
 5. **Re-run `deploy/set-access-email.sh`** if Pages secrets
    (`RESEND_API_KEY`, `ACCESS_TO`) were part of what was lost — they live in

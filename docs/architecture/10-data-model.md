@@ -1,4 +1,4 @@
-# Titan — Data Model & API
+# Abhed — Data Model & API
 
 Status: Draft · 2026-09-02 · Evidence status: [E], structured by P6 (event sourcing).
 
@@ -139,7 +139,7 @@ Wire format:
 
 ## 4. Model adapter interface
 
-The single seam that makes Titan model-agnostic (arch §5, P12).
+The single seam that makes Abhed model-agnostic (arch §5, P12).
 
 ```go
 type Adapter interface {
@@ -176,7 +176,7 @@ yourself forking the *prompt* per model, the difference belongs here instead.
 ## 5. Configuration
 
 ```yaml
-# ~/.titan/config.yaml  or  /etc/titan/config.yaml (managed, wins)
+# ~/.abhed/config.yaml  or  /etc/abhed/config.yaml (managed, wins)
 model:
   default: local-qwen
   providers:
@@ -184,7 +184,7 @@ model:
       type: openai-compatible          # works with vLLM, SGLang, llama.cpp, Ollama...
       base_url: http://localhost:8000/v1
       model: Qwen/Qwen3-32B
-      api_key_env: TITAN_API_KEY
+      api_key_env: ABHED_API_KEY
       context_window: 131072
       tool_call_format: json
 permissions:
@@ -193,14 +193,14 @@ permissions:
   allow: ["bash(git status)", "bash(go test*)", "read(**)"]
 context:
   compact_at: 0.90
-  memory_files: [TITAN.md, TITAN.local.md]
+  memory_files: [ABHED.md, ABHED.local.md]
 limits:
   max_turns: 100
   max_subagents: 20
   nested_subagents: false
 ```
 
-Precedence: managed (`/etc/titan`) → project → user → flags. **Managed always wins** — that
+Precedence: managed (`/etc/abhed`) → project → user → flags. **Managed always wins** — that
 asymmetry is what makes org policy enforceable (P7).
 
 The `openai-compatible` provider type is deliberately the primary path: it covers vLLM,

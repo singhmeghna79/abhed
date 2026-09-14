@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/auth"
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 type stubAdapter struct{}
@@ -40,7 +40,7 @@ func testServer(t *testing.T) *Server {
 	})
 }
 
-// proxyServer trusts X-Titan-* headers, the deployment shape where a trusted
+// proxyServer trusts X-Abhed-* headers, the deployment shape where a trusted
 // reverse proxy has already authenticated the caller.
 func proxyServer(t *testing.T) *Server {
 	t.Helper()
@@ -86,7 +86,7 @@ func TestTenantIsolation(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/sessions", strings.NewReader(`{"prompt":"work"}`))
-	req.Header.Set("X-Titan-Tenant", "acme")
+	req.Header.Set("X-Abhed-Tenant", "acme")
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("create failed: %d %s", rec.Code, rec.Body)
@@ -97,7 +97,7 @@ func TestTenantIsolation(t *testing.T) {
 	// Same tenant sees it.
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/v1/sessions", nil)
-	req.Header.Set("X-Titan-Tenant", "acme")
+	req.Header.Set("X-Abhed-Tenant", "acme")
 	h.ServeHTTP(rec, req)
 	var mine []sessionSummary
 	json.Unmarshal(rec.Body.Bytes(), &mine)
@@ -108,7 +108,7 @@ func TestTenantIsolation(t *testing.T) {
 	// Another tenant does not.
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/v1/sessions", nil)
-	req.Header.Set("X-Titan-Tenant", "other")
+	req.Header.Set("X-Abhed-Tenant", "other")
 	h.ServeHTTP(rec, req)
 	var theirs []sessionSummary
 	json.Unmarshal(rec.Body.Bytes(), &theirs)
@@ -119,7 +119,7 @@ func TestTenantIsolation(t *testing.T) {
 	// And cannot replay it either.
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/v1/sessions/"+created.SessionID+"/replay", nil)
-	req.Header.Set("X-Titan-Tenant", "other")
+	req.Header.Set("X-Abhed-Tenant", "other")
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("cross-tenant replay must 404, got %d", rec.Code)
@@ -186,8 +186,8 @@ func TestHeadersIgnoredWhenAuthModeIsNone(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/sessions", strings.NewReader(`{"prompt":"x"}`))
-	req.Header.Set("X-Titan-Tenant", "attacker-chosen")
-	req.Header.Set("X-Titan-User", "impersonated")
+	req.Header.Set("X-Abhed-Tenant", "attacker-chosen")
+	req.Header.Set("X-Abhed-User", "impersonated")
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("create failed: %d", rec.Code)
@@ -195,7 +195,7 @@ func TestHeadersIgnoredWhenAuthModeIsNone(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/v1/sessions", nil)
-	req.Header.Set("X-Titan-Tenant", "attacker-chosen")
+	req.Header.Set("X-Abhed-Tenant", "attacker-chosen")
 	h.ServeHTTP(rec, req)
 	var list []sessionSummary
 	json.Unmarshal(rec.Body.Bytes(), &list)
@@ -330,7 +330,7 @@ func TestLandingIsPublicAndDescribesTheDeployment(t *testing.T) {
 		t.Fatalf("landing returned %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"<title>Titan", "/v1/overview", "This deployment"} {
+	for _, want := range []string{"<title>Abhed", "/v1/overview", "This deployment"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("landing page missing %q", want)
 		}
@@ -384,14 +384,14 @@ func TestOverviewOffersSignInWhenConfigured(t *testing.T) {
 	cfg := config.Default()
 	cfg.Auth.Mode = "oidc"
 	cfg.Auth.Issuer = idp.URL
-	cfg.Auth.Audience = "titan"
+	cfg.Auth.Audience = "abhed"
 
-	v, err := auth.NewVerifier(auth.Config{Issuer: idp.URL, Audience: "titan"})
+	v, err := auth.NewVerifier(auth.Config{Issuer: idp.URL, Audience: "abhed"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	lg, err := auth.NewLogin(auth.LoginConfig{
-		Issuer: idp.URL, ClientID: "titan-console",
+		Issuer: idp.URL, ClientID: "abhed-console",
 		RedirectURL: "http://localhost:8420/auth/callback",
 	}, v)
 	if err != nil {

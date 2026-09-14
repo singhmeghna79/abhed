@@ -1,6 +1,6 @@
 // Package telemetry exports the event stream as OpenTelemetry traces.
 //
-// A Titan session is already an ordered, append-only log of everything the
+// A Abhed session is already an ordered, append-only log of everything the
 // agent did. That log is the audit trail; this package is the same facts in
 // the shape observability tooling expects: one trace per session, a span per
 // tool call and per subagent, with tokens, exit codes and denials attached.
@@ -27,14 +27,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 // Config is the operator's side of the exporter.
 type Config struct {
 	Endpoint    string            // OTLP/HTTP base; /v1/traces is appended
 	Headers     map[string]string // sent on every export
-	ServiceName string            // resource attribute; defaults to "titan"
+	ServiceName string            // resource attribute; defaults to "abhed"
 
 	// FlushEvery and MaxBatch bound how long a span waits and how many go
 	// out together. Both have sensible defaults.
@@ -88,7 +88,7 @@ type spanEvent struct {
 // New starts an exporter. Close it to flush what remains.
 func New(cfg Config) *Exporter {
 	if cfg.ServiceName == "" {
-		cfg.ServiceName = "titan"
+		cfg.ServiceName = "abhed"
 	}
 	if cfg.FlushEvery <= 0 {
 		cfg.FlushEvery = 2 * time.Second
@@ -192,21 +192,21 @@ func (e *Exporter) handle(ev agent.Event) {
 	case agent.EvSessionStarted:
 		sp := &span{
 			TraceID: tid, SpanID: spanID("session", ev.SessionID),
-			Name: "titan.session", Kind: 1, Start: ev.CreatedAt,
+			Name: "abhed.session", Kind: 1, Start: ev.CreatedAt,
 			Attrs: map[string]any{
-				"titan.session.id": ev.SessionID,
+				"abhed.session.id": ev.SessionID,
 			},
 		}
 		if ev.ParentID != "" {
 			sp.ParentID = spanID("session", ev.ParentID)
-			sp.Name = "titan.subagent"
-			sp.Attrs["titan.session.parent"] = ev.ParentID
+			sp.Name = "abhed.subagent"
+			sp.Attrs["abhed.session.parent"] = ev.ParentID
 		}
 		var p map[string]any
 		if json.Unmarshal(ev.Payload, &p) == nil {
 			for _, k := range []string{"model", "provider", "mode", "workspace", "tenant"} {
 				if v, ok := p[k]; ok {
-					sp.Attrs["titan."+k] = v
+					sp.Attrs["abhed."+k] = v
 				}
 			}
 		}
@@ -222,13 +222,13 @@ func (e *Exporter) handle(ev agent.Event) {
 			ParentID: spanID("session", ev.SessionID),
 			Name:     "tool." + p.Tool, Kind: 3, Start: ev.CreatedAt,
 			Attrs: map[string]any{
-				"titan.tool":              p.Tool,
-				"titan.call.id":           p.CallID,
-				"titan.requires_approval": p.RequiresApproval,
+				"abhed.tool":              p.Tool,
+				"abhed.call.id":           p.CallID,
+				"abhed.requires_approval": p.RequiresApproval,
 			},
 		}
 		if len(p.Args) > 0 && len(p.Args) <= 2048 {
-			sp.Attrs["titan.tool.args"] = string(p.Args)
+			sp.Attrs["abhed.tool.args"] = string(p.Args)
 		}
 		e.open["c:"+ev.SessionID+":"+p.CallID] = sp
 
@@ -244,12 +244,12 @@ func (e *Exporter) handle(ev agent.Event) {
 		if sp == nil {
 			sp = &span{TraceID: tid, SpanID: spanID("call", ev.SessionID, p.CallID),
 				ParentID: spanID("session", ev.SessionID), Name: "tool." + p.Tool,
-				Kind: 3, Start: ev.CreatedAt, Attrs: map[string]any{"titan.tool": p.Tool}}
+				Kind: 3, Start: ev.CreatedAt, Attrs: map[string]any{"abhed.tool": p.Tool}}
 		}
 		sp.End = ev.CreatedAt
 		sp.Status, sp.StatusMsg = 2, "denied: "+p.Reason
-		sp.Attrs["titan.denied"] = true
-		sp.Attrs["titan.denied.reason"] = p.Reason
+		sp.Attrs["abhed.denied"] = true
+		sp.Attrs["abhed.denied.reason"] = p.Reason
 		delete(e.open, key)
 		e.out = append(e.out, sp)
 
@@ -266,13 +266,13 @@ func (e *Exporter) handle(ev agent.Event) {
 			sp = &span{TraceID: tid, SpanID: spanID("call", ev.SessionID, p.CallID),
 				ParentID: spanID("session", ev.SessionID), Name: "tool." + p.Tool,
 				Kind: 3, Start: ev.CreatedAt.Add(-time.Duration(p.DurationMS) * time.Millisecond),
-				Attrs: map[string]any{"titan.tool": p.Tool}}
+				Attrs: map[string]any{"abhed.tool": p.Tool}}
 		}
 		sp.End = ev.CreatedAt
-		sp.Attrs["titan.tool.duration_ms"] = p.DurationMS
-		sp.Attrs["titan.tool.truncated"] = p.Truncated
+		sp.Attrs["abhed.tool.duration_ms"] = p.DurationMS
+		sp.Attrs["abhed.tool.truncated"] = p.Truncated
 		if p.ExitCode != nil {
-			sp.Attrs["titan.tool.exit_code"] = *p.ExitCode
+			sp.Attrs["abhed.tool.exit_code"] = *p.ExitCode
 		}
 		if p.IsError {
 			sp.Status, sp.StatusMsg = 2, firstLine(p.Content)
@@ -297,12 +297,12 @@ func (e *Exporter) handle(ev agent.Event) {
 		var p agent.SessionEnded
 		_ = json.Unmarshal(ev.Payload, &p)
 		root.End = ev.CreatedAt
-		root.Attrs["titan.turns"] = p.Turns
-		root.Attrs["titan.tokens.in"] = p.TokensIn
-		root.Attrs["titan.tokens.out"] = p.TokensOut
-		root.Attrs["titan.tokens.cached"] = p.TokensCached
-		root.Attrs["titan.compactions"] = p.Compactions
-		root.Attrs["titan.reason"] = string(p.Reason)
+		root.Attrs["abhed.turns"] = p.Turns
+		root.Attrs["abhed.tokens.in"] = p.TokensIn
+		root.Attrs["abhed.tokens.out"] = p.TokensOut
+		root.Attrs["abhed.tokens.cached"] = p.TokensCached
+		root.Attrs["abhed.compactions"] = p.Compactions
+		root.Attrs["abhed.reason"] = string(p.Reason)
 		if strings.Contains(strings.ToLower(string(p.Reason)), "error") {
 			root.Status, root.StatusMsg = 2, string(p.Reason)
 		} else {
@@ -330,7 +330,7 @@ func (e *Exporter) finishAll() {
 	now := time.Now().UTC()
 	for k, sp := range e.open {
 		sp.End = now
-		sp.Attrs["titan.unfinished"] = true
+		sp.Attrs["abhed.unfinished"] = true
 		e.out = append(e.out, sp)
 		delete(e.open, k)
 	}
@@ -412,7 +412,7 @@ func (e *Exporter) otlp(batch []*span) map[string]any {
 				"service.name": e.cfg.ServiceName,
 			})},
 			"scopeSpans": []map[string]any{{
-				"scope": map[string]any{"name": "titan"},
+				"scope": map[string]any{"name": "abhed"},
 				"spans": spans,
 			}},
 		}},

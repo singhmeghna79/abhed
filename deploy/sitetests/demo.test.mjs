@@ -21,7 +21,7 @@ const ASSETS = {
   fetch: async (req) => {
     const u = new URL(req.url);
     if (u.pathname === "/demo/" || u.pathname === "/demo/index.html") return new Response("<video>", { status: 200, headers: { "Content-Type": "text/html" } });
-    if (u.pathname === "/demo/titan-demo.mp4") return new Response("mp4", { status: 200, headers: { "Content-Type": "video/mp4" } });
+    if (u.pathname === "/demo/abhed-demo.mp4") return new Response("mp4", { status: 200, headers: { "Content-Type": "video/mp4" } });
     return new Response("nope", { status: 404 });
   },
 };
@@ -48,9 +48,9 @@ t("valid token → no-store", good.headers.get("Cache-Control"), "private, no-st
 const cookie = good.headers.get("Set-Cookie") || "";
 t("valid token → cookie scoped to /demo", /zb_demo=.*; Path=\/demo;.*HttpOnly; SameSite=Lax/.test(cookie), true);
 const tok = decodeURIComponent(/zb_demo=([^;]+)/.exec(cookie)[1]);
-t("cookie alone → video served", (await onRequest({ request: req("/demo/titan-demo.mp4", { Cookie: "zb_demo=" + tok }), env })).status, 200);
+t("cookie alone → video served", (await onRequest({ request: req("/demo/abhed-demo.mp4", { Cookie: "zb_demo=" + tok }), env })).status, 200);
 t("cookie alone → missing file → 404", (await onRequest({ request: req("/demo/none.txt", { Cookie: "zb_demo=" + tok }), env })).status, 404);
-t("expired cookie → 403", (await onRequest({ request: req("/demo/titan-demo.mp4", { Cookie: "zb_demo=" + sign(past) }), env })).status, 403);
+t("expired cookie → 403", (await onRequest({ request: req("/demo/abhed-demo.mp4", { Cookie: "zb_demo=" + sign(past) }), env })).status, 403);
 
 // The shell script and the function agree on the token format.
 import { execFileSync } from "node:child_process";

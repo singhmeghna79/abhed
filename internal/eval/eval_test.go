@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 func TestCorpusLoads(t *testing.T) {

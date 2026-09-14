@@ -108,16 +108,16 @@ func mustJSON(t *testing.T, v any) []byte {
 
 func validClaims(issuer string) map[string]any {
 	return map[string]any{
-		"iss": issuer, "aud": "titan", "sub": "user-42",
+		"iss": issuer, "aud": "abhed", "sub": "user-42",
 		"email": "yuvraj@example.com", "name": "Yuvraj",
-		"tenant": "acme", "groups": []string{"engineering", "titan-admins"},
+		"tenant": "acme", "groups": []string{"engineering", "abhed-admins"},
 		"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
 	}
 }
 
 func verifier(t *testing.T, p *idp) *Verifier {
 	t.Helper()
-	v, err := NewVerifier(Config{Issuer: p.issuer, Audience: "titan"})
+	v, err := NewVerifier(Config{Issuer: p.issuer, Audience: "abhed"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestAudienceArrayAccepted(t *testing.T) {
 	p := newIDP(t)
 	v := verifier(t, p)
 	claims := validClaims(p.issuer)
-	claims["aud"] = []string{"other", "titan"}
+	claims["aud"] = []string{"other", "abhed"}
 
 	if _, err := v.Verify(context.Background(), p.signRS256(t, claims)); err != nil {
 		t.Fatalf("aud array containing the audience should pass: %v", err)
@@ -291,7 +291,7 @@ func TestDiscoveryIssuerMismatchRejected(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	v, _ := NewVerifier(Config{Issuer: srv.URL, Audience: "titan"})
+	v, _ := NewVerifier(Config{Issuer: srv.URL, Audience: "abhed"})
 	err := v.Refresh(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "issuer") {
 		t.Fatalf("issuer mismatch in discovery must be rejected, got %v", err)
@@ -341,15 +341,15 @@ func TestRequireGroup(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/admin", nil).WithContext(
 		WithIdentity(context.Background(), &Identity{Subject: "u", Groups: []string{"engineering"}}))
-	RequireGroup("titan-admins", ok).ServeHTTP(rec, req)
+	RequireGroup("abhed-admins", ok).ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("non-member should be forbidden, got %d", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/admin", nil).WithContext(
-		WithIdentity(context.Background(), &Identity{Subject: "u", Groups: []string{"titan-admins"}}))
-	RequireGroup("titan-admins", ok).ServeHTTP(rec, req)
+		WithIdentity(context.Background(), &Identity{Subject: "u", Groups: []string{"abhed-admins"}}))
+	RequireGroup("abhed-admins", ok).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("member should be allowed, got %d", rec.Code)
 	}

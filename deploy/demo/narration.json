@@ -1,11 +1,11 @@
 [
  {
   "id": "s1",
-  "text": "This is Zybuu. We build infrastructure for AI workloads that have to stay under your control: software as a service, private cloud, or fully air-gapped. Titan is our first product: an agent harness for work that cannot leave the building."
+  "text": "This is Zybuu. We build infrastructure for AI workloads that have to stay under your control: software as a service, private cloud, or fully air-gapped. Abhed is our first product: an agent harness for work that cannot leave the building."
  },
  {
   "id": "s2",
-  "text": "Every enterprise is going to run agents. Most are offered them one way: a vendor's cloud, the vendor's model, and your data leaving the building on every turn. Titan runs where the data already lives, on any of twenty model providers, including the one on your own GPUs."
+  "text": "Every enterprise is going to run agents. Most are offered them one way: a vendor's cloud, the vendor's model, and your data leaving the building on every turn. Abhed runs where the data already lives, on any of twenty model providers, including the one on your own GPUs."
  },
  {
   "id": "s3",
@@ -17,7 +17,7 @@
  },
  {
   "id": "s5",
-  "text": "This is the Titan console, a reference application built on the same S D K a customer would use. Accounts are issued, never self-served, and every session is scoped to a tenant."
+  "text": "This is the Abhed console, a reference application built on the same S D K a customer would use. Accounts are issued, never self-served, and every session is scoped to a tenant."
  },
  {
   "id": "s6",
@@ -37,6 +37,6 @@
  },
  {
   "id": "s10",
-  "text": "Titan is invite-only today. Request access at zybuu dot com and we will get back to you the same day. Thanks for watching."
+  "text": "Abhed is invite-only today. Request access at zybuu dot com and we will get back to you the same day. Thanks for watching."
  }
 ]

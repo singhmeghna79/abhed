@@ -1,4 +1,4 @@
-# Titan — OIDC Provider Configuration
+# Abhed — OIDC Provider Configuration
 
 Verified against the real token and JWKS shapes each provider issues
 (`internal/auth/providers_test.go`). The differences below are the ones that
@@ -12,9 +12,9 @@ trailing slash; most others do not. Entra appends `/v2.0`. A mismatch produces a
 confusing "unexpected issuer" rejection that looks like a key problem but is a
 one-character config error. There is a test for exactly this.
 
-**`tenant_claim` is where multi-tenancy comes from.** Titan scopes storage and
+**`tenant_claim` is where multi-tenancy comes from.** Abhed scopes storage and
 row-level security by it, so pointing it at the wrong claim silently puts every
-user in one tenant. If no claim carries a tenant, leave it unset — Titan falls
+user in one tenant. If no claim carries a tenant, leave it unset — Abhed falls
 back to `default` rather than an empty string.
 
 ## Keycloak
@@ -24,7 +24,7 @@ back to `default` rather than an empty string.
   "auth": {
     "mode": "oidc",
     "issuer": "https://idp.internal/realms/engineering",
-    "audience": "titan",
+    "audience": "abhed",
     "tenant_claim": "org_id",
     "groups_claim": "groups"
   }
@@ -32,7 +32,7 @@ back to `default` rather than an empty string.
 ```
 
 Groups arrive slash-prefixed (`/engineering`), so `require_group` must include
-the slash. Realm roles live under `realm_access.roles`, which Titan does not read
+the slash. Realm roles live under `realm_access.roles`, which Abhed does not read
 — map the roles you need into a top-level `groups` claim with a client mapper.
 
 ## Okta
@@ -42,7 +42,7 @@ the slash. Realm roles live under `realm_access.roles`, which Titan does not rea
   "auth": {
     "mode": "oidc",
     "issuer": "https://example.okta.com/oauth2/aus1a2b3c",
-    "audience": "api://titan",
+    "audience": "api://abhed",
     "tenant_claim": "orgId",
     "groups_claim": "groups"
   }
@@ -81,16 +81,16 @@ Entra also sends `nbf`, so keep the default clock-skew leeway.
   "auth": {
     "mode": "oidc",
     "issuer": "https://example.eu.auth0.com/",
-    "audience": "https://titan.internal/api",
-    "tenant_claim": "https://titan.internal/tenant",
-    "groups_claim": "https://titan.internal/groups"
+    "audience": "https://abhed.internal/api",
+    "tenant_claim": "https://abhed.internal/tenant",
+    "groups_claim": "https://abhed.internal/groups"
   }
 }
 ```
 
 Note the **trailing slash** on the issuer — Auth0 includes it. Custom claims must
 be namespaced with a URI or Auth0 strips them, which is why the claim names look
-like URLs. `aud` is an array; Titan accepts any element matching.
+like URLs. `aud` is an array; Abhed accepts any element matching.
 
 ## Google Workspace
 
@@ -121,19 +121,19 @@ host is:
     "mode": "oidc",
     "issuer": "https://idp.internal/realms/engineering",
     "jwks_url": "https://jwks-mirror.internal/keys",
-    "audience": "titan",
+    "audience": "abhed",
     "tenant_claim": "org_id"
   }
 }
 ```
 
-Titan refuses a discovery document whose `issuer` disagrees with the configured
+Abhed refuses a discovery document whose `issuer` disagrees with the configured
 one, so a mirrored document must preserve the original issuer value.
 
 ## Verifying
 
 ```bash
-titan doctor
+abhed doctor
 ```
 
 reports the auth mode and, for `oidc`, whether the JWKS is reachable and tokens
@@ -143,7 +143,7 @@ misconfiguration surfaces during deployment.
 To check a specific token:
 
 ```bash
-curl -H "Authorization: Bearer $TOKEN" http://titan.internal:8080/v1/sessions
+curl -H "Authorization: Bearer $TOKEN" http://abhed.internal:8080/v1/sessions
 ```
 
 A 401 body names the reason — expired, wrong audience, unknown key id — which is
@@ -154,5 +154,5 @@ tells an attacker nothing they could not learn by trying.
 
 These tests replay documented wire formats. They do not exercise a live IdP's
 token *issuance*, consent screens, refresh flows, or revocation. Before going to
-production, obtain a real token from your provider and confirm `titan doctor`
+production, obtain a real token from your provider and confirm `abhed doctor`
 accepts it — that is a five-minute check that closes the remaining gap.

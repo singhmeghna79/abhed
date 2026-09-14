@@ -1,6 +1,6 @@
-# Titan console access policy
+# Abhed console access policy
 
-This governs the hosted console at `titan.zybuu.com`. It does not govern Titan
+This governs the hosted console at `abhed.zybuu.com`. It does not govern Abhed
 the software, which you run yourself under whatever rules you like.
 
 Access is free and is a trial. There is no contract behind it, which cuts both
@@ -8,7 +8,7 @@ ways: nothing is owed to you, and nothing is extracted from you.
 
 ## What you get
 
-A single-use invite creates one account. That account can use Titan Chat, run
+A single-use invite creates one account. That account can use Abhed Chat, run
 the agent, and read its own sessions. It cannot administer the console, change
 policy, or invite anyone else.
 
@@ -78,11 +78,11 @@ Very little, stated plainly rather than buried:
 - **No certification.** No SOC 2, ISO 27001, HIPAA or FedRAMP.
 - **No notice period** before the trial ends.
 
-If any of that is a problem for what you want to do, the answer is to run Titan
+If any of that is a problem for what you want to do, the answer is to run Abhed
 on your own infrastructure, and we would rather have that conversation than
 have you rely on this one.
 
 ## Changes
 
-This policy changes without notice while Titan is in trial. The version that
+This policy changes without notice while Abhed is in trial. The version that
 applied when your access ended is the one quoted in your revocation notice.

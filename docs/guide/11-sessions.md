@@ -1,6 +1,6 @@
 # Sessions and audit
 
-Titan's state is a chronological stream of events. The agent is a function from
+Abhed's state is a chronological stream of events. The agent is a function from
 that history to an action, and the runtime is a function from an action to an
 observation. Everything else — replay, forking, export, audit — falls out of
 that rather than being built separately.
@@ -91,7 +91,7 @@ answers `409`. Only the session's owner can continue it.
 What this is not: a running turn on a node that dies is not migrated. It
 ends, is recorded as interrupted, and the session can be continued from
 there. High availability of *sessions* is this; high availability of
-*turns in flight* is not something Titan claims.
+*turns in flight* is not something Abhed claims.
 
 ## Deleting a chat
 

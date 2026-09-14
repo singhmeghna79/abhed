@@ -1,4 +1,4 @@
-// Package agent implements Titan's event-sourced agent loop.
+// Package agent implements Abhed's event-sourced agent loop.
 //
 // State is a chronological stream of actions and observations (docs P6). The
 // agent is a function of event history to action; the runtime is a function of

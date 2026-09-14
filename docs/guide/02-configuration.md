@@ -1,6 +1,6 @@
 # Configuration
 
-Titan reads `.titan/config.json` from the workspace. `titan init` writes a
+Abhed reads `.abhed/config.json` from the workspace. `abhed init` writes a
 starter file; everything below is optional and has a default.
 
 ```json
@@ -47,7 +47,7 @@ starter file; everything below is optional and has a default.
 ```json
 "context": {
   "compact_at": 0.80,
-  "memory_files": ["TITAN.md"]
+  "memory_files": ["ABHED.md"]
 }
 ```
 
@@ -57,7 +57,7 @@ cannot take a session from under the threshold to over the hard limit in one
 step. Below 1.0 with real margin: hitting the limit mid-turn is unrecoverable
 and the token estimate is approximate.
 
-`TITAN.md` in the workspace is loaded into every session and re-injected whole
+`ABHED.md` in the workspace is loaded into every session and re-injected whole
 after compaction. Project conventions belong there.
 
 **Size `context_window` for what the model can actually hold.** A local server
@@ -92,7 +92,7 @@ This is a boundary, not a jail: it is not sufficient for genuinely hostile code.
 ```json
 "storage": {
   "driver": "postgres",
-  "dsn": "postgres://titan:...@localhost:5432/titan",
+  "dsn": "postgres://abhed:...@localhost:5432/abhed",
   "tenant": "default"
 }
 ```
@@ -102,10 +102,10 @@ them durable and replayable, and is what `/sessions`, `/resume` and audit need.
 
 **Do not connect as a superuser.** Row-level security is what isolates tenants,
 and Postgres does not apply it to a superuser or a `BYPASSRLS` role, not even
-with `FORCE`. Titan checks the role it connected as and **refuses to start** if
+with `FORCE`. Abhed checks the role it connected as and **refuses to start** if
 it is privileged, because a control that is silently off is worse than one
 that is visibly missing. `deploy/run.sh` provisions two roles for this reason:
-a superuser it uses only to provision, and a plain `titan_app` role that owns
+a superuser it uses only to provision, and a plain `abhed_app` role that owns
 the tables and is the only one in the server's DSN.
 
 ## Where settings come from
@@ -113,11 +113,11 @@ the tables and is the only one in the server's DSN.
 Later sources win, except that an org-managed file cannot be overridden:
 
 1. built-in defaults
-2. `~/.titan/config.json`
-3. `.titan/config.json` in the workspace
-4. environment (`TITAN_DATABASE_URL` and similar)
+2. `~/.abhed/config.json`
+3. `.abhed/config.json` in the workspace
+4. environment (`ABHED_DATABASE_URL` and similar)
 5. command-line flags
 6. **managed settings**, which nothing below can loosen
 
-Run `titan doctor` after any change. It reports what is actually in effect,
+Run `abhed doctor` after any change. It reports what is actually in effect,
 which is not always what the file appears to say.

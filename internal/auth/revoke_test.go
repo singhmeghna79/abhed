@@ -13,7 +13,7 @@ func TestRevokeUserEndsLiveSessions(t *testing.T) {
 	l := &LocalAuth{
 		sessions:   map[string]*browserSession{},
 		SessionTTL: time.Hour,
-		CookieName: "titan_session",
+		CookieName: "abhed_session",
 	}
 	// Two sessions for the person being revoked, one for somebody else.
 	l.issue(httptest.NewRecorder(), &User{Username: "evicted", Tenant: "default"})

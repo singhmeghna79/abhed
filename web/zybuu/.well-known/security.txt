@@ -3,4 +3,4 @@ Contact: mailto:support@zybuu.com
 Expires: 2027-09-14T00:00:00Z
 Preferred-Languages: en
 Canonical: https://zybuu.com/.well-known/security.txt
-Policy: https://titan.zybuu.com/docs
+Policy: https://abhed.zybuu.com/docs

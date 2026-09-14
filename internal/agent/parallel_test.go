@@ -82,7 +82,7 @@ func TestParallelTasksInWorktreesDoNotTouchEachOtherOrMain(t *testing.T) {
 		t.Error("alpha's file leaked into the main tree")
 	}
 	// The report says what changed and how to take it.
-	for _, want := range []string{"## Task 1 — alpha", "## Task 2 — beta", "branch titan/", "UNCOMMITTED", "git merge titan/"} {
+	for _, want := range []string{"## Task 1 — alpha", "## Task 2 — beta", "branch abhed/", "UNCOMMITTED", "git merge abhed/"} {
 		if !strings.Contains(res.Content, want) {
 			t.Errorf("report missing %q:\n%s", want, res.Content)
 		}

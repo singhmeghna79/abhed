@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // ServerConfig describes a registered MCP server.
@@ -180,7 +180,7 @@ func (g *Gateway) Close() {
 	g.clients = map[string]*Client{}
 }
 
-// Status reports connected servers and their tool counts, for `titan doctor`.
+// Status reports connected servers and their tool counts, for `abhed doctor`.
 func (g *Gateway) Status() []string {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -192,7 +192,7 @@ func (g *Gateway) Status() []string {
 	return out
 }
 
-// remoteTool adapts an MCP tool to Titan's tool interface.
+// remoteTool adapts an MCP tool to Abhed's tool interface.
 type remoteTool struct {
 	client      *Client
 	server      string
@@ -216,7 +216,7 @@ func (t *remoteTool) Schema() json.RawMessage {
 	return t.schema
 }
 
-// Mutates is conservatively true: Titan cannot know what a third-party server
+// Mutates is conservatively true: Abhed cannot know what a third-party server
 // does, so every MCP call routes through the policy engine for approval.
 func (t *remoteTool) Mutates() bool { return true }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/policy"
 )
 
 func hostWith(t *testing.T, scripts ...string) *Host {
@@ -30,7 +30,7 @@ func hostWith(t *testing.T, scripts ...string) *Host {
 }
 
 // THE guarantee. An extension may make a decision stricter and never looser.
-// If this test ever fails, Titan's audit trail no longer means anything: an
+// If this test ever fails, Abhed's audit trail no longer means anything: an
 // operator could drop a file into a directory and quietly permit what the
 // policy forbids.
 func TestExtensionCannotPermitWhatPolicyDenies(t *testing.T) {
@@ -159,7 +159,7 @@ func TestStrictestAnswerWinsRegardlessOfOrder(t *testing.T) {
 
 func TestSystemPromptIsAppendedNotReplaced(t *testing.T) {
 	h := hostWith(t, "redactor.sh") // returns {} for this event
-	const base = "You are Titan."
+	const base = "You are Abhed."
 	if got := h.OnBeforeAgentStart(context.Background(), "s1", base); got != base {
 		t.Errorf("system = %q, want it unchanged when no extension contributes", got)
 	}
@@ -174,7 +174,7 @@ func TestArgsRewriteComposes(t *testing.T) {
 }
 
 // An extension can add a tool the harness never knew about — the capability
-// Pi's registerTool provides, and the one Titan was missing.
+// Pi's registerTool provides, and the one Abhed was missing.
 func TestExtensionProvidesATool(t *testing.T) {
 	h := hostWith(t, "provider.sh")
 	provided, errs := h.Tools(context.Background())
@@ -197,7 +197,7 @@ func TestExtensionProvidesATool(t *testing.T) {
 	}
 }
 
-// Titan cannot know what someone else's tool does, so one that does not say
+// Abhed cannot know what someone else's tool does, so one that does not say
 // must be assumed to change something and routed through approval.
 func TestUnspecifiedToolIsAssumedToMutate(t *testing.T) {
 	h := NewHost(func(string, ...any) {})

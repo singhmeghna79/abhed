@@ -1,6 +1,6 @@
-# Contributing to Titan
+# Contributing to Abhed
 
-Titan is maintained by one person at Zybuu. That shapes everything below:
+Abhed is maintained by one person at Zybuu. That shapes everything below:
 review latency is real, and a PR that makes review easy gets merged faster
 than one that is merely correct.
 
@@ -28,7 +28,7 @@ Some tests need more:
 
 - `go test ./... -short` skips the slower network-exfiltration checks; drop
   `-short` to run them.
-- Postgres integration tests need `TITAN_TEST_DSN` pointed at a real database
+- Postgres integration tests need `ABHED_TEST_DSN` pointed at a real database
   (`internal/store`).
 - The site honesty checks in `internal/sitecheck` read `web/zybuu/*.html`
   directly and will fail (loudly, on purpose) if those files are missing or
@@ -70,7 +70,7 @@ checked in, not in a test fixture. `deploy/run.sh` generates
 reason (see the comment above `DB_SECRET` in that script). If a change needs
 a credential, it should come from an environment variable or a file outside
 the tree — follow the pattern in `deploy/run.sh` and
-`docs/ops/enabling-auth.md` (`TITAN_OIDC_SECRET`, `TITAN_DATABASE_URL`,
+`docs/ops/enabling-auth.md` (`ABHED_OIDC_SECRET`, `ABHED_DATABASE_URL`,
 etc.), not a new hardcoded value.
 
 **Errors are written for whoever reads them next**, which for a policy

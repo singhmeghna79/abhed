@@ -1,6 +1,6 @@
 # MCP
 
-Titan is an MCP client and gateway. A tool exposed by a Model Context Protocol
+Abhed is an MCP client and gateway. A tool exposed by a Model Context Protocol
 server appears in the model's tool list like any built-in one.
 
 ```json
@@ -26,7 +26,7 @@ collide, and a policy rule can name one precisely:
 "deny": ["github__create_issue"]
 ```
 
-Every MCP tool routes through the policy engine, because Titan cannot know what
+Every MCP tool routes through the policy engine, because Abhed cannot know what
 someone else's tool does. A remote tool is subject to approval exactly as `bash`
 is, and its result is recorded and tagged untrusted.
 

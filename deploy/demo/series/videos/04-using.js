@@ -1,4 +1,4 @@
-// Video 4 — Using Titan: the console, then the command line. Real footage
+// Video 4 — Using Abhed: the console, then the command line. Real footage
 // (assets.json from footage.mjs) and real captured CLI output (cli/*.txt).
 window.VIDEOS['04-using'] = () => {
   const { fx, ease, el } = Motion;
@@ -46,15 +46,15 @@ window.VIDEOS['04-using'] = () => {
 
   return [
     { beat: 'b1', build(s) {
-      Parts.logo(s, { x: 96, y: 96, text: 'Titan', mark: 'titan', prod: 'Using it', at: 0.2, size: 80 });
+      Parts.logo(s, { x: 96, y: 96, text: 'Abhed', mark: 'abhed', prod: 'Using it', at: 0.2, size: 80 });
       Parts.heading(s, 'The console, then the <span class="hl">command line.</span>', { x: 96, y: 300, w: 1500, cls: 'xl', at: 1.0 });
       Parts.para(s, 'A real deployment, recorded as it ran. Nothing here is a mock-up.', { x: 96, y: 700, w: 1300, at: 8.0, size: 36 });
-      Parts.foot(s, 'ZYBUU · TITAN · SERIES 4 OF 4', 2.0);
+      Parts.foot(s, 'ZYBUU · ABHED · SERIES 4 OF 4', 2.0);
     } },
 
     { beat: 'b2', build(s) {
       side(s, 'The console · sign in', 'Accounts are <span class="hl">issued.</span>', [['Never self-served', 3.2], ['One account, one tenant', 5.4], ['Examples drawn from real tools', 11.0]]);
-      screenSide(s, 'signin', 0.8, '<b>titan.zybuu.com</b> · local accounts · one tenant', 0, 1);
+      screenSide(s, 'signin', 0.8, '<b>abhed.zybuu.com</b> · local accounts · one tenant', 0, 1);
     } },
 
     { beat: 'b3', build(s) {
@@ -85,8 +85,8 @@ window.VIDEOS['04-using'] = () => {
     { beat: 'b8', build(s) {
       title(s, 'The command line', 'Same binary. <span class="hl">Same rules.</span>');
       Parts.terminal(s, { x: 96, y: 470, w: 1000, h: 380, title: '~/work — zsh', at: 1.2, size: 26, lines: [
-        ['cmd', '$ titan', 1.6, true], ['dim', '  interactive · line editor · slash commands · steer mid-run', 2.8],
-        ['cmd', '$ titan -p "…"', 4.8, true], ['dim', '  headless · one prompt · typed exit code', 5.8],
+        ['cmd', '$ abhed', 1.6, true], ['dim', '  interactive · line editor · slash commands · steer mid-run', 2.8],
+        ['cmd', '$ abhed -p "…"', 4.8, true], ['dim', '  headless · one prompt · typed exit code', 5.8],
       ] });
       Parts.check(s, 'The same policy engine', { x: 1180, y: 520, at: 3.4 });
       Parts.check(s, 'The same record', { x: 1180, y: 600, at: 4.2 });
@@ -95,9 +95,9 @@ window.VIDEOS['04-using'] = () => {
 
     { beat: 'b9', build(s) {
       title(s, 'Headless', 'One prompt. <span class="hl">Real work.</span>', 0.1, 'm', 700);
-      const lines = [['cmd', '$ titan -mode accept-edits -p "Add f_to_c to tempconv.py with a docstring, add unittest coverage for both directions, then run the suite."', 0.9, true]]
+      const lines = [['cmd', '$ abhed -mode accept-edits -p "Add f_to_c to tempconv.py with a docstring, add unittest coverage for both directions, then run the suite."', 0.9, true]]
         .concat(cliLines(ASSETS.run1_head, 4.8, 0.7, 12));
-      Parts.terminal(s, { x: 96, y: 400, w: 1240, h: 640, title: '/workspace/tempconv — titan -p', at: 0.6, size: 22, lines });
+      Parts.terminal(s, { x: 96, y: 400, w: 1240, h: 640, title: '/workspace/tempconv — abhed -p', at: 0.6, size: 22, lines });
       Parts.check(s, 'glob → read → edit → write', { x: 1400, y: 470, at: 7.0 });
       Parts.callout(s, 'A relative path is refused — and the message says what would have worked.', { x: 1400, y: 580, at: 10.0, w: 440 });
       Parts.check(s, 'The agent recovers on its own', { x: 1400, y: 780, at: 13.5 });
@@ -106,7 +106,7 @@ window.VIDEOS['04-using'] = () => {
     { beat: 'b10', build(s) {
       title(s, 'The policy does its job', 'Nobody to ask? <span class="hl">The answer is no.</span>', 0.1, 'm', 900);
       const lines = cliLines(ASSETS.run1_tail, 1.2, 0.6, 14);
-      Parts.terminal(s, { x: 96, y: 400, w: 1240, h: 640, title: '/workspace/tempconv — titan -p (continued)', at: 0.6, size: 22, lines });
+      Parts.terminal(s, { x: 96, y: 400, w: 1240, h: 640, title: '/workspace/tempconv — abhed -p (continued)', at: 0.6, size: 22, lines });
       Parts.check(s, 'accept-edits: edits yes, commands still ask', { x: 1400, y: 470, at: 4.0 });
       Parts.check(s, 'Headless with no approver: refuse', { x: 1400, y: 560, at: 7.0 });
       Parts.check(s, 'Reported, not pretended', { x: 1400, y: 650, at: 11.0 });
@@ -114,9 +114,9 @@ window.VIDEOS['04-using'] = () => {
 
     { beat: 'b11', build(s) {
       title(s, 'Grant exactly what the job needs', 'An allow rule, <span class="hl">and nothing more.</span>', 0.1, 'm', 900);
-      const lines = [['cmd', "$ titan -mode accept-edits -allow 'bash(python3 -m unittest*)' -p \"Run the test suite and report the result.\"", 0.9, true]]
+      const lines = [['cmd', "$ abhed -mode accept-edits -allow 'bash(python3 -m unittest*)' -p \"Run the test suite and report the result.\"", 0.9, true]]
         .concat(cliLines(ASSETS.run2, 4.4, 0.6, 18));
-      Parts.terminal(s, { x: 96, y: 400, w: 1240, h: 640, title: '/workspace/tempconv — titan -p', at: 0.6, size: 22, lines });
+      Parts.terminal(s, { x: 96, y: 400, w: 1240, h: 640, title: '/workspace/tempconv — abhed -p', at: 0.6, size: 22, lines });
       Parts.check(s, 'Allowed: that command, that prefix', { x: 1400, y: 470, at: 5.0 });
       Parts.check(s, 'The suite runs and passes', { x: 1400, y: 560, at: 9.5 });
       Parts.check(s, 'Deny rules still hold — in every mode', { x: 1400, y: 650, at: 12.5 });
@@ -132,11 +132,11 @@ window.VIDEOS['04-using'] = () => {
     { beat: 'b13', build(s) {
       title(s, 'Pipelines, other languages, your own code', 'Three more <span class="hl">surfaces.</span>', 0.1, 'm', 900);
       const json = eventLines(ASSETS.run3, 2.0, 0.45, 8);
-      Parts.terminal(s, { x: 96, y: 400, w: 860, h: 300, title: 'titan -output-format json — one event per line', at: 1.0, size: 19, lines: [['cmd', '$ titan -mode plan -output-format json -p "How many functions…"', 1.2]].concat(json) });
+      Parts.terminal(s, { x: 96, y: 400, w: 860, h: 300, title: 'abhed -output-format json — one event per line', at: 1.0, size: 19, lines: [['cmd', '$ abhed -mode plan -output-format json -p "How many functions…"', 1.2]].concat(json) });
       const rpc = eventLines(ASSETS.run4, 6.8, 0.45, 7);
-      Parts.terminal(s, { x: 96, y: 730, w: 860, h: 300, title: 'titan rpc — JSONL over stdio', at: 6.0, size: 19, lines: [['cmd', '{"method":"start","workspace":"/workspace/tempconv","mode":"plan"}', 6.2], ['cmd', '{"method":"prompt","prompt":"List the files in this workspace…"}', 6.5]].concat(rpc) });
+      Parts.terminal(s, { x: 96, y: 730, w: 860, h: 300, title: 'abhed rpc — JSONL over stdio', at: 6.0, size: 19, lines: [['cmd', '{"method":"start","workspace":"/workspace/tempconv","mode":"plan"}', 6.2], ['cmd', '{"method":"prompt","prompt":"List the files in this workspace…"}', 6.5]].concat(rpc) });
       Parts.terminal(s, { x: 1000, y: 400, w: 820, h: 630, title: 'main.go — the SDK', at: 11.0, size: 20, lines: [
-        ['cmd', 'a, _ := titan.New(ctx, titan.Options{', 11.2], ['dim', '    Workspace: "/srv/work",', 11.4], ['dim', '    Deny:      []string{"bash(rm -rf *)"},', 11.6],
+        ['cmd', 'a, _ := abhed.New(ctx, abhed.Options{', 11.2], ['dim', '    Workspace: "/srv/work",', 11.4], ['dim', '    Deny:      []string{"bash(rm -rf *)"},', 11.6],
         ['dim', '    Approve:   askYourUser,', 11.8], ['dim', '})', 12.0], ['cmd', '', 12.1], ['cmd', 'var out Review', 12.6],
         ['tool', 'err := a.RunJSON(ctx, prompt, schema, &out)', 12.9], ['ok', '// validated in the loop — never invalid JSON', 14.2],
         ['dim', '', 14.4], ['dim', 'a.Steer("focus on pkg/auth")   a.Fork(12)', 15.0], ['dim', 'a.Events()   a.Usage()   a.ExportHTML()', 15.4],
@@ -150,11 +150,11 @@ window.VIDEOS['04-using'] = () => {
     } },
 
     { beat: 'b15', build(s) {
-      const logo = Parts.logo(s, { x: 0, y: 0, text: 'Titan', mark: 'titan', at: 0.2, size: 150 });
+      const logo = Parts.logo(s, { x: 0, y: 0, text: 'Abhed', mark: 'abhed', at: 0.2, size: 150 });
       logo.style.left = '50%'; logo.style.top = '34%'; logo.style.transform = 'translate(-50%,-50%)';
       s.at(0.2, 1.0, (p) => { logo.style.opacity = p; logo.style.transform = `translate(-50%,-50%) scale(${0.9 + 0.1 * ease.outBack(p)})`; });
       ['A console for people', 'A command line for engineers', 'One record of everything'].forEach((t, i) => { const n = Parts.pill(s, t, { x: 330 + i * 440, y: 560, at: 1.6 + i * 1.2 }); n.style.fontSize = '26px'; });
-      const u = Parts.pill(s, 'zybuu.com/titan · titan.zybuu.com/docs', { x: 640, y: 720, at: 6.0 }); u.style.fontSize = '30px';
+      const u = Parts.pill(s, 'zybuu.com/abhed · abhed.zybuu.com/docs', { x: 640, y: 720, at: 6.0 }); u.style.fontSize = '30px';
     } },
   ];
 };

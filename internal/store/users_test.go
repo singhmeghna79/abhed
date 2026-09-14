@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/yuvrajsingh/titan/internal/auth"
+	"github.com/yuvrajsingh/abhed/internal/auth"
 )
 
 // MigrateUsers is called defensively by every user operation, and one of those
@@ -14,9 +14,9 @@ import (
 // each password check ran a CREATE TABLE statement first, taking DDL locks
 // against a table that already existed.
 func TestMigrateUsersRunsOnce(t *testing.T) {
-	dsn := os.Getenv("TITAN_TEST_DSN")
+	dsn := os.Getenv("ABHED_TEST_DSN")
 	if dsn == "" {
-		t.Skip("set TITAN_TEST_DSN to run store integration tests")
+		t.Skip("set ABHED_TEST_DSN to run store integration tests")
 	}
 	ctx := context.Background()
 	pg, err := Open(ctx, DefaultConfig(dsn))
@@ -56,9 +56,9 @@ func TestMigrateUsersRunsOnce(t *testing.T) {
 // Accounts must round-trip through Postgres with the hash intact, or every
 // imported user is locked out.
 func TestUserRoundTrip(t *testing.T) {
-	dsn := os.Getenv("TITAN_TEST_DSN")
+	dsn := os.Getenv("ABHED_TEST_DSN")
 	if dsn == "" {
-		t.Skip("set TITAN_TEST_DSN to run store integration tests")
+		t.Skip("set ABHED_TEST_DSN to run store integration tests")
 	}
 	ctx := context.Background()
 	pg, err := Open(ctx, DefaultConfig(dsn))

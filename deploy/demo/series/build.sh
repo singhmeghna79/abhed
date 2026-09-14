@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Titan video series.
+# Build the Abhed video series.
 #
 #   ./deploy/demo/series/build.sh [outdir] [video ids...]      full render
 #   PREVIEW=2 ./deploy/demo/series/build.sh [outdir] [ids...]  a PNG every 2s
@@ -13,7 +13,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
 OUT="${1:-$ROOT/.series-build}"; shift || true
-IDS=("$@"); [ ${#IDS[@]} -gt 0 ] || IDS=(01-zybuu 02-titan 03-install 04-using)
+IDS=("$@"); [ ${#IDS[@]} -gt 0 ] || IDS=(01-zybuu 02-abhed 03-install 04-using)
 PY="${DEMO_PY:-python3}"
 VOICE="${DEMO_VOICE:-en-US-AriaNeural}"
 GAP="${DEMO_GAP:-0.55}"

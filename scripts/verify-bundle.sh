@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Verify a Titan bundle before unpacking it on an air-gapped target.
+# Verify a Abhed bundle before unpacking it on an air-gapped target.
 #
 # Run this on the ENCLAVE side, not the build side. It checks the archive
 # digest, optionally the signature, and then every file's digest after
 # extraction — because an archive that hashes correctly can still have been
 # assembled from tampered inputs.
 #
-# Usage: scripts/verify-bundle.sh titan-<version>.tar.gz [public-key.pem]
+# Usage: scripts/verify-bundle.sh abhed-<version>.tar.gz [public-key.pem]
 
 set -euo pipefail
 
@@ -58,7 +58,7 @@ ok "per-file digests ($(wc -l < "$DIR/SHA256SUMS" | tr -d ' ') files)"
 
 # 4. The bundle must be self-contained.
 [ -x "$DIR/install.sh" ] || fail "install.sh missing or not executable"
-ls "$DIR"/bin/titan-* >/dev/null 2>&1 || fail "no binaries in bundle"
+ls "$DIR"/bin/abhed-* >/dev/null 2>&1 || fail "no binaries in bundle"
 ok "install script and binaries present"
 
 echo

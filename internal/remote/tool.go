@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Registry holds the hosts an operator has declared.
@@ -77,7 +77,7 @@ func (Tool) Name() string { return "ssh" }
 // with a workspace boundary and a checkpoint behind it. None of that is true
 // over SSH: the command runs with the remote account's full authority, and
 // there is no undo. Classifying `cat` as safe would be judging the string, not
-// the consequence — on a remote host Titan cannot see, the two are not the
+// the consequence — on a remote host Abhed cannot see, the two are not the
 // same thing. So every remote command asks.
 func (Tool) Mutates() bool { return true }
 
@@ -131,7 +131,7 @@ func (t Tool) Run(ctx context.Context, _ *tools.Session, raw json.RawMessage) to
 		// Naming the alternatives ends the retry loop a bare "not found"
 		// otherwise causes.
 		return errf("No host named %q. Configured hosts: %s. "+
-			"Titan cannot connect to a host that is not declared.",
+			"Abhed cannot connect to a host that is not declared.",
 			a.Host, strings.Join(t.R.names(), ", "))
 	}
 
@@ -192,7 +192,7 @@ func (r *Registry) Add(h *Host) {
 // where the sandbox denies the key read, the connection cannot persist between
 // calls, and the failure is opaque.
 //
-// The key is read by Titan, outside the sandbox, and the host is remembered for
+// The key is read by Abhed, outside the sandbox, and the host is remembered for
 // the life of the process. Nothing is written to ~/.ssh/config.
 type ConnectTool struct{ R *Registry }
 
@@ -274,12 +274,12 @@ func (t ConnectTool) Run(ctx context.Context, _ *tools.Session, raw json.RawMess
 
 	// Verify before reporting success: storing a host that cannot be reached
 	// turns one clear failure into a confusing one on the next command.
-	out, err := h.Run(ctx, "echo titan-connected", 30*time.Second)
+	out, err := h.Run(ctx, "echo abhed-connected", 30*time.Second)
 	if err != nil {
 		h.Close()
 		return errf("%v", err)
 	}
-	if !strings.Contains(out.Stdout, "titan-connected") {
+	if !strings.Contains(out.Stdout, "abhed-connected") {
 		h.Close()
 		return errf("Connected to %s but the host did not run a command as expected.", a.Addr)
 	}
@@ -290,7 +290,7 @@ func (t ConnectTool) Run(ctx context.Context, _ *tools.Session, raw json.RawMess
 		key = a.IdentityFile
 	}
 	return tools.Result{Content: fmt.Sprintf(
-		"Connected to %s@%s as %q using %s. This host is registered for this Titan "+
+		"Connected to %s@%s as %q using %s. This host is registered for this Abhed "+
 			"process only and is not written to ~/.ssh/config. "+
 			"Run commands on it with the ssh tool.", a.User, a.Addr, a.Name, key)}
 }

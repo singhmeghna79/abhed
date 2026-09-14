@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // growingAdapter simulates a real session: each turn adds a tool call whose
@@ -74,7 +74,7 @@ func (g *growingAdapter) Complete(ctx context.Context, req model.Request) (<-cha
 	return ch, nil
 }
 
-// Can Titan actually sustain 100 turns inside a fixed window?
+// Can Abhed actually sustain 100 turns inside a fixed window?
 func strings_Repeat(s string, n int) string {
 	out := make([]byte, 0, len(s)*n)
 	for i := 0; i < n; i++ {

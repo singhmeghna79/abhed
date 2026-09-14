@@ -1,4 +1,4 @@
-# Titan — Execution Isolation & Prompt-Injection Defense
+# Abhed — Execution Isolation & Prompt-Injection Defense
 
 Status: Draft · 2026-09-02
 
@@ -10,7 +10,7 @@ Status: Draft · 2026-09-02
 > data point that did survive: a major open-source agent SDK made sandboxing **opt-in
 > rather than mandatory** in its V1 rewrite.
 >
-> **This was the single most dangerous gap in the Titan plan.** Everything below remains
+> **This was the single most dangerous gap in the Abhed plan.** Everything below remains
 > [E] engineering judgment, but it is now **implemented and verified by escape tests**
 > rather than asserted (`internal/sandbox`). A red-team engagement is still required
 > before running genuinely hostile code — automated tests prove the controls work as
@@ -58,7 +58,7 @@ agent still cannot exceed its granted authority.
 | I3 | **Firecracker / Kata microVM** | Hardware virt | ~50-150 ms boot | **Default for sessions** |
 | I4 | Dedicated node | Physical | High | Classified / cross-tenant-sensitive |
 
-**Titan default: I3 per session, I2 per tool invocation within it.** A microVM per session
+**Abhed default: I3 per session, I2 per tool invocation within it.** A microVM per session
 gives a hardware-enforced boundary at a boot cost small relative to agent turn latency.
 Container-only isolation (I1) is *not* sufficient for agent-generated code — a container
 shares the host kernel, and kernel escape is a realistic threat from arbitrary code.
@@ -84,7 +84,7 @@ Layered, because no single control is sufficient:
 6. **Anomaly detection.** Alert on action-sequence patterns inconsistent with the stated task
    (mass file reads, unexpected network attempts, credential-path access).
 
-**What Titan explicitly does not claim:** that it detects prompt injection reliably.
+**What Abhed explicitly does not claim:** that it detects prompt injection reliably.
 Detection is a mitigation layer, not the boundary. The boundary is L3 and L4.
 
 ## 5. MCP supply chain (T4)
@@ -106,7 +106,7 @@ task success from 80% to 100% [medium confidence — vendor-reported]. Fewer, be
 tools improve both reliability *and* security: every tool is an attack surface and a
 decision the model can get wrong.
 
-Titan ships a deliberately small native tool set — read, write, edit, glob, grep, bash,
+Abhed ships a deliberately small native tool set — read, write, edit, glob, grep, bash,
 task/subagent, plan — and everything else arrives through the reviewed MCP gateway.
 
 ## 7. Validation status
@@ -156,5 +156,5 @@ containment *after* an assumed policy miss.
 
 **Remaining position:** the process tier is a real filesystem and network boundary but
 shares the host kernel. For genuinely untrusted repositories, set `sandbox.min_tier` to
-`container` or `vm` and commission a human engagement first. Titan will refuse to start
+`container` or `vm` and commission a human engagement first. Abhed will refuse to start
 rather than silently downgrade below the tier you configure.

@@ -1,4 +1,4 @@
-# Why Zybuu, and why Titan
+# Why Zybuu, and why Abhed
 
 The answer to the first question every buyer and every investor asks.
 
@@ -25,9 +25,9 @@ the layer underneath: the part that decides what a model may do, does it
 safely, records it, and can prove afterwards what happened. That layer is what
 an enterprise actually has to trust, and today almost nobody sells it.
 
-## Titan is the first product
+## Abhed is the first product
 
-Titan is that layer for agents: an agent harness. The model is a replaceable
+Abhed is that layer for agents: an agent harness. The model is a replaceable
 part. The harness is the product.
 
 "Under your control" means five specific things, and each one is a property
@@ -47,7 +47,7 @@ this repository tests rather than a line of copy:
   the same guarantees. The console is a reference application built on it,
   not the product.
 
-## How Titan competes with products people already trust
+## How Abhed competes with products people already trust
 
 We do not compete on the model. We run theirs, or yours. We compete on where
 the agent runs, what it can prove, and what it costs to operate.
@@ -58,26 +58,26 @@ to that cloud they are hard to beat, and we do not try to. For an organisation
 that cannot, they are not on the table, and that organisation is our customer.
 
 **Against pi.dev.** A superb harness for one developer in a terminal, with
-many models. For that developer, Pi is the better choice than Titan, and we
-say so. Titan is built for a platform team serving an organisation: many
+many models. For that developer, Pi is the better choice than Abhed, and we
+say so. Abhed is built for a platform team serving an organisation: many
 users, tenants, policy, audit, a server, an SDK.
 
 **Against CrewAI and frameworks like it.** A toolkit, and a good one, for a
 team assembling agents in Python. The sandbox, the approvals, the audit log
-and the deployment are left for that team to build. Titan is the assembled,
+and the deployment are left for that team to build. Abhed is the assembled,
 hardened thing, with a framework underneath it — extensions, skills, MCP,
 custom providers — for the parts that should be yours.
 
 **Against open-source harnesses such as OpenHands and Goose.** The closest
 competitors, and the ones to respect: any model, sandboxed, with real
-communities and published benchmarks. Titan's difference is narrower and
+communities and published benchmarks. Abhed's difference is narrower and
 specific — the audit record and the policy engine are in the core and
 enforced by the database, the deployment is one signed binary with an
 offline bundle, and the SDK carries the same guarantees into your own code.
 
 The pattern is the same in each case: the incumbents own the developer who
 can accept their terms, and most regulated firms can — a cloud region and a
-no-retention agreement satisfy them. Titan is for the ones that cannot:
+no-retention agreement satisfy them. Abhed is for the ones that cannot:
 defence and intelligence contractors, sovereign and public-sector
 deployments, operational networks with no route out, and the banks whose
 policy is no cloud at all. That is a smaller market than "the regulated
@@ -85,7 +85,7 @@ economy", and it is the honest one.
 
 ## What we are not claiming
 
-Titan is not the best model; it does not have one. It is not a multi-agent
+Abhed is not the best model; it does not have one. It is not a multi-agent
 framework with roles and message passing. It is not the right tool for a solo
 developer who is happy in the cloud. It is pre-release and invite-only, and
 its properties are proven at the scale of its test suite and its own
@@ -95,12 +95,12 @@ deployment, not yet at a customer's.
 
 **Land** with platform and security teams in regulated industries, usually
 through the SDK: they have an agent they cannot ship because of where it would
-run, and Titan is the shortest path to shipping it.
+run, and Abhed is the shortest path to shipping it.
 
 **Charge** per deployment, annually, by tier — hosted, private, air-gapped —
 with support. The tiers are the same product; what differs is what the
 customer needs proven and who is on the hook for it. Prices are not announced.
 
 **Expand** with further products on the same infrastructure layer, each
-scoped the way Titan is (`titan.zybuu.com`), sharing the store, the identity,
+scoped the way Abhed is (`abhed.zybuu.com`), sharing the store, the identity,
 the policy, and the record.

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 // Fork reconstructs a conversation from a session's events, up to and including

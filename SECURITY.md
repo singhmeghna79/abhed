@@ -1,6 +1,6 @@
 # Security Policy
 
-Titan is pre-release software (0.1.x) built and maintained by one person at
+Abhed is pre-release software (0.1.x) built and maintained by one person at
 Zybuu. This document says what we support, how to report a problem, and what
 you can expect back.
 
@@ -28,7 +28,7 @@ Please include:
 - Steps to reproduce, or a proof of concept.
 - The commit or version you tested against.
 - Whether the finding is against the harness itself, the hosted console at
-  `titan.zybuu.com`, or the `zybuu.com` site.
+  `abhed.zybuu.com`, or the `zybuu.com` site.
 
 Do not open a public GitHub issue for a security report. Use email so the
 report isn't public before a fix ships.
@@ -77,8 +77,8 @@ In scope:
   agent loop, the policy engine (`internal/policy`), the sandbox
   (`internal/sandbox`), the MCP gateway, the auth layer (`internal/auth`),
   the Postgres store (`internal/store`), and the server (`internal/server`).
-- **The console** — the web UI served by `titan serve` and the hosted
-  instance at `titan.zybuu.com`.
+- **The console** — the web UI served by `abhed serve` and the hosted
+  instance at `abhed.zybuu.com`.
 - **Deploy scripts** — everything under `deploy/`, including
   `deploy/run.sh`, the container hardening it applies, and the access-grant
   and revocation scripts.
@@ -87,18 +87,18 @@ In scope:
 
 ## Out of scope
 
-- **The model's own behaviour.** Titan is model-agnostic (`docs/vision.md`);
+- **The model's own behaviour.** Abhed is model-agnostic (`docs/vision.md`);
   what a given model chooses to say or do, hallucination, or bias in its
-  output is not a Titan vulnerability. If Titan's policy engine or sandbox
+  output is not a Abhed vulnerability. If Abhed's policy engine or sandbox
   fails to *contain* a model's action, that is in scope — the containment
   failure, not the model's decision.
 - **Third-party providers.** The behavior, availability, or security of
   model endpoints, identity providers, Cloudflare, Resend, or any other
-  service an operator configures Titan to talk to. Report those to the
-  provider; report to us only where Titan's own handling of their response
+  service an operator configures Abhed to talk to. Report those to the
+  provider; report to us only where Abhed's own handling of their response
   is the problem (for example, treating their output as untrusted per
   `docs/architecture/03-security.md`).
-- Findings that require an operator to have already misconfigured Titan in a
+- Findings that require an operator to have already misconfigured Abhed in a
   way the documentation explicitly warns against (for example, running with
   `sandbox.min_tier: none` in `docs/access-policy.md`'s or
   `deploy/GO-LIVE.md`'s deployment context, which the deployed

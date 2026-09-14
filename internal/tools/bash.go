@@ -152,7 +152,7 @@ func (b Bash) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 		cmd.Dir = s.Cwd
 		// Minimal environment: the agent should not inherit the operator's
 		// credentials by accident.
-		cmd.Env = append(os.Environ(), "TITAN_SESSION=1")
+		cmd.Env = append(os.Environ(), "ABHED_SESSION=1")
 	}
 
 	var out bytes.Buffer
@@ -237,17 +237,17 @@ func sandboxHint(output string) string {
 		return ""
 	}
 	for _, c := range []struct{ path, hint string }{
-		{".kube", "Titan's sandbox blocks reads of ~/.kube, so kubectl and oc cannot " +
+		{".kube", "Abhed's sandbox blocks reads of ~/.kube, so kubectl and oc cannot " +
 			"authenticate from inside it. Use the k8s_get tool instead, which holds the " +
 			"credential outside the sandbox. If k8s_get is not available, this deployment " +
 			"has not enabled cluster access — tell the user to set k8s.enabled in their config."},
-		{".ssh", "Titan's sandbox blocks reads of ~/.ssh, so ssh and git-over-ssh cannot " +
+		{".ssh", "Abhed's sandbox blocks reads of ~/.ssh, so ssh and git-over-ssh cannot " +
 			"authenticate from inside it. Use the ssh tool instead, which uses the agent or " +
 			"a configured key. If it is not available, tell the user to configure ssh.hosts."},
-		{".aws", "Titan's sandbox blocks reads of ~/.aws, so the AWS CLI cannot authenticate " +
+		{".aws", "Abhed's sandbox blocks reads of ~/.aws, so the AWS CLI cannot authenticate " +
 			"from inside it. Ask the user to run this command themselves, or to expose the " +
 			"capability through an MCP server."},
-		{".gnupg", "Titan's sandbox blocks reads of ~/.gnupg. Ask the user to run any " +
+		{".gnupg", "Abhed's sandbox blocks reads of ~/.gnupg. Ask the user to run any " +
 			"signing step themselves."},
 	} {
 		if strings.Contains(output, c.path) {
@@ -255,7 +255,7 @@ func sandboxHint(output string) string {
 		}
 	}
 	return "NOTE: the sandbox denied this operation. Retrying the same command will " +
-		"fail identically — either use a native Titan tool for this, or tell the user " +
+		"fail identically — either use a native Abhed tool for this, or tell the user " +
 		"what needs to change."
 }
 

@@ -1,9 +1,9 @@
 # Data handling
 
-What Titan stores, where it lives, how long it lives, what an operator can
+What Abhed stores, where it lives, how long it lives, what an operator can
 do about it, and who else touches data for the hosted console.
 
-## What Titan stores
+## What Abhed stores
 
 From `internal/store/schema.sql`, on the Postgres storage driver:
 
@@ -17,12 +17,12 @@ From `internal/store/schema.sql`, on the Postgres storage driver:
 
 Accounts (username, email, tenant, groups, bcrypt password hash) are stored
 either in this same Postgres database or, without `storage.driver: postgres`
-configured, in `<workspace>/.titan/users.json` mode `0600`
+configured, in `<workspace>/.abhed/users.json` mode `0600`
 (`docs/ops/enabling-auth.md`, "Where accounts live").
 
 **Uploads** are files the agent reads or writes inside the session workspace
 — on the hosted console this is the container's workspace volume
-(`deploy/run.sh`'s `TITAN_VOLUME`), not a host path. They are not a separate
+(`deploy/run.sh`'s `ABHED_VOLUME`), not a host path. They are not a separate
 store; they are ordinary files in that workspace, and their content that
 passes through the agent loop is captured in `events` as tool output like
 anything else the agent reads.
@@ -31,7 +31,7 @@ anything else the agent reads.
 
 Self-hosted: wherever the operator points `storage.dsn`. Hosted console: a
 Postgres container on the operator's own machine
-(`deploy/run.sh`'s `titan-db` container, `DB_VOLUME`), with no published
+(`deploy/run.sh`'s `abhed-db` container, `DB_VOLUME`), with no published
 port — reachable only from the container network, never the LAN or the host
 (`deploy/run.sh` comment: "No published port").
 
@@ -81,19 +81,19 @@ append-only by trigger, same as `events`.
   administrator's own SQL session, unless they drop or bypass the trigger
   first — which is a deliberate, high-friction operation, not a supported
   workflow).
-- **Accounts**: `titan user remove <username>` deletes the account
+- **Accounts**: `abhed user remove <username>` deletes the account
   immediately. It does not delete that user's session history — "Removing
   the account ends their access; the audit log of what they did stays, which
   is the point of keeping it" (`deploy/GO-LIVE.md`, "Turning it off").
 
-## Subprocessors — hosted console at titan.zybuu.com
+## Subprocessors — hosted console at abhed.zybuu.com
 
 Zybuu is a one-person company (`docs/vision.md`), and the hosted console runs
 on the founder's own hardware. Stated plainly, per this folder's convention:
 
 | Subprocessor | What it handles | Where documented |
 |---|---|---|
-| **Cloudflare** | DNS and the `zybuu.com` zone; Cloudflare Pages hosts the marketing site and generated docs; the tunnel/reverse-proxy path carries traffic to `titan.zybuu.com` | `deploy/GO-LIVE.md` (DNS record, Pages publishing, the docs Worker) |
+| **Cloudflare** | DNS and the `zybuu.com` zone; Cloudflare Pages hosts the marketing site and generated docs; the tunnel/reverse-proxy path carries traffic to `abhed.zybuu.com` | `deploy/GO-LIVE.md` (DNS record, Pages publishing, the docs Worker) |
 | **Resend** | Transactional mail: access-request acknowledgements, invite delivery, revocation notices | `deploy/GO-LIVE.md` ("The homepage form"), `internal/server/admin.go`'s `mailRevocation` |
 | **The founder's own hardware** | Runs the console, the Postgres database, and the model the console's agent uses | `deploy/GO-LIVE.md`: "The site is up only while this Mac is awake and online"; `docs/access-policy.md`: "that is a model running on the same machine, so prompts do not leave it" |
 
@@ -103,7 +103,7 @@ analytics or tracking").
 
 ## Self-hosted deployments
 
-**No subprocessors.** A customer running Titan on their own infrastructure —
+**No subprocessors.** A customer running Abhed on their own infrastructure —
 laptop, private datacenter, or air-gapped rack — sends data nowhere but the
 model endpoint they themselves configure (`docs/vision.md`: "It runs where
 the data is... It runs any model... Changing vendors is a line of config").

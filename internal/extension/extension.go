@@ -5,7 +5,7 @@
 // the agent and what belongs outside. Pi answers "primitives, not features" and
 // exposes an API broad enough to rebuild most of the harness; that is the right
 // answer for one developer on a laptop, and it is why Pi is the most adaptable
-// harness of its kind. Titan cannot copy it wholesale, because Titan's claim is
+// harness of its kind. Abhed cannot copy it wholesale, because Abhed's claim is
 // that what an agent was permitted to do can be proven afterwards — and an
 // extension that can grant permission is one that can also remove the proof.
 //
@@ -22,10 +22,10 @@
 //
 // Extensions are separate processes speaking JSONL over stdin and stdout, in
 // any language. That costs a few milliseconds per hook against an in-process
-// interpreter, and buys three things worth more: Titan stays one static binary
+// interpreter, and buys three things worth more: Abhed stays one static binary
 // with no runtime to install (which is the whole air-gap story), an extension
 // crash cannot take the agent down with it, and the sandbox is the operating
-// system's rather than one Titan has to write and defend.
+// system's rather than one Abhed has to write and defend.
 package extension
 
 import (
@@ -70,7 +70,7 @@ const (
 	EvBeforeCompact Event = "before_compact"
 )
 
-// Request is what Titan sends an extension.
+// Request is what Abhed sends an extension.
 type Request struct {
 	Event     Event           `json:"event"`
 	SessionID string          `json:"session_id"`
@@ -115,7 +115,7 @@ type Reply struct {
 	// System is appended to the system prompt. It cannot replace it: the
 	// operating rules an operator configured are not an extension's to discard.
 	System string `json:"system,omitempty"`
-	// Log is written to Titan's log, for an extension to explain itself.
+	// Log is written to Abhed's log, for an extension to explain itself.
 	Log string `json:"log,omitempty"`
 	// Tools answers list_tools: the tools this extension provides.
 	Tools []ToolDef `json:"tools,omitempty"`
@@ -140,7 +140,7 @@ type ToolDef struct {
 	Description string          `json:"description"`
 	Schema      json.RawMessage `json:"schema"`
 	// Mutates decides whether calls route through approval. An extension that
-	// omits it gets the safe answer: Titan cannot know what someone else's
+	// omits it gets the safe answer: Abhed cannot know what someone else's
 	// tool does, so it assumes the call can change something.
 	Mutates *bool `json:"mutates,omitempty"`
 }
@@ -154,7 +154,7 @@ type Config struct {
 	Timeout time.Duration `json:"-"`
 	// TimeoutMS is the config-file form of Timeout.
 	TimeoutMS int `json:"timeout_ms,omitempty"`
-	// Env is passed to the process on top of Titan's own environment.
+	// Env is passed to the process on top of Abhed's own environment.
 	Env map[string]string `json:"env,omitempty"`
 }
 
@@ -325,7 +325,7 @@ func (e *Extension) Close() error {
 
 func environ(extra map[string]string) []string {
 	if len(extra) == 0 {
-		return nil // inherit Titan's environment unchanged
+		return nil // inherit Abhed's environment unchanged
 	}
 	out := []string{}
 	for k, v := range extra {

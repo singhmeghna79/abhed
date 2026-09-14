@@ -13,15 +13,15 @@ import (
 // TestBenchmarkFiguresMatchResults pins every benchmark number on the site to
 // the per-run result files under bench/results. A benchmark figure is the
 // easiest number on a marketing page to leave stale or round generously, and
-// this one is Titan's own claim about its own harness, so it gets the same
+// this one is Abhed's own claim about its own harness, so it gets the same
 // treatment as the test count: recomputed from the source of truth on every
 // run, never trusted from the page.
 //
 // The page carries the figure as
 //
-//	<b data-bench="titan">17/24</b>
+//	<b data-bench="abhed">17/24</b>
 //
-// for each system (titan, aider, bare). A page without a benchmark section is
+// for each system (abhed, aider, bare). A page without a benchmark section is
 // not checked; a page with one is checked against the latest results date.
 func TestBenchmarkFiguresMatchResults(t *testing.T) {
 	src := raw(t)

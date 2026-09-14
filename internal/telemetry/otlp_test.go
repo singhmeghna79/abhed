@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 // A collector that records what it is sent.
@@ -80,7 +80,7 @@ func TestSessionBecomesATrace(t *testing.T) {
 	srv := httptest.NewServer(c.handler())
 	defer srv.Close()
 
-	e := New(Config{Endpoint: srv.URL, ServiceName: "titan-test",
+	e := New(Config{Endpoint: srv.URL, ServiceName: "abhed-test",
 		Headers: map[string]string{"Authorization": "Bearer x"}, FlushEvery: 20 * time.Millisecond})
 
 	t0 := time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC)
@@ -98,7 +98,7 @@ func TestSessionBecomesATrace(t *testing.T) {
 		agent.SessionEnded{Reason: "completed", Turns: 3, TokensIn: 1200, TokensOut: 300}))
 	e.Close()
 
-	root := c.find("titan.session")
+	root := c.find("abhed.session")
 	if root == nil {
 		t.Fatalf("no session span exported; got %d spans", len(c.spans))
 	}
@@ -112,10 +112,10 @@ func TestSessionBecomesATrace(t *testing.T) {
 	if call["traceId"] != root["traceId"] {
 		t.Error("tool span is not in the session's trace")
 	}
-	if got := attr(root, "titan.tokens.in"); got != float64(1200) {
+	if got := attr(root, "abhed.tokens.in"); got != float64(1200) {
 		t.Errorf("tokens.in attribute = %v, want 1200", got)
 	}
-	if got := attr(root, "titan.turns"); got != float64(3) {
+	if got := attr(root, "abhed.turns"); got != float64(3) {
 		t.Errorf("turns attribute = %v, want 3", got)
 	}
 	if got := call["endTimeUnixNano"]; got != jsonInt(t0.Add(3*time.Second).UnixNano()) {
@@ -127,7 +127,7 @@ func TestSessionBecomesATrace(t *testing.T) {
 	c.mu.Lock()
 	var denied map[string]any
 	for _, s := range c.spans {
-		if attr(s, "titan.denied") == true {
+		if attr(s, "abhed.denied") == true {
 			denied = s
 		}
 	}
@@ -159,7 +159,7 @@ func TestSubagentJoinsParentTrace(t *testing.T) {
 	e.Observe(ev(agent.EvSessionEnded, "parent", "", t0.Add(3*time.Second), agent.SessionEnded{Reason: "completed"}))
 	e.Close()
 
-	parent, child := c.find("titan.session"), c.find("titan.subagent")
+	parent, child := c.find("abhed.session"), c.find("abhed.subagent")
 	if parent == nil || child == nil {
 		t.Fatalf("parent=%v child=%v", parent != nil, child != nil)
 	}

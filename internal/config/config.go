@@ -1,7 +1,7 @@
-// Package config loads Titan's layered configuration.
+// Package config loads Abhed's layered configuration.
 //
 // Precedence, lowest to highest: built-in defaults, user config, project
-// config, environment, flags — except managed config (/etc/titan), which
+// config, environment, flags — except managed config (/etc/abhed), which
 // always wins so local settings cannot escalate past org policy (docs P7).
 package config
 
@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 type Config struct {
@@ -40,7 +40,7 @@ type Config struct {
 	Storage         StorageConfig          `json:"storage"`
 	Server          ServerConfig           `json:"server,omitempty"`
 	Telemetry       TelemetryConfig        `json:"telemetry,omitempty"`
-	// Schedules are prompts run on a timetable by `titan serve`. Each run is an
+	// Schedules are prompts run on a timetable by `abhed serve`. Each run is an
 	// ordinary session — listed, recorded, replayable — that the clock started.
 	Schedules []ScheduleConfig `json:"schedules,omitempty"`
 	Auth      AuthConfig       `json:"auth"`
@@ -55,7 +55,7 @@ type ModelConfig struct {
 }
 
 type ProviderConfig struct {
-	// Type names a registered provider — run `titan providers` for the list.
+	// Type names a registered provider — run `abhed providers` for the list.
 	// "openai-compatible" remains the generic escape hatch for any endpoint
 	// speaking that API.
 	Type            string   `json:"type"`
@@ -86,7 +86,7 @@ type ProviderConfig struct {
 
 	// Params holds the sampling and decoding controls for this provider.
 	// Every field is optional; an omitted one leaves the model's own default
-	// alone rather than substituting a number Titan invented.
+	// alone rather than substituting a number Abhed invented.
 	Params ParamsConfig `json:"params,omitempty"`
 
 	// Extra passes provider-specific settings through without this struct
@@ -154,7 +154,7 @@ type ContextConfig struct {
 // only safe when a trusted proxy is the sole route to the port.
 type AuthConfig struct {
 	// Mode is none | local | proxy | oidc.
-	//   local — Titan holds the accounts: email and password, no external IdP
+	//   local — Abhed holds the accounts: email and password, no external IdP
 	//   oidc  — delegate to an identity provider, including Google/Microsoft
 	Mode string `json:"mode"`
 	// Provider fills in issuer, scopes and tenant claim for a known IdP:
@@ -199,7 +199,7 @@ type AuthConfig struct {
 
 // WebSearchConfig controls the agent's access to the public web.
 //
-// OFF by default: Titan is built to run air-gapped, and this is the one tool
+// OFF by default: Abhed is built to run air-gapped, and this is the one tool
 // that deliberately crosses the boundary. Enabling it is a decision an operator
 // makes, not a default they inherit.
 type WebSearchConfig struct {
@@ -221,7 +221,7 @@ type WebSearchConfig struct {
 type StorageConfig struct {
 	// Driver is "memory" or "postgres".
 	Driver string `json:"driver"`
-	// DSN may also come from TITAN_DATABASE_URL, so a deployment need not put
+	// DSN may also come from ABHED_DATABASE_URL, so a deployment need not put
 	// a credential in a config file.
 	DSN string `json:"dsn,omitempty"`
 	// Tenant scopes every row; row-level security enforces it.
@@ -229,8 +229,8 @@ type StorageConfig struct {
 	MaxConns int    `json:"max_conns,omitempty"`
 }
 
-// ServerConfig holds the settings that only matter once `titan serve` is
-// reachable from a network Titan does not control.
+// ServerConfig holds the settings that only matter once `abhed serve` is
+// reachable from a network Abhed does not control.
 //
 // These are deliberately separate from AuthConfig: they describe the deployment
 // (is TLS terminated in front of us, whose Origin do we trust, is there a proxy)
@@ -255,11 +255,19 @@ type ServerConfig struct {
 	// whoever runs this deployment. Empty renders no link at all, which is the
 	// right default: an air-gapped install cannot follow one.
 	HomeURL string `json:"home_url,omitempty"`
+	// CanonicalHost, when set, is the one hostname this deployment answers
+	// on: a request that arrives for any other host is redirected there with
+	// a 301, path and query intact. It exists so an old hostname can keep
+	// working after a rename without the deployment living at two names,
+	// which would split cookies, bookmarks and audit records between them.
+	// Empty means "answer on whatever host the request names", which is the
+	// only workable default for a laptop or an air-gapped install.
+	CanonicalHost string `json:"canonical_host,omitempty"`
 }
 
 // RetrievalConfig controls the on-prem index. Retrieval is an accelerator over
 // agentic grep, not a replacement: the evidence favouring one over the other is
-// contested, so Titan builds both and measures (docs §02 §4).
+// contested, so Abhed builds both and measures (docs §02 §4).
 type RetrievalConfig struct {
 	// Enabled builds an index at startup and exposes the search tool.
 	Enabled bool `json:"enabled"`
@@ -279,7 +287,7 @@ type RetrievalConfig struct {
 // come from where the operator put them.
 type SkillsConfig struct {
 	// Dirs each contain one directory per skill, holding a SKILL.md.
-	// Defaults to ~/.titan/skills when unset.
+	// Defaults to ~/.abhed/skills when unset.
 	Dirs []string `json:"dirs,omitempty"`
 	// Disabled turns skills off entirely, including the default directory.
 	Disabled bool `json:"disabled,omitempty"`
@@ -440,7 +448,7 @@ func Default() Config {
 		},
 		Context: ContextConfig{
 			CompactAt:   0.90,
-			MemoryFiles: []string{"TITAN.md", "TITAN.local.md"},
+			MemoryFiles: []string{"ABHED.md", "ABHED.local.md"},
 		},
 		Limits: LimitsConfig{
 			MaxTurns: 100, MaxTokens: 8192, MaxBudgetTokens: 0,
@@ -457,7 +465,7 @@ func Default() Config {
 			MaxMemoryMB:  4096,
 			MaxProcs:     512,
 		},
-		// Off by default: Titan runs air-gapped, and web search is the one tool
+		// Off by default: Abhed runs air-gapped, and web search is the one tool
 		// that deliberately crosses the boundary.
 		WebSearch: WebSearchConfig{Enabled: false, Provider: "duckduckgo", MaxResults: 5},
 	}
@@ -468,16 +476,16 @@ func Load(workspace string) (Config, error) {
 	cfg := Default()
 
 	if home, err := os.UserHomeDir(); err == nil {
-		if err := mergeFile(&cfg, filepath.Join(home, ".titan", "config.json")); err != nil {
+		if err := mergeFile(&cfg, filepath.Join(home, ".abhed", "config.json")); err != nil {
 			return cfg, err
 		}
 	}
-	if err := mergeFile(&cfg, filepath.Join(workspace, ".titan", "config.json")); err != nil {
+	if err := mergeFile(&cfg, filepath.Join(workspace, ".abhed", "config.json")); err != nil {
 		return cfg, err
 	}
 
 	// Managed config is applied last and marks the engine as org-controlled.
-	managed := filepath.Join("/etc", "titan", "config.json")
+	managed := filepath.Join("/etc", "abhed", "config.json")
 	if _, err := os.Stat(managed); err == nil {
 		if err := mergeFile(&cfg, managed); err != nil {
 			return cfg, err
@@ -513,18 +521,18 @@ func applyEnv(cfg *Config) {
 	if !found {
 		return
 	}
-	if v := os.Getenv("TITAN_BASE_URL"); v != "" {
+	if v := os.Getenv("ABHED_BASE_URL"); v != "" {
 		p.BaseURL = v
 	}
-	if v := os.Getenv("TITAN_MODEL"); v != "" {
+	if v := os.Getenv("ABHED_MODEL"); v != "" {
 		p.Model = v
 	}
-	if v := os.Getenv("TITAN_API_KEY"); v != "" {
+	if v := os.Getenv("ABHED_API_KEY"); v != "" {
 		p.APIKey = v
 	}
 	cfg.Model.Providers[name] = p
 
-	if v := os.Getenv("TITAN_DATABASE_URL"); v != "" {
+	if v := os.Getenv("ABHED_DATABASE_URL"); v != "" {
 		cfg.Storage.DSN = v
 		if cfg.Storage.Driver == "" || cfg.Storage.Driver == "memory" {
 			cfg.Storage.Driver = "postgres"
@@ -565,7 +573,7 @@ func (c Config) Provider() (ProviderConfig, error) {
 // ProviderNamed resolves one configured provider by name.
 //
 // Split out from Provider so a caller that lets someone CHOOSE a model — the
-// console's picker, `titan -model` — resolves it exactly the way the default is
+// console's picker, `abhed -model` — resolves it exactly the way the default is
 // resolved: the key comes from the server's environment via APIKeyEnv, and the
 // same validation runs. A second implementation of this would eventually
 // forget one of those two things.
@@ -607,7 +615,7 @@ func (c Config) Validate() error {
 	// and validates the sampling parameters at the same time, so a bad setting
 	// is reported here rather than on the first model call.
 	if !model.Known(p.Type) {
-		return fmt.Errorf("provider %q has unknown type %q; run `titan providers` "+
+		return fmt.Errorf("provider %q has unknown type %q; run `abhed providers` "+
 			"for the list", c.Model.Default, p.Type)
 	}
 	if _, err := p.Adapter(); err != nil {
@@ -641,8 +649,8 @@ func (c Config) Validate() error {
 	default:
 		return fmt.Errorf("unknown storage.driver %q (want memory or postgres)", c.Storage.Driver)
 	}
-	if c.Storage.Driver == "postgres" && c.Storage.DSN == "" && os.Getenv("TITAN_DATABASE_URL") == "" {
-		return fmt.Errorf("storage.driver is postgres but no DSN is set (use storage.dsn or TITAN_DATABASE_URL)")
+	if c.Storage.Driver == "postgres" && c.Storage.DSN == "" && os.Getenv("ABHED_DATABASE_URL") == "" {
+		return fmt.Errorf("storage.driver is postgres but no DSN is set (use storage.dsn or ABHED_DATABASE_URL)")
 	}
 	switch c.Sandbox.MinTier {
 	case "none", "process", "container", "vm", "":
@@ -652,7 +660,7 @@ func (c Config) Validate() error {
 	return nil
 }
 
-// WriteDefault creates a starter config, so `titan init` produces something
+// WriteDefault creates a starter config, so `abhed init` produces something
 // the user can edit rather than a blank file.
 func WriteDefault(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

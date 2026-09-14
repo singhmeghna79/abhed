@@ -11,7 +11,7 @@ import (
 )
 
 // These are the escape tests docs/architecture/03-security.md §7 requires
-// before Titan may execute untrusted code. They assert the boundary actually
+// before Abhed may execute untrusted code. They assert the boundary actually
 // holds rather than that the configuration looks right.
 
 func workspace(t *testing.T) string {
@@ -60,13 +60,13 @@ func TestProcessSandboxBlocksWriteOutsideWorkspace(t *testing.T) {
 	ws := workspace(t)
 	s := processSandbox(t, ws, false)
 
-	outside := filepath.Join(os.TempDir(), "titan-escape-probe.txt")
+	outside := filepath.Join(os.TempDir(), "abhed-escape-probe.txt")
 	os.Remove(outside)
 	defer os.Remove(outside)
 
 	// /private/tmp is intentionally writable (toolchains need it), so probe a
 	// path that must never be writable instead.
-	target := "/usr/local/titan-escape-probe.txt"
+	target := "/usr/local/abhed-escape-probe.txt"
 	out, _ := runIn(t, s, ws, "echo escaped > "+target+" 2>&1; echo done")
 	if _, err := os.Stat(target); err == nil {
 		os.Remove(target)
@@ -78,7 +78,7 @@ func TestProcessSandboxBlocksSystemPathWrite(t *testing.T) {
 	ws := workspace(t)
 	s := processSandbox(t, ws, false)
 
-	for _, target := range []string{"/etc/titan-probe", "/usr/bin/titan-probe"} {
+	for _, target := range []string{"/etc/abhed-probe", "/usr/bin/abhed-probe"} {
 		runIn(t, s, ws, "echo x > "+target+" 2>&1")
 		if _, err := os.Stat(target); err == nil {
 			os.Remove(target)
@@ -127,7 +127,7 @@ func TestProcessSandboxBlocksCredentialRead(t *testing.T) {
 func TestSandboxReportsItsOwnTier(t *testing.T) {
 	ws := workspace(t)
 	s := processSandbox(t, ws, false)
-	out, err := runIn(t, s, ws, "echo $TITAN_SANDBOX")
+	out, err := runIn(t, s, ws, "echo $ABHED_SANDBOX")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish titan.zybuu.com through a Cloudflare Tunnel.
+# Publish abhed.zybuu.com through a Cloudflare Tunnel.
 #
 # Why a tunnel rather than the port-forward this repo originally assumed:
 # Airtel puts this connection behind carrier-grade NAT. The router's WAN
@@ -21,9 +21,14 @@
 # in the path, which an air-gapped deployment would not accept.
 set -euo pipefail
 
-DOMAIN="${TITAN_DOMAIN:-titan.zybuu.com}"
-TUNNEL="${TITAN_TUNNEL:-titan}"
-LOCAL="${TITAN_LOCAL:-http://127.0.0.1:8080}"
+DOMAIN="${ABHED_DOMAIN:-abhed.zybuu.com}"
+# Hostnames that also reach this deployment. The product was called Titan
+# until September 2026 and its links are in mail and bookmarks; the old name
+# keeps resolving, and the server itself answers it with a 301 to $DOMAIN
+# (server.canonical_host in deploy/config.json), so nothing is served twice.
+ALIASES="${ABHED_DOMAIN_ALIASES:-titan.zybuu.com}"
+TUNNEL="${ABHED_TUNNEL:-abhed}"
+LOCAL="${ABHED_LOCAL:-http://127.0.0.1:8080}"
 CFG_DIR="$HOME/.cloudflared"
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
@@ -45,7 +50,15 @@ fi
 # ------------------------------------------------------------------ 2. tunnel
 if ! cloudflared tunnel list 2>/dev/null | awk '{print $2}' | grep -qx "$TUNNEL"; then
   step "Creating tunnel '$TUNNEL'"
-  cloudflared tunnel create "$TUNNEL"
+  # The tunnel that already carries this deployment was created under the
+  # old product name. A tunnel's name is only a label in Cloudflare; reusing
+  # it keeps the DNS records, the credentials file and the running connector.
+  if cloudflared tunnel list 2>/dev/null | awk '$2=="titan" {found=1} END {exit !found}'; then
+    echo "reusing the existing tunnel 'titan' (renaming a tunnel is not supported; the name is only a label)"
+    TUNNEL=titan
+  else
+    cloudflared tunnel create "$TUNNEL"
+  fi
 else
   echo "tunnel '$TUNNEL' already exists"
 fi
@@ -61,7 +74,8 @@ tunnel: $TUNNEL_ID
 credentials-file: $CFG_DIR/$TUNNEL_ID.json
 
 ingress:
-  - hostname: $DOMAIN
+$(for h in $DOMAIN $ALIASES; do cat <<RULE
+  - hostname: $h
     service: $LOCAL
     originRequest:
       # Server-sent events are the console's transport. Without this the
@@ -72,16 +86,20 @@ ingress:
       # event stream mid-session.
       connectTimeout: 30s
       tcpKeepAlive: 30s
-  # Anything not matching the hostname above is refused rather than proxied.
+RULE
+done)
+  # Anything not matching the hostnames above is refused rather than proxied.
   - service: http_status:404
 YAML
 
 # ---------------------------------------------------------------------- 4. DNS
 # This replaces the A record with a CNAME to the tunnel. The A record pointed at
 # a CGNAT-shared address that never answered, so nothing is lost.
-step "Pointing $DOMAIN at the tunnel"
-cloudflared tunnel route dns "$TUNNEL" "$DOMAIN" 2>&1 | tail -2 || \
-  echo "note: route may already exist — continuing"
+for h in $DOMAIN $ALIASES; do
+  step "Pointing $h at the tunnel"
+  cloudflared tunnel route dns "$TUNNEL" "$h" 2>&1 | tail -2 || \
+    echo "note: route may already exist — continuing"
+done
 
 step "Ready"
 cat <<TEXT

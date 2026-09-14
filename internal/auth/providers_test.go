@@ -48,38 +48,38 @@ func fixtures() []providerFixture {
 			// Keycloak: realm-scoped issuer, roles under realm_access.
 			name:        "keycloak",
 			issuer:      "https://idp.internal/realms/engineering",
-			audience:    "titan",
+			audience:    "abhed",
 			tenantClaim: "org_id",
 			groupsClaim: "groups",
 			claims: map[string]any{
 				"iss":                "https://idp.internal/realms/engineering",
-				"aud":                "titan",
+				"aud":                "abhed",
 				"sub":                "f:8a1c:yuvraj",
 				"typ":                "Bearer",
-				"azp":                "titan",
+				"azp":                "abhed",
 				"preferred_username": "yuvraj",
 				"email":              "yuvraj@example.com",
 				"name":               "Yuvraj Singh",
 				"org_id":             "acme",
-				"groups":             []string{"/engineering", "/titan-admins"},
+				"groups":             []string{"/engineering", "/abhed-admins"},
 				"realm_access":       map[string]any{"roles": []string{"default-roles-engineering"}},
 				"iat":                now.Unix(),
 				"exp":                now.Add(time.Hour).Unix(),
 			},
 			wantTenant:  "acme",
-			wantGroups:  []string{"/engineering", "/titan-admins"},
+			wantGroups:  []string{"/engineering", "/abhed-admins"},
 			wantSubject: "f:8a1c:yuvraj",
 		},
 		{
 			// Okta: issuer includes /oauth2/<authServerId>, aud is the API name.
 			name:        "okta",
 			issuer:      "https://example.okta.com/oauth2/aus1a2b3c",
-			audience:    "api://titan",
+			audience:    "api://abhed",
 			tenantClaim: "orgId",
 			groupsClaim: "groups",
 			claims: map[string]any{
 				"iss":    "https://example.okta.com/oauth2/aus1a2b3c",
-				"aud":    "api://titan",
+				"aud":    "api://abhed",
 				"sub":    "00u1a2b3c4d5e6f7g8h9",
 				"scp":    []string{"openid", "profile", "email"},
 				"email":  "yuvraj@example.com",
@@ -96,12 +96,12 @@ func fixtures() []providerFixture {
 			// Entra ID v2.0: tenant in `tid`, groups as object ids, aud is a GUID.
 			name:        "entra",
 			issuer:      "https://login.microsoftonline.com/72f988bf-1234/v2.0",
-			audience:    "api://8a1b2c3d-titan",
+			audience:    "api://8a1b2c3d-abhed",
 			tenantClaim: "tid",
 			groupsClaim: "groups",
 			claims: map[string]any{
 				"iss":   "https://login.microsoftonline.com/72f988bf-1234/v2.0",
-				"aud":   "api://8a1b2c3d-titan",
+				"aud":   "api://8a1b2c3d-abhed",
 				"sub":   "AAAAAAAAAAAAAAAAAAAAAG5kZXg",
 				"oid":   "9f4880d8-80ba-4c40-97bc-f7a23c703084",
 				"tid":   "72f988bf-1234",
@@ -127,17 +127,17 @@ func fixtures() []providerFixture {
 			// Auth0: namespaced custom claims, aud as an array.
 			name:        "auth0",
 			issuer:      "https://example.eu.auth0.com/",
-			audience:    "https://titan.internal/api",
-			tenantClaim: "https://titan.internal/tenant",
-			groupsClaim: "https://titan.internal/groups",
+			audience:    "https://abhed.internal/api",
+			tenantClaim: "https://abhed.internal/tenant",
+			groupsClaim: "https://abhed.internal/groups",
 			claims: map[string]any{
 				"iss":                           "https://example.eu.auth0.com/",
-				"aud":                           []string{"https://titan.internal/api", "https://example.eu.auth0.com/userinfo"},
+				"aud":                           []string{"https://abhed.internal/api", "https://example.eu.auth0.com/userinfo"},
 				"sub":                           "auth0|65f1a2b3c4d5e6f7",
-				"azp":                           "titanClientId",
+				"azp":                           "abhedClientId",
 				"scope":                         "openid profile email",
-				"https://titan.internal/tenant": "acme",
-				"https://titan.internal/groups": []string{"engineering"},
+				"https://abhed.internal/tenant": "acme",
+				"https://abhed.internal/groups": []string{"engineering"},
 				"iat":                           now.Unix(),
 				"exp":                           now.Add(time.Hour).Unix(),
 			},
@@ -149,12 +149,12 @@ func fixtures() []providerFixture {
 			// Google Workspace: `hd` carries the domain, no groups claim at all.
 			name:        "google",
 			issuer:      "https://accounts.google.com",
-			audience:    "1234567890-titan.apps.googleusercontent.com",
+			audience:    "1234567890-abhed.apps.googleusercontent.com",
 			tenantClaim: "hd",
 			groupsClaim: "groups",
 			claims: map[string]any{
 				"iss":            "https://accounts.google.com",
-				"aud":            "1234567890-titan.apps.googleusercontent.com",
+				"aud":            "1234567890-abhed.apps.googleusercontent.com",
 				"sub":            "110169484474386276334",
 				"email":          "yuvraj@example.com",
 				"email_verified": true,
@@ -279,12 +279,12 @@ func TestMissingTenantClaimFallsBack(t *testing.T) {
 	issuer := "https://idp.internal/realms/x"
 	idp := newRealIDP(t, issuer)
 	v, _ := NewVerifier(Config{
-		Issuer: issuer, Audience: "titan",
+		Issuer: issuer, Audience: "abhed",
 		JWKSURL:     idp.server.URL + "/jwks",
 		TenantClaim: "nonexistent_claim",
 	})
 	id, err := v.Verify(context.Background(), idp.sign(t, map[string]any{
-		"iss": issuer, "aud": "titan", "sub": "u1",
+		"iss": issuer, "aud": "abhed", "sub": "u1",
 		"exp": time.Now().Add(time.Hour).Unix(),
 	}))
 	if err != nil {
@@ -300,14 +300,14 @@ func TestClockSkewLeeway(t *testing.T) {
 	issuer := "https://login.microsoftonline.com/t/v2.0"
 	idp := newRealIDP(t, issuer)
 	v, _ := NewVerifier(Config{
-		Issuer: issuer, Audience: "titan",
+		Issuer: issuer, Audience: "abhed",
 		JWKSURL: idp.server.URL + "/jwks",
 		Leeway:  60 * time.Second,
 	})
 
 	// Issued 30s in the future: within the 60s leeway a real deployment needs.
 	id, err := v.Verify(context.Background(), idp.sign(t, map[string]any{
-		"iss": issuer, "aud": "titan", "sub": "u1",
+		"iss": issuer, "aud": "abhed", "sub": "u1",
 		"nbf": time.Now().Add(30 * time.Second).Unix(),
 		"exp": time.Now().Add(time.Hour).Unix(),
 	}))
@@ -320,7 +320,7 @@ func TestClockSkewLeeway(t *testing.T) {
 
 	// Well outside the leeway: must be rejected.
 	_, err = v.Verify(context.Background(), idp.sign(t, map[string]any{
-		"iss": issuer, "aud": "titan", "sub": "u1",
+		"iss": issuer, "aud": "abhed", "sub": "u1",
 		"nbf": time.Now().Add(10 * time.Minute).Unix(),
 		"exp": time.Now().Add(time.Hour).Unix(),
 	}))
@@ -349,12 +349,12 @@ func TestIssuerTrailingSlashMismatchIsRejected(t *testing.T) {
 	idp := newRealIDP(t, "https://example.eu.auth0.com/")
 	v, _ := NewVerifier(Config{
 		Issuer:   "https://example.eu.auth0.com", // no trailing slash
-		Audience: "titan",
+		Audience: "abhed",
 		JWKSURL:  idp.server.URL + "/jwks",
 	})
 	_, err := v.Verify(context.Background(), idp.sign(t, map[string]any{
 		"iss": "https://example.eu.auth0.com/", // with slash
-		"aud": "titan", "sub": "u1",
+		"aud": "abhed", "sub": "u1",
 		"exp": time.Now().Add(time.Hour).Unix(),
 	}))
 	if err == nil {
@@ -388,14 +388,14 @@ func TestDiscoveryFlow(t *testing.T) {
 	srv = httptest.NewServer(mux)
 	defer srv.Close()
 
-	v, err := NewVerifier(Config{Issuer: srv.URL, Audience: "titan"})
+	v, err := NewVerifier(Config{Issuer: srv.URL, Audience: "abhed"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	h, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT", "kid": "k1"})
 	c, _ := json.Marshal(map[string]any{
-		"iss": srv.URL, "aud": "titan", "sub": "u1",
+		"iss": srv.URL, "aud": "abhed", "sub": "u1",
 		"exp": time.Now().Add(time.Hour).Unix(),
 	})
 	signing := base64.RawURLEncoding.EncodeToString(h) + "." + base64.RawURLEncoding.EncodeToString(c)

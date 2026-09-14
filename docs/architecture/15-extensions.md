@@ -1,10 +1,10 @@
-# Titan extensions
+# Abhed extensions
 
 Status: 2026-09-06
 
 An extension changes how the agent behaves without forking it. Extensions are
 separate processes speaking JSONL over stdin and stdout, so they can be written
-in any language and need no build step in Titan.
+in any language and need no build step in Abhed.
 
 ## The one rule
 
@@ -15,7 +15,7 @@ tool runs, rewrite a result before the model reads it, drop messages before they
 are sent upstream, and add to the system prompt. It cannot turn a denied action
 into an allowed one.
 
-This is the single line Titan draws differently from Pi, whose extension API is
+This is the single line Abhed draws differently from Pi, whose extension API is
 otherwise broader and better. Pi's answer to permissions is to containerise or
 write an extension, which is coherent for a developer on a laptop. It is not
 available to a deployment that has to prove to an auditor what the agent was
@@ -30,14 +30,14 @@ into a directory. `Host.PolicyHook` is structurally incapable of constructing an
 
 ## Protocol
 
-One JSON object per line, in each direction. Titan writes a request; the
+One JSON object per line, in each direction. Abhed writes a request; the
 extension writes exactly one reply.
 
 ```jsonc
-// Titan → extension
+// Abhed → extension
 {"event":"tool_call","session_id":"s-1","tool":"bash","args":{"command":"rm -rf /tmp/x"}}
 
-// extension → Titan
+// extension → Abhed
 {"block":true,"reason":"rm -rf is not permitted here","log":"blocked a destructive command"}
 ```
 
@@ -69,7 +69,7 @@ Declaring no `events` subscribes to all of them.
 | `summary` | the compaction summary to use instead of asking the model |
 | `cancel` | leave the history alone this time |
 | `tools`, `result` | see "Providing a tool" |
-| `log` | written to Titan's log |
+| `log` | written to Abhed's log |
 
 An empty reply `{}` means no opinion, which is also how a crashed, hung or
 nonsensical extension is treated.
@@ -82,7 +82,7 @@ nonsensical extension is treated.
     {
       "name": "guard",
       "command": "bash",
-      "args": ["/opt/titan/guard.sh"],
+      "args": ["/opt/abhed/guard.sh"],
       "events": ["tool_call"],
       "timeout_ms": 5000
     }
@@ -170,7 +170,7 @@ rule naming it still wins, and one that mutates is subject to approval exactly
 as a built-in is.
 
 Two defaults are deliberately strict. A tool that does not say whether it
-mutates is **assumed to**, because Titan cannot know what someone else's tool
+mutates is **assumed to**, because Abhed cannot know what someone else's tool
 does and the safe answer is the one that asks. And a duplicate tool name is
 **refused** rather than resolved by load order, since which tool ran would
 otherwise depend on the order extensions happened to start, and a policy rule
@@ -180,13 +180,13 @@ The list is read once at startup. A tool set that changed mid-session would mean
 the model's prompt no longer matched what it could call, and would invalidate
 the prefix cache on every change.
 
-## Driving Titan from another language
+## Driving Abhed from another language
 
-`titan rpc` speaks line-delimited JSON on stdin and stdout, so a caller in any
+`abhed rpc` speaks line-delimited JSON on stdin and stdout, so a caller in any
 language can run it as a subprocess without a server, a port or auth:
 
 ```python
-p = subprocess.Popen(["titan", "rpc"], stdin=PIPE, stdout=PIPE, text=True)
+p = subprocess.Popen(["abhed", "rpc"], stdin=PIPE, stdout=PIPE, text=True)
 send(method="start", mode="auto")
 send(method="prompt", prompt="fix the failing tests")
 # every event the agent records arrives as {"type":"event", ...} while it works

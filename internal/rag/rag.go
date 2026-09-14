@@ -1,6 +1,6 @@
-// Package rag connects Titan to a retrieval system it does not own.
+// Package rag connects Abhed to a retrieval system it does not own.
 //
-// Titan already builds a local index (internal/index) over the workspace, but
+// Abhed already builds a local index (internal/index) over the workspace, but
 // that only answers questions about code the agent can see. An enterprise has
 // its own corpus — runbooks, incident history, product documentation, an
 // existing vector database — behind an HTTP endpoint that already exists.
@@ -9,7 +9,7 @@
 // clients. Every retrieval API is the same shape underneath (send a query, get
 // back passages) and differs only in field names, so a small path mapping
 // covers Elasticsearch, OpenSearch, Vespa, Qdrant, Weaviate, or an internal
-// service, without Titan carrying a client library for each and a release
+// service, without Abhed carrying a client library for each and a release
 // every time one changes.
 package rag
 

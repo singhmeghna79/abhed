@@ -1,4 +1,4 @@
-// Package eval is Titan's evaluation harness.
+// Package eval is Abhed's evaluation harness.
 //
 // Per docs P1, the harness is the dominant variable in agent success, so a team
 // that cannot measure harness changes is flying blind on what matters most. Per
@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 // Task is one evaluation case.

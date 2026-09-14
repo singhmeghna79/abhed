@@ -1,6 +1,6 @@
 package server
 
-// landingHTML is Titan's front door.
+// landingHTML is Abhed's front door.
 //
 // It has one job that a marketing page does not: tell you what THIS deployment
 // is. Model, sandbox tier, storage durability, whether the agent can reach the
@@ -15,8 +15,8 @@ const landingHTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Titan</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22tf%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2255%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22tcore%22%20cx=%2240%25%22%20cy=%2235%25%22%20r=%2270%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22/%3E%20%3Cstop%20offset=%2270%25%22%20stop-color=%22%23DDEFFF%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%239ED2FF%22/%3E%20%3C/radialGradient%3E%20%3CradialGradient%20id=%22tglow%22%20cx=%2250%25%22%20cy=%2250%25%22%20r=%2250%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%22.5%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3C/defs%3E%20%3Cg%20fill=%22none%22%20stroke=%22url(%23tf)%22%20stroke-width=%2228%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%20%3Cpath%20d=%22M104%2034%20H64%20a20%2020%200%200%200%20-20%2020%20V202%20a20%2020%200%200%200%2020%2020%20H104%22/%3E%20%3Cpath%20d=%22M152%2034%20H192%20a20%2020%200%200%201%2020%2020%20V202%20a20%2020%200%200%201%20-20%2020%20H152%22/%3E%20%3C/g%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2260%22%20fill=%22url(%23tglow)%22/%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2231%22%20fill=%22url(%23tcore)%22/%3E%20%3C/svg%3E">
+<title>Abhed</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%20256%20256%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22fwall%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%235CC4FF%22%2F%3E%3Cstop%20offset%3D%2255%25%22%20stop-color%3D%22%232A8CF0%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%230B3C8C%22%2F%3E%3C%2FlinearGradient%3E%3CradialGradient%20id%3D%22fcore%22%20cx%3D%2240%25%22%20cy%3D%2235%25%22%20r%3D%2270%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23FFFFFF%22%2F%3E%3Cstop%20offset%3D%2270%25%22%20stop-color%3D%22%23DDEFFF%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%239ED2FF%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22fglow%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%235CC4FF%22%20stop-opacity%3D%22.55%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%235CC4FF%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M218.6%2090.5%20L165.5%2037.4%20L90.5%2037.4%20L37.4%2090.5%20L37.4%20165.5%20L90.5%20218.6%20L165.5%20218.6%20L218.6%20165.5%20Z%22%20fill%3D%22none%22%20stroke%3D%22url%28%23fwall%29%22%20stroke-width%3D%2224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2262%22%20fill%3D%22none%22%20stroke%3D%22url%28%23fwall%29%22%20stroke-width%3D%226%22%20opacity%3D%22.45%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2250%22%20fill%3D%22url%28%23fglow%29%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2223%22%20fill%3D%22url%28%23fcore%29%22%2F%3E%3C%2Fsvg%3E">
 <style>
 :root{
   --bg:#F5F7FB; --surface:#FFFFFF; --sunken:#E9EEF5;
@@ -104,9 +104,9 @@ header{position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);
 .btn.ghost:hover{border-color:var(--accent);filter:none}
 .note{font-family:var(--mono);font-size:11px;color:var(--muted)}
 
-/* Sign-in form. Shown only when Titan holds the accounts; an OIDC
+/* Sign-in form. Shown only when Abhed holds the accounts; an OIDC
    deployment gets a redirect button instead, because the password never
-   belongs to Titan in that mode. */
+   belongs to Abhed in that mode. */
 .signin{background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--line);border-radius:16px;
   padding:22px 22px 18px;max-width:380px;width:100%;box-shadow:0 30px 60px -30px rgba(0,0,0,.6);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -203,8 +203,8 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;font-family:var(--mo
 
 <header>
   <div class="wrap bar">
-    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
-    <b>Titan</b>
+    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="tt-wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="55%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><radialGradient id="tt-core" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="70%" stop-color="#DDEFFF"/><stop offset="100%" stop-color="#9ED2FF"/></radialGradient><radialGradient id="tt-glow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#5CC4FF" stop-opacity=".55"/><stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/></radialGradient></defs><path d="M218.6 90.5 L165.5 37.4 L90.5 37.4 L37.4 90.5 L37.4 165.5 L90.5 218.6 L165.5 218.6 L218.6 165.5 Z" fill="none" stroke="url(#tt-wall)" stroke-width="24" stroke-linejoin="round"/><circle cx="128" cy="128" r="62" fill="none" stroke="url(#tt-wall)" stroke-width="6" opacity=".45"/><circle cx="128" cy="128" r="50" fill="url(#tt-glow)"/><circle cx="128" cy="128" r="23" fill="url(#tt-core)"/></svg>
+    <b>Abhed</b>
     <span class="sub">deep agent harness</span><!--HOME-->
     <span class="spacer"></span>
     <span class="who" id="who" hidden></span>
@@ -217,7 +217,7 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;font-family:var(--mo
     <div>
       <span class="eyebrow"><i></i>deep agent harness · this deployment</span>
       <h1 id="headline">An agent harness for work that cannot leave the building.</h1>
-      <p id="pitch">Titan runs on hardware you own, against a model you host.
+      <p id="pitch">Abhed runs on hardware you own, against a model you host.
         It reads and writes files, runs commands in a sandbox, searches the
         web, reads images and documents, and operates infrastructure — with
         every action recorded and replayable. Air-gap capable, because the
@@ -227,7 +227,7 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;font-family:var(--mo
     </div>
     <div class="viz">
       <canvas id="net" aria-hidden="true"></canvas>
-      <svg class="emblem" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tte-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tte-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tte-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tte-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tte-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tte-tcore)"/> </svg>
+      <svg class="emblem" viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="tte-wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="55%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><radialGradient id="tte-core" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="70%" stop-color="#DDEFFF"/><stop offset="100%" stop-color="#9ED2FF"/></radialGradient><radialGradient id="tte-glow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#5CC4FF" stop-opacity=".55"/><stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/></radialGradient></defs><path d="M218.6 90.5 L165.5 37.4 L90.5 37.4 L37.4 90.5 L37.4 165.5 L90.5 218.6 L165.5 218.6 L218.6 165.5 Z" fill="none" stroke="url(#tte-wall)" stroke-width="24" stroke-linejoin="round"/><circle cx="128" cy="128" r="62" fill="none" stroke="url(#tte-wall)" stroke-width="6" opacity=".45"/><circle cx="128" cy="128" r="50" fill="url(#tte-glow)"/><circle cx="128" cy="128" r="23" fill="url(#tte-core)"/></svg>
     </div>
   </div>
 
@@ -255,7 +255,7 @@ footer{border-top:1px solid var(--line);padding:20px 0 30px;font-family:var(--mo
 </main>
 
 <footer class="wrap">
-  <span id="ver">titan</span><!--HOME-->
+  <span id="ver">abhed</span><!--HOME-->
   <span>every action is recorded and replayable</span>
   <span>tool output is treated as data, never instructions</span>
 </footer>
@@ -298,7 +298,7 @@ async function load(){
     const r = await fetch('/v1/overview');
     o = await r.json();
   }catch{
-    $('pitch').textContent = 'Cannot reach the Titan server. Check that it is running.';
+    $('pitch').textContent = 'Cannot reach the Abhed server. Check that it is running.';
     return;
   }
 
@@ -319,8 +319,8 @@ async function load(){
   cta.textContent = '';
 
   if(o.local_auth && !o.authenticated){
-    // Titan holds the accounts: render a real form.
-    $('headline').textContent = 'Sign in to Titan';
+    // Abhed holds the accounts: render a real form.
+    $('headline').textContent = 'Sign in to Abhed';
     $('pitch').textContent =
       'Your session is scoped to your tenant, and every action the agent takes ' +
       'is recorded and replayable.';
@@ -328,7 +328,7 @@ async function load(){
   }else if(o.sign_in_url && !o.authenticated){
     // A configured deployment with no local accounts: the whole front door
     // is the provider button.
-    $('headline').textContent = 'Sign in to Titan';
+    $('headline').textContent = 'Sign in to Abhed';
     $('pitch').textContent =
       'This deployment uses your organisation’s identity provider. ' +
       'Sessions are scoped to your tenant and every action is recorded.';
@@ -449,7 +449,7 @@ function renderFacts(o){
     p.appendChild(li);
   }
 
-  $('ver').textContent = 'titan · ' + o.model;
+  $('ver').textContent = 'abhed · ' + o.model;
 }
 
 // signInForm builds the username/password card.
@@ -498,7 +498,7 @@ function signInForm(o){
       // Not an alert: a modal dialog blocks the page and reads as an error.
       // The console shows it as a note on arrival.
       if(body.must_change_password){
-        try{ sessionStorage.setItem('titan.must_change', '1'); }catch{}
+        try{ sessionStorage.setItem('abhed.must_change', '1'); }catch{}
       }
       location.href = '/console';
     }catch(e){
@@ -535,7 +535,7 @@ function signInForm(o){
   }else{
     // Registration is genuinely off. Say what actually gets an account rather
     // than leaving the reader at a dead end.
-    foot.textContent = 'Accounts are created by an administrator: titan user add <name>';
+    foot.textContent = 'Accounts are created by an administrator: abhed user add <name>';
   }
   box.appendChild(foot);
   return box;

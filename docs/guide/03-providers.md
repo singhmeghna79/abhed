@@ -1,10 +1,10 @@
 # Models and providers
 
-Titan does not ship a model. It is model-agnostic by construction: the harness
+Abhed does not ship a model. It is model-agnostic by construction: the harness
 is the same whichever endpoint you point it at, and a better model makes the
 same harness better.
 
-`titan providers` lists what your binary supports — which is what registered
+`abhed providers` lists what your binary supports — which is what registered
 itself at build time, so a build that drops the cloud adapters for an air-gapped
 install reports honestly.
 
@@ -64,7 +64,7 @@ An API key, from config or the environment:
 { "type": "anthropic", "model": "claude-opus-5", "api_key_env": "ANTHROPIC_API_KEY" }
 ```
 
-### Subscriptions do not work, and this is not a Titan limitation
+### Subscriptions do not work, and this is not a Abhed limitation
 
 A Claude Pro or Max token — the kind `claude setup-token` prints — is **restricted
 to Claude Code**. Anthropic accepts the credential and then refuses the request
@@ -78,17 +78,17 @@ same model, same second, the only difference being the first system block.
 | any other prompt, or none | 429 |
 
 The refusal arrives as `429 rate_limit_error`, which is misleading — it is a
-policy decision, not a limit that clears. Titan recognises the shape (a 429
+policy decision, not a limit that clears. Abhed recognises the shape (a 429
 carrying none of the headers a real rate limit carries), reports it as what it
 is, and does not retry.
 
-Titan reads `CLAUDE_CODE_OAUTH_TOKEN` and `oauth_token` because the mechanism is
+Abhed reads `CLAUDE_CODE_OAUTH_TOKEN` and `oauth_token` because the mechanism is
 correct and the restriction may not be permanent. Today it is useful only for
 models outside the check.
 
 Working around it means sending Claude Code's identity string from a product
 that is not Claude Code. That circumvents an access control, misrepresents the
-product, and breaks the moment the check changes — so Titan does not do it, and
+product, and breaks the moment the check changes — so Abhed does not do it, and
 neither should anything built on it.
 
 Some models outside the check still answer. That is not a reason to rely on it:
@@ -128,8 +128,8 @@ and still cheaper than rebuilding the session by hand.
 
 ## Choosing one
 
-`titan doctor` tells you whether a model can drive the agent at all.
-`titan-modelcmp` compares candidates on tool calling and explanation quality,
+`abhed doctor` tells you whether a model can drive the agent at all.
+`abhed-modelcmp` compares candidates on tool calling and explanation quality,
 which are different things and are not measured by the same benchmark.
 
 Decode speed tracks *active* parameters, not total: a 27B dense model can be far

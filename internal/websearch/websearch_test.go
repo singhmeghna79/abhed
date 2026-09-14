@@ -139,11 +139,11 @@ func TestRateLimitIsReportedClearly(t *testing.T) {
 }
 
 // Live test against the real endpoint. Skipped by default so the suite does not
-// depend on the network; run with TITAN_TEST_NETWORK=1 to verify the default
+// depend on the network; run with ABHED_TEST_NETWORK=1 to verify the default
 // provider still works against the current upstream HTML.
 func TestLiveDuckDuckGo(t *testing.T) {
-	if os.Getenv("TITAN_TEST_NETWORK") == "" {
-		t.Skip("set TITAN_TEST_NETWORK=1 to run the live search test")
+	if os.Getenv("ABHED_TEST_NETWORK") == "" {
+		t.Skip("set ABHED_TEST_NETWORK=1 to run the live search test")
 	}
 	p, err := New(Config{Timeout: 25 * time.Second})
 	if err != nil {

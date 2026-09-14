@@ -29,7 +29,7 @@ const adminHTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Access — Titan</title>
+<title>Access — Abhed</title>
 <style>
 :root{
   --bg:#F4F6FA; --surface:#FFFFFF; --sunken:#E6EBF3;
@@ -118,7 +118,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 </style>
 </head>
 <header><div class="wrap bar">
-  <b>Titan</b><span style="color:var(--muted);font-size:12.5px">access</span>
+  <b>Abhed</b><span style="color:var(--muted);font-size:12.5px">access</span>
   <span class="sp"></span>
   <a href="/console">Console</a>
   <a href="/docs/">Docs</a><!--HOME-->

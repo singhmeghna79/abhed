@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/policy"
 )
 
 // Approver prompts the user to approve a tool call.

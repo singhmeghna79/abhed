@@ -1,20 +1,20 @@
-# Titan — System Architecture
+# Abhed — System Architecture
 
 Status: Draft · 2026-09-02
 
 ## 1. Plane separation
 
-Titan splits into four planes so the air-gap boundary falls on a single, auditable line.
+Abhed splits into four planes so the air-gap boundary falls on a single, auditable line.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  ACCESS PLANE                                                            │
-│  titan CLI (Go, static binary) │ Web console (TS) │ REST/gRPC + SSE API  │
+│  abhed CLI (Go, static binary) │ Web console (TS) │ REST/gRPC + SSE API  │
 │  IDE bridge (LSP)              │ OIDC/SAML SSO    │ Tenant-scoped RBAC   │
 └─────────────────────────────────┬────────────────────────────────────────┘
                                   │  session protocol (event stream)
 ┌─────────────────────────────────▼────────────────────────────────────────┐
-│  CONTROL PLANE  — the harness. Titan's actual product surface. (P1)      │
+│  CONTROL PLANE  — the harness. Abhed's actual product surface. (P1)      │
 │                                                                          │
 │   ┌────────────┐   ┌──────────────┐   ┌───────────────┐  ┌────────────┐ │
 │   │ Orchestr.  │──▶│ Context Mgr  │──▶│ Policy Engine │─▶│ Tool Router│ │
@@ -75,7 +75,7 @@ Event-sourced (P6). One turn = one model round trip plus its tool executions.
          │            │  TERMINATE   │◀── + ~10 other exit paths
          │            └──────────────┘    (max turns, budget, hook
          │                                 reject, interrupt, error,
-         └── re-inject TITAN.md every turn  shutdown, retry exhaustion)
+         └── re-inject ABHED.md every turn  shutdown, retry exhaustion)
 ```
 
 Normal termination is a response with no tool calls. **A production harness needs roughly
@@ -87,7 +87,7 @@ distinct, logged terminal event, not an exception.
 
 ```
 [ cached prefix ─────────────────────────────][ volatile ──────────────]
-  system prompt │ tool defs │ TITAN.md         │ event history │ JIT reads
+  system prompt │ tool defs │ ABHED.md         │ event history │ JIT reads
   └── stable across turns → prefix cache hit   └── grows; triggers compaction
 ```
 
@@ -105,7 +105,7 @@ Triggered at ~95% of the window, or by explicit operator/model request.
                    ▼
             LLM summarization ──▶ new window = summary
                                               + N most-recent-file reads (bounded budget)
-                                              + TITAN.md (re-injected, never summarized)
+                                              + ABHED.md (re-injected, never summarized)
                                               + plan file
 ```
 
@@ -123,7 +123,7 @@ them as a capacity metric (P8).
      ▼        ▼        ▼            ▼
    search   test     review      explore     ← fresh context each
      │        │        │            │           (own system prompt +
-     └────────┴────────┴────────────┘            TITAN.md, no parent turns)
+     └────────┴────────┴────────────┘            ABHED.md, no parent turns)
               │ 1–2k token summary only
               ▼
         orchestrator context grows by summary, not transcript
@@ -143,7 +143,7 @@ Hard requirements, all of which have bitten the systems this is modeled on:
 Evidence favors just-in-time agentic search over pre-computed embeddings — a costly signal,
 since Anthropic built the vector-DB path and abandoned it. **But this is contested** (a
 vector-DB vendor disputes it; an Amazon Science result puts keyword-via-tool-use at >90% of
-RAG performance), and the strongest supporting statistic was refuted. So Titan is
+RAG performance), and the strongest supporting statistic was refuted. So Abhed is
 agentic-first with retrieval as an *accelerator*, and measures the difference:
 
 ```
@@ -174,7 +174,7 @@ One call site, `provider:model`. The adapter absorbs everything that differs per
 serve traffic: tool-call round trip, schema adherence under load, long-context retrieval,
 reasoning-token leakage, refusal rate. Store the profile in the registry. This is the
 mechanism that makes P12 real rather than aspirational — and the resulting cross-model
-consistency benchmark is Titan's differentiating asset.
+consistency benchmark is Abhed's differentiating asset.
 
 ## 6. Trust boundaries
 
@@ -187,7 +187,7 @@ consistency benchmark is Titan's differentiating asset.
 
 Untrusted content — repo files, tool output, MCP responses, brokered search results — is
 **never** treated as instruction. It is tagged at ingest and stays tagged through the event
-store. Given that the sandboxing evidence was refuted rather than confirmed, Titan treats
+store. Given that the sandboxing evidence was refuted rather than confirmed, Abhed treats
 prompt injection as an open threat requiring defense in depth, not a solved problem:
 
 1. Provenance tagging on every observation.

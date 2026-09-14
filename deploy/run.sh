@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Titan in a container that cannot reach this Mac's filesystem.
+# Start Abhed in a container that cannot reach this Mac's filesystem.
 #
 # Every flag here is load-bearing. The requirement is not "run it in Docker for
 # tidiness" — it is that an agent which executes shell commands, reachable from
@@ -10,49 +10,49 @@
 # Read `deploy/README.md` for the threat model this implements.
 set -euo pipefail
 
-IMAGE="${TITAN_IMAGE:-titan:local}"
-NAME="${TITAN_CONTAINER:-titan}"
-VOLUME="${TITAN_VOLUME:-titan-workspace}"
+IMAGE="${ABHED_IMAGE:-abhed:local}"
+NAME="${ABHED_CONTAINER:-abhed}"
+VOLUME="${ABHED_VOLUME:-abhed-workspace}"
 # Accounts live on their own volume rather than in the workspace.
 #
 # Two reasons, one practical and one structural. Mounting the config file into
-# /workspace/.titan makes the engine create that directory owned by root, so the
+# /workspace/.abhed makes the engine create that directory owned by root, so the
 # unprivileged user cannot write users.json beside it. And the workspace is the
 # tree the agent reads and writes: the password database does not belong in the
 # one directory the model is pointed at.
-STATE_VOLUME="${TITAN_STATE_VOLUME:-titan-state}"
-CONFIG="${TITAN_CONFIG:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.json}"
-SKILLS="${TITAN_SKILLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.titan/skills}"
+STATE_VOLUME="${ABHED_STATE_VOLUME:-abhed-state}"
+CONFIG="${ABHED_CONFIG:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.json}"
+SKILLS="${ABHED_SKILLS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.abhed/skills}"
 # Bound to loopback deliberately: the only route in is the reverse proxy, which
 # terminates TLS. Publishing on 0.0.0.0 would put the API on the LAN in the
 # clear, behind nothing.
-PORT="${TITAN_PORT:-127.0.0.1:8080}"
+PORT="${ABHED_PORT:-127.0.0.1:8080}"
 
 # Postgres, so sessions and accounts survive a restart.
-NETWORK="${TITAN_NETWORK:-titan-net}"
-DB_NAME="${TITAN_DB_CONTAINER:-titan-db}"
-DB_VOLUME="${TITAN_DB_VOLUME:-titan-db-data}"
-DB_IMAGE="${TITAN_DB_IMAGE:-docker.io/library/postgres:16-alpine}"
+NETWORK="${ABHED_NETWORK:-abhed-net}"
+DB_NAME="${ABHED_DB_CONTAINER:-abhed-db}"
+DB_VOLUME="${ABHED_DB_VOLUME:-abhed-db-data}"
+DB_IMAGE="${ABHED_DB_IMAGE:-docker.io/library/postgres:16-alpine}"
 # Generated once and kept in the state volume rather than written here. A
 # password committed to a repo is a password published, and this one guards
 # every transcript the deployment holds.
-DB_PASSWORD="${TITAN_DB_PASSWORD:-}"
-# Two roles. `titan_admin` is the cluster superuser and is used only by this
-# script to provision; `titan` is the plain role the server connects as. The
+DB_PASSWORD="${ABHED_DB_PASSWORD:-}"
+# Two roles. `abhed_admin` is the cluster superuser and is used only by this
+# script to provision; `abhed` is the plain role the server connects as. The
 # split is not ceremony: Postgres does not apply row-level security to a
-# superuser, so a Titan connected as one has every isolation policy in the
+# superuser, so a Abhed connected as one has every isolation policy in the
 # schema and none of the isolation. The server refuses to start that way.
-DB_ADMIN_PASSWORD="${TITAN_DB_ADMIN_PASSWORD:-}"
-WITH_DB="${TITAN_WITH_DB:-1}"
+DB_ADMIN_PASSWORD="${ABHED_DB_ADMIN_PASSWORD:-}"
+WITH_DB="${ABHED_WITH_DB:-1}"
 
 # podman, not docker: this machine has both half-installed, DOCKER_HOST points
 # at a socket the docker CLI cannot reach, and picking one explicitly avoids an
 # hour of confusing failures. podman also runs containers inside a
 # hardware-virtualised VM on macOS, which is the boundary this design rests on.
-RUNTIME="${TITAN_RUNTIME:-podman}"
+RUNTIME="${ABHED_RUNTIME:-podman}"
 
 if ! command -v "$RUNTIME" >/dev/null 2>&1; then
-  echo "error: $RUNTIME not found. Install it, or set TITAN_RUNTIME." >&2
+  echo "error: $RUNTIME not found. Install it, or set ABHED_RUNTIME." >&2
   exit 1
 fi
 
@@ -60,6 +60,21 @@ fi
 # crux of the whole design: NOT a bind mount of any host directory. A bind mount
 # of $HOME or the repo would hand back exactly the access the container exists
 # to remove.
+# The product was renamed from Titan. A machine that ran the old deployment
+# has its data in volumes with the old names; carry it over once, by copy, so
+# the new volumes start with everything the old ones held and the old ones
+# stay untouched until someone chooses to remove them. The old containers are
+# stopped first: a database data directory is only safe to copy at rest.
+"$RUNTIME" rm -f titan titan-db >/dev/null 2>&1 || true
+for pair in "titan-workspace:$VOLUME" "titan-state:$STATE_VOLUME" "titan-db-data:$DB_VOLUME"; do
+  old="${pair%%:*}"; new="${pair##*:}"
+  if "$RUNTIME" volume inspect "$old" >/dev/null 2>&1 && ! "$RUNTIME" volume inspect "$new" >/dev/null 2>&1; then
+    echo "migrating volume $old → $new"
+    "$RUNTIME" volume create "$new" >/dev/null
+    "$RUNTIME" run --rm -v "$old:/from:ro" -v "$new:/to" "$DB_IMAGE" sh -c 'cp -a /from/. /to/'
+  fi
+done
+
 for v in "$VOLUME" "$STATE_VOLUME" "$DB_VOLUME"; do
   if ! "$RUNTIME" volume inspect "$v" >/dev/null 2>&1; then
     echo "creating volume $v"
@@ -125,77 +140,104 @@ if [ "$WITH_DB" = "1" ]; then
     "$RUNTIME" rm -f "$DB_NAME" >/dev/null 2>&1 || true
     echo "starting $DB_NAME"
     # No published port: the database is reachable only from the container
-    # network, never from the LAN or the host. Titan is its only client.
+    # network, never from the LAN or the host. Abhed is its only client.
     "$RUNTIME" run -d \
       --name "$DB_NAME" \
       --network "$NETWORK" \
       --restart unless-stopped \
-      --env POSTGRES_USER=titan_admin \
+      --env POSTGRES_USER=abhed_admin \
       --env POSTGRES_PASSWORD="$DB_ADMIN_PASSWORD" \
-      --env POSTGRES_DB=titan \
+      --env POSTGRES_DB=abhed \
       --volume "$DB_VOLUME":/var/lib/postgresql/data:rw \
-      --health-cmd 'pg_isready -U titan -d titan' \
+      --health-cmd 'pg_isready -U abhed -d abhed' \
       --health-interval 5s \
       "$DB_IMAGE" >/dev/null
   fi
 
-  # Titan applies its schema on connect (internal/store/postgres.go), but only
-  # once the server is actually accepting connections. Starting Titan against a
+  # Abhed applies its schema on connect (internal/store/postgres.go), but only
+  # once the server is actually accepting connections. Starting Abhed against a
   # database still initialising fails the first run for no good reason.
   printf 'waiting for %s' "$DB_NAME"
   for _ in $(seq 1 40); do
-    if "$RUNTIME" exec "$DB_NAME" pg_isready -U titan -d titan >/dev/null 2>&1; then
+    if "$RUNTIME" exec "$DB_NAME" pg_isready -U abhed -d abhed >/dev/null 2>&1; then
       echo " ready"; break
     fi
     printf '.'; sleep 1
   done
 
-  # Provision the plain role the server connects as: `titan_app`, no
+  # Provision the plain role the server connects as: `abhed_app`, no
   # privileges beyond owning its tables. Idempotent, every start.
   #
   # A data directory initialised by an earlier version of this script has
-  # `titan` as its bootstrap superuser, and Postgres will not let the bootstrap
+  # `abhed` as its bootstrap superuser, and Postgres will not let the bootstrap
   # user be demoted. So that role keeps its superuser bit, becomes the admin
   # role for that deployment, and gets the admin password; a new plain role
   # takes over ownership of everything in the database and the server
   # connects as that. Existing sessions and accounts are untouched — only the
   # privilege that was quietly voiding row-level security is out of the DSN.
-  db_sql() { "$RUNTIME" exec -i "$DB_NAME" psql -v ON_ERROR_STOP=1 -q -U "$1" -d titan; }
-  db_can() { "$RUNTIME" exec "$DB_NAME" psql -U "$1" -d titan -c 'SELECT 1' >/dev/null 2>&1; }
-  if db_can titan_admin; then
-    DB_ADMIN_ROLE=titan_admin
-  elif db_can titan; then
-    DB_ADMIN_ROLE=titan
-    echo "migrating $DB_NAME: 'titan' stays the bootstrap superuser; Titan will connect as 'titan_app'"
-    db_sql titan <<SQL
-ALTER ROLE titan PASSWORD '${DB_ADMIN_PASSWORD}';
+  db_sql() { "$RUNTIME" exec -i "$DB_NAME" psql -v ON_ERROR_STOP=1 -q -U "$1" -d abhed; }
+  db_can() { "$RUNTIME" exec "$DB_NAME" psql -U "$1" -d abhed -c 'SELECT 1' >/dev/null 2>&1; }
+  # A data directory carried over from the pre-rename deployment still holds
+  # the old role and database names. Rename them once, as the bootstrap
+  # superuser the old deployment created, from the maintenance database so
+  # our own connection does not block the rename. SCRAM passwords survive a
+  # role rename, so the app password file stays valid.
+  db_can_pg() { "$RUNTIME" exec "$DB_NAME" psql -U "$1" -d postgres -c 'SELECT 1' >/dev/null 2>&1; }
+  if ! db_can_pg abhed_admin && ! db_can_pg abhed && db_can_pg titan; then
+    echo "migrating $DB_NAME: renaming the pre-rename roles and database"
+    "$RUNTIME" exec -i "$DB_NAME" psql -v ON_ERROR_STOP=1 -q -U titan -d postgres <<SQL
+DO \$\$ BEGIN
+  IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'titan_app') AND NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'abhed_app') THEN
+    ALTER ROLE titan_app RENAME TO abhed_app;
+  END IF;
+  IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'titan_admin') AND NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'abhed_admin') THEN
+    ALTER ROLE titan_admin RENAME TO abhed_admin;
+  END IF;
+END \$\$;
+SQL
+    if ! "$RUNTIME" exec "$DB_NAME" psql -U titan -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='abhed'" | grep -q 1; then
+      "$RUNTIME" exec "$DB_NAME" psql -v ON_ERROR_STOP=1 -q -U titan -d postgres -c "ALTER DATABASE titan RENAME TO abhed"
+    fi
+  fi
+  if db_can abhed_admin; then
+    DB_ADMIN_ROLE=abhed_admin
+  elif db_can abhed; then
+    DB_ADMIN_ROLE=abhed
+    echo "migrating $DB_NAME: 'abhed' stays the bootstrap superuser; Abhed will connect as 'abhed_app'"
+    db_sql abhed <<SQL
+ALTER ROLE abhed PASSWORD '${DB_ADMIN_PASSWORD}';
 SQL
   else
-    echo "error: cannot open $DB_NAME as titan_admin or titan" >&2
+    echo "error: cannot open $DB_NAME as abhed_admin or abhed" >&2
     exit 1
   fi
   db_sql "$DB_ADMIN_ROLE" <<SQL
 DO \$\$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'titan_app') THEN CREATE ROLE titan_app LOGIN; END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'abhed_app') THEN CREATE ROLE abhed_app LOGIN; END IF;
 END \$\$;
-ALTER ROLE titan_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD '${DB_PASSWORD}';
-ALTER DATABASE titan OWNER TO titan_app;
-ALTER SCHEMA public OWNER TO titan_app;
+ALTER ROLE abhed_app LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB PASSWORD '${DB_PASSWORD}';
+ALTER DATABASE abhed OWNER TO abhed_app;
+DO \$\$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
+    UPDATE users SET groups = replace(groups, 'titan-admin', 'abhed-admin') WHERE groups LIKE '%titan-admin%';
+  END IF;
+END \$\$;
+ALTER SCHEMA public OWNER TO abhed_app;
 DO \$\$ DECLARE r record; BEGIN
   FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
-    EXECUTE format('ALTER TABLE public.%I OWNER TO titan_app', r.tablename);
+    EXECUTE format('ALTER TABLE public.%I OWNER TO abhed_app', r.tablename);
   END LOOP;
   FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
-    EXECUTE format('ALTER SEQUENCE public.%I OWNER TO titan_app', r.sequencename);
+    EXECUTE format('ALTER SEQUENCE public.%I OWNER TO abhed_app', r.sequencename);
   END LOOP;
   FOR r IN SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' LOOP
-    EXECUTE format('ALTER FUNCTION public.%I(%s) OWNER TO titan_app', r.proname, r.args);
+    EXECUTE format('ALTER FUNCTION public.%I(%s) OWNER TO abhed_app', r.proname, r.args);
   END LOOP;
 END \$\$;
 SQL
-  if [ "$("$RUNTIME" exec "$DB_NAME" psql -U "$DB_ADMIN_ROLE" -d titan -tAc "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'titan_app'" 2>/dev/null)" != "f" ]; then
-    echo "error: the titan_app database role is privileged; refusing to start Titan against it" >&2
+  if [ "$("$RUNTIME" exec "$DB_NAME" psql -U "$DB_ADMIN_ROLE" -d abhed -tAc "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'abhed_app'" 2>/dev/null)" != "f" ]; then
+    echo "error: the abhed_app database role is privileged; refusing to start Abhed against it" >&2
     exit 1
   fi
 fi
@@ -204,11 +246,11 @@ fi
 
 DB_ARGS=()
 if [ "$WITH_DB" = "1" ]; then
-  # TITAN_DATABASE_URL is read by config.Load's applyEnv, so the credential
+  # ABHED_DATABASE_URL is read by config.Load's applyEnv, so the credential
   # never has to appear in the config file that gets mounted read-only.
   DB_ARGS=(
     --network "$NETWORK"
-    --env "TITAN_DATABASE_URL=postgres://titan_app:${DB_PASSWORD}@${DB_NAME}:5432/titan?sslmode=disable"
+    --env "ABHED_DATABASE_URL=postgres://abhed_app:${DB_PASSWORD}@${DB_NAME}:5432/abhed?sslmode=disable"
   )
 fi
 
@@ -239,16 +281,16 @@ exec "$RUNTIME" run \
   `# host directory is mounted anywhere: that is the whole point.` \
   --volume "$VOLUME":/workspace:rw \
   `# Accounts and sessions, kept out of the tree the agent reads.` \
-  --volume "$STATE_VOLUME":/home/titan/.titan:rw \
+  --volume "$STATE_VOLUME":/home/abhed/.abhed:rw \
   `# The config is the one thing that comes from the host, and it is mounted` \
   `# read-only at the MANAGED path. That is deliberate: config.Load applies` \
-  `# /etc/titan/config.json last and sets Managed, which makes bypass mode` \
+  `# /etc/abhed/config.json last and sets Managed, which makes bypass mode` \
   `# refusable and the policy non-escalatable from inside the container.` \
-  --volume "$CONFIG":/etc/titan/config.json:ro \
+  --volume "$CONFIG":/etc/abhed/config.json:ro \
   `# Skills are procedures the agent follows, which makes them instructions.` \
   `# Mounted READ-ONLY so the agent cannot rewrite its own operating rules —` \
   `# the same reason skills are never loaded from the workspace being edited.` \
-  --volume "$SKILLS":/workspace/.titan/skills:ro \
+  --volume "$SKILLS":/workspace/.abhed/skills:ro \
   \
   `# --- what the process may consume --------------------------------------` \
   `# A runaway or hostile agent should exhaust its own limits, not the host's.` \
@@ -261,5 +303,5 @@ exec "$RUNTIME" run \
   `# Loopback only. The reverse proxy is the sole route in.` \
   --publish "$PORT":8080 \
   \
-  --env TITAN_IN_CONTAINER=1 \
+  --env ABHED_IN_CONTAINER=1 \
   "$IMAGE" "$@"

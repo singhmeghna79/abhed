@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Publish the zybuu.com homepage to Cloudflare Pages.
 #
-# The homepage is hosted separately from Titan on purpose. Titan runs on a
+# The homepage is hosted separately from Abhed on purpose. Abhed runs on a
 # laptop behind a tunnel, so it is up only while that machine is awake; the
 # homepage is the thing an investor opens at an arbitrary hour, and it must not
 # depend on a lid being open. Pages serves it from Cloudflare's edge for free,
 # with no origin to be down.
 #
 #   zybuu.com        -> Cloudflare Pages   (always up, static)
-#   titan.zybuu.com  -> tunnel -> this Mac (the live product)
+#   abhed.zybuu.com  -> tunnel -> this Mac (the live product)
 set -euo pipefail
 
 PROJECT="${ZYBUU_PAGES_PROJECT:-zybuu}"
@@ -51,7 +51,7 @@ if [ ! -f "$MEDIA_DIR/zybuu-announcement.mp4" ]; then
     echo
 fi
 DEMO_DIR="$(dirname "${BASH_SOURCE[0]}")/../web/zybuu/demo"
-if [ ! -f "$DEMO_DIR/titan-demo.mp4" ] || [ ! -f "$DEMO_DIR/titan-deck.pptx" ]; then
+if [ ! -f "$DEMO_DIR/abhed-demo.mp4" ] || [ ! -f "$DEMO_DIR/abhed-deck.pptx" ]; then
     echo "!!  demo artefacts missing in web/zybuu/demo (run deploy/demo/build.sh); /demo/ will 404"
     echo
 fi
@@ -107,12 +107,12 @@ if command -v curl >/dev/null 2>&1; then
     echo "==> Verifying the published form"
     sleep 6
     LOC="$(curl -sD- -o /dev/null --max-time 25 -X POST "https://zybuu.com/api/access" \
-        -H 'Referer: https://zybuu.com/titan/' \
+        -H 'Referer: https://zybuu.com/abhed/' \
         -d 'name=Publish check&email=noreply@zybuu.com' 2>/dev/null \
         | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}')"
     case "$LOC" in
-        https://zybuu.com/titan/#access-ok)
-            echo "    ok    submits and returns to /titan/#access-ok" ;;
+        https://zybuu.com/abhed/#access-ok)
+            echo "    ok    submits and returns to /abhed/#access-ok" ;;
         https://zybuu.com/#access*)
             echo "    FAIL  returns to the homepage, which has no form and no"
             echo "          status handler - the visitor would be told nothing."
@@ -143,6 +143,6 @@ Done. Three things to set in the Cloudflare dashboard the first time:
   1. Workers & Pages -> zybuu -> Custom domains -> add  zybuu.com  and  www.zybuu.com
      Cloudflare adds the DNS records itself, since it already runs this zone.
 
-  2. Confirm titan.zybuu.com still points at the tunnel and was not touched.
+  2. Confirm abhed.zybuu.com still points at the tunnel and was not touched.
 
 TEXT

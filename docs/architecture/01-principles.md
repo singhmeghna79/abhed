@@ -1,8 +1,8 @@
-# Titan — Design Principles
+# Abhed — Design Principles
 
 Status: Draft · 2026-09-02 · Owner: Yuvraj Singh
 
-Titan is an on-prem, air-gap-capable deep agent platform. It targets the capability
+Abhed is an on-prem, air-gap-capable deep agent platform. It targets the capability
 bar set by Claude Code and OpenAI Codex CLI, with the enterprise deployment posture of
 other enterprise agent platforms, and it is deliberately model-agnostic.
 
@@ -34,7 +34,7 @@ Observationally, the same effect appears in public leaderboards: Claude Opus 4.5
 > May 2026 paper, though a verifier independently re-derived every number from its
 > published table, and three independent studies corroborate the direction.
 
-**Consequence for Titan:** the harness is a separately engineered, separately versioned,
+**Consequence for Abhed:** the harness is a separately engineered, separately versioned,
 separately evaluated layer. This is what makes "better model → better agent" true rather
 than aspirational: the harness is the constant that lets model quality show through.
 
@@ -46,7 +46,7 @@ capable at long context but show reduced precision for retrieval and long-range 
 
 The mechanism is contested (Anthropic attributes it to n² pairwise attention; the
 position-bias literature locates it in primacy-recency effects and training distribution).
-Titan does not need to resolve the mechanism — the design consequence is identical either
+Abhed does not need to resolve the mechanism — the design consequence is identical either
 way: **never treat a large context window as a substitute for context engineering.**
 
 ## P3 — Three composable context mechanisms, in priority order. [V]
@@ -65,7 +65,7 @@ re-prefills its own system prompt and memory file. See P8 for the GPU-second con
 ## P4 — Persistent rules live in a re-injected memory file. [V]
 
 Compaction discards early instructions by construction. Anything that must survive the
-whole session belongs in a `TITAN.md`-style memory file that is re-injected on every
+whole session belongs in a `ABHED.md`-style memory file that is re-injected on every
 request — **not** in the initial prompt.
 
 This is only affordable because the file sits in a cached prefix (P8). Two operator levers
@@ -83,7 +83,7 @@ taxonomy of 13 open-source coding agents found **11 of 13 compose multiple primi
 7 of 13 use sequential ReAct as the primary spine, layering generate-test-repair,
 plan-execute, multi-attempt retry, and tree search on top.
 
-**Consequence:** Titan ships ReAct as the default spine and treats the others as
+**Consequence:** Abhed ships ReAct as the default spine and treats the others as
 composable strategies selectable per task class — not as an architecture to commit to once.
 
 > Scope caveat: that corpus covers open-source agents pinned to June 2023 – March 2025
@@ -150,7 +150,7 @@ across 21,730 rollouts found agents searching for benchmark answers on HuggingFa
 of solving tasks, and misusing credit cards in booking tasks. Scoring assigns the same
 value to correct abstention as to harmful action.
 
-Titan's eval harness must therefore include automated log inspection from day one, not
+Abhed's eval harness must therefore include automated log inspection from day one, not
 score aggregation alone. *(The specific inference that this implies tool-permission
 guardrails is ours, not the paper's — that paper measures, it does not prescribe.)*
 
@@ -162,9 +162,9 @@ accuracy differences, and 40× token variation per solved task across scaffolds.
 
 On owned GPUs, reasoning tokens map to GPU-seconds and concurrency ceilings rather than to
 a monthly bill. Effort level must be a per-model, per-task-class configuration parameter
-validated on Titan's own eval harness.
+validated on Abhed's own eval harness.
 
-## P12 — Cross-model consistency is Titan's differentiating asset. [E]
+## P12 — Cross-model consistency is Abhed's differentiating asset. [E]
 
 A provider-agnostic backend abstraction (single call site, `provider:model`) is the proven
 pattern for swappability. Declarative rule-constraining — forcing heterogeneous models into
@@ -172,7 +172,7 @@ consistent behavior — is the only architectural answer in the evidence set to 
 harness-variance problem of P1, **but it has zero independent validation.**
 
 That gap is the opportunity. Building a cross-model consistency benchmark is simultaneously
-the eval harness Titan needs and the proof its abstraction works. Treat it as a design goal
+the eval harness Abhed needs and the proof its abstraction works. Treat it as a design goal
 to measure, not a property to assume.
 
 ---
@@ -195,7 +195,7 @@ not verified:
 **Sandboxing is the most dangerous gap.** Two sandboxing claims were refuted 0-3, leaving
 the execution-isolation posture of every comparable agent unverified. For an enclave that
 ingests untrusted repo content and brokered web-search results, this is disqualifying for a
-production design and is the next research target. Titan's Phase 0 therefore treats
+production design and is the next research target. Abhed's Phase 0 therefore treats
 isolation as a *requirement to be independently established*, not a solved problem to copy.
 
 Model names throughout this research (GPT-5.4, Kimi K2.6, GLM-5.1, Claude Opus 4.5/4.6,

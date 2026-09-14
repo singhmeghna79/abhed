@@ -2,7 +2,7 @@
 
 An extension changes how the agent behaves without forking it. Extensions are
 separate processes speaking line-delimited JSON on stdin and stdout, so they can
-be written in any language and need no build step in Titan.
+be written in any language and need no build step in Abhed.
 
 ## The one rule
 
@@ -21,14 +21,14 @@ extension can remove is not a guarantee.
 
 ## Protocol
 
-One JSON object per line each way. Titan writes a request; the extension writes
+One JSON object per line each way. Abhed writes a request; the extension writes
 exactly one reply.
 
 ```jsonc
-// Titan → extension
+// Abhed → extension
 {"event":"tool_call","session_id":"s-1","tool":"bash","args":{"command":"rm -rf /tmp/x"}}
 
-// extension → Titan
+// extension → Abhed
 {"block":true,"reason":"rm -rf is not permitted here"}
 ```
 
@@ -52,7 +52,7 @@ opinion.
 
 ```json
 "extensions": [
-  { "name": "guard", "command": "bash", "args": ["/opt/titan/guard.sh"],
+  { "name": "guard", "command": "bash", "args": ["/opt/abhed/guard.sh"],
     "events": ["tool_call"], "timeout_ms": 5000 }
 ]
 ```

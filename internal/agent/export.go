@@ -37,7 +37,7 @@ func ExportHTML(sessionID string, events []Event) string {
 		case EvAgentMessage:
 			var m Message
 			if json.Unmarshal(ev.Payload, &m) == nil && strings.TrimSpace(m.Text) != "" {
-				row(&b, "agent", "titan", m.Text)
+				row(&b, "agent", "abhed", m.Text)
 			}
 
 		case EvAgentReasoning:
@@ -139,7 +139,7 @@ func commas(n int) string {
 }
 
 const exportHead = `<!doctype html><meta charset="utf-8">
-<title>Titan session %s</title>
+<title>Abhed session %s</title>
 <style>
 :root{--bg:#fbfbfa;--ink:#1a1a19;--ink2:#55554f;--line:#e4e4e0;--accent:#3b6ea5;
   --err:#b4433a;--warn:#9a6b1f;--sunken:#f4f4f1}
@@ -172,5 +172,5 @@ details pre{background:var(--sunken);border-left:2px solid var(--line);border-ra
   border-top:1px solid var(--line);padding-top:.5rem;margin:1rem 0}
 .summary{margin-top:2rem}
 </style>
-<body><h1 style="font-size:15px;font-family:ui-monospace,monospace;color:var(--ink2)">Titan session %[1]s</h1>
+<body><h1 style="font-size:15px;font-family:ui-monospace,monospace;color:var(--ink2)">Abhed session %[1]s</h1>
 `

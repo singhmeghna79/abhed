@@ -1,22 +1,22 @@
-# Titan — Red-Team Engagement Scope
+# Abhed — Red-Team Engagement Scope
 
 **Status: scoping document. The engagement itself has NOT been performed.**
 
 This exists to be handed to a security firm or an internal offensive team. It is
 not evidence of testing — `internal/redteam` is the automated suite, and that
-suite proves only that Titan resists the attacks its author thought of. The
+suite proves only that Abhed resists the attacks its author thought of. The
 whole reason to commission a human engagement is that the set of attacks a
 defender imagines is systematically smaller than the set an attacker finds.
 
 ## Why this is not optional
 
-The design research that informed Titan produced **zero verified claims about
+The design research that informed Abhed produced **zero verified claims about
 agent sandboxing**, and **two candidate claims were refuted** under adversarial
 verification. The isolation posture of comparable agents is therefore unknown,
-not known-good. Titan's controls were built from first principles and tested
+not known-good. Abhed's controls were built from first principles and tested
 against 16 self-authored attacks; that is a floor, not a clearance.
 
-## What Titan is
+## What Abhed is
 
 An agent that reads untrusted text and executes code derived from it, on
 infrastructure holding source code, credentials and customer data. The
@@ -42,7 +42,7 @@ privilege.
 
 ## Priority 1 — the claims most worth breaking
 
-Each is a property Titan asserts. Breaking any one is a critical finding.
+Each is a property Abhed asserts. Breaking any one is a critical finding.
 
 1. **Workspace confinement.** No path, symlink, race, or shell construction lets
    the agent read or write outside its workspace.
@@ -97,7 +97,7 @@ Each is a property Titan asserts. Breaking any one is a critical finding.
 
 ## Rules of engagement
 
-- Test against a dedicated deployment with synthetic data. Titan's audit log is
+- Test against a dedicated deployment with synthetic data. Abhed's audit log is
   append-only by database trigger; do not attempt to clear it between attempts —
   a full trail is useful evidence.
 - Report critical findings immediately rather than at the end.
@@ -118,7 +118,7 @@ Each is a property Titan asserts. Breaking any one is a critical finding.
 
 Two testers, three weeks: one week on Priority 1 with source access, one on
 Priorities 2–3, one on chaining and reporting. Source access is recommended —
-Titan is intended to be deployed by organisations who can read it, so a
+Abhed is intended to be deployed by organisations who can read it, so a
 black-box test models the wrong attacker.
 
 ## Current automated coverage

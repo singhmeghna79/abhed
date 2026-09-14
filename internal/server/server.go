@@ -1,4 +1,4 @@
-// Package server exposes Titan as a multi-user service.
+// Package server exposes Abhed as a multi-user service.
 //
 // The CLI and the web console consume the SAME event stream (docs §10): there
 // is one agent loop implementation, and the server is a transport over it, not
@@ -19,18 +19,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	"github.com/yuvrajsingh/titan/internal/auth"
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/docsite"
-	"github.com/yuvrajsingh/titan/internal/index"
-	"github.com/yuvrajsingh/titan/internal/mcp"
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/schedule"
-	"github.com/yuvrajsingh/titan/internal/skills"
-	"github.com/yuvrajsingh/titan/internal/store"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/docsite"
+	"github.com/yuvrajsingh/abhed/internal/index"
+	"github.com/yuvrajsingh/abhed/internal/mcp"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/schedule"
+	"github.com/yuvrajsingh/abhed/internal/skills"
+	"github.com/yuvrajsingh/abhed/internal/store"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // AccessStore is what the admin console needs to answer "who has access, who
@@ -338,7 +338,8 @@ func (s *Server) Handler() http.Handler {
 	// outermost so they are present on rejections too — an error response is
 	// still a response a browser will act on.
 	guarded := sameOrigin(s.opts.Config.Server.AllowedOrigins)(limited)
-	return securityHeaders(s.bodyLimit(guarded), s.opts.Config.Server.HSTS)
+	headed := securityHeaders(s.bodyLimit(guarded), s.opts.Config.Server.HSTS)
+	return canonicalHost(s.opts.Config.Server.CanonicalHost, headed)
 }
 
 // bodyLimit caps every request body before any handler decodes it.
@@ -1167,7 +1168,7 @@ func (s *Server) localAuth() *auth.LocalAuth {
 }
 
 // redirectHome sends /login to the front door, which is where the sign-in form
-// lives when Titan holds the accounts.
+// lives when Abhed holds the accounts.
 func (s *Server) redirectHome(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
@@ -1280,7 +1281,7 @@ func (s *Server) authDisabledPage(w http.ResponseWriter, r *http.Request) {
 // serveLanding is the front door.
 //
 // Previously / went straight into the workspace, which told a first-time
-// visitor nothing about what Titan is and gave a configured deployment no
+// visitor nothing about what Abhed is and gave a configured deployment no
 // place to sign in. It now shows what this instance actually is — model,
 // sandbox tier, storage, auth mode, live session counts — and routes on:
 // straight through when there is nothing to sign in to, or to the IdP when
@@ -1308,7 +1309,7 @@ type overviewResponse struct {
 	Sandbox    string `json:"sandbox"`
 	SandboxNet bool   `json:"sandbox_network"`
 	// Isolation describes the boundary in the terms that actually apply to this
-	// deployment. A containerised Titan reports sandbox tier "none" — correct,
+	// deployment. A containerised Abhed reports sandbox tier "none" — correct,
 	// because the boundary is the container around the whole process rather
 	// than a sandbox inside it — and presenting that bare number as a warning
 	// would tell the reader the opposite of the truth.
@@ -1371,12 +1372,12 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	o.Sandbox = orDefaultStr(cfg.Sandbox.MinTier, "process")
 	o.SandboxNet = cfg.Sandbox.AllowNetwork
 
-	// TITAN_IN_CONTAINER is set by the deployment image, so this reports how
+	// ABHED_IN_CONTAINER is set by the deployment image, so this reports how
 	// the process is actually running rather than what a config file claims.
 	// The distinction matters: inside a container, tier "none" is the correct
 	// setting and the strongest available posture, because the boundary is the
 	// container itself.
-	if os.Getenv("TITAN_IN_CONTAINER") != "" {
+	if os.Getenv("ABHED_IN_CONTAINER") != "" {
 		o.Isolation = "container"
 		o.IsolationOK = true
 	} else {
@@ -1576,7 +1577,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		defer cancel()
 		srv.Shutdown(shutdownCtx)
 	}()
-	s.log.Info("titan server listening", "addr", s.opts.Addr, "workspace", s.opts.Workspace)
+	s.log.Info("abhed server listening", "addr", s.opts.Addr, "workspace", s.opts.Workspace)
 	return srv.ListenAndServe()
 }
 

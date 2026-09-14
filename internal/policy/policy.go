@@ -1,4 +1,4 @@
-// Package policy implements Titan's permission model.
+// Package policy implements Abhed's permission model.
 //
 // Evaluation is ordered (docs P7):
 //
@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 type Mode string

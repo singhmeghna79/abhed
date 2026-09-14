@@ -3,7 +3,7 @@
 // Trusting a proxy-set header is fine when a trusted proxy is the only path in,
 // but it fails open the moment anything else can reach the port. This package
 // verifies JWTs properly — signature, issuer, audience, expiry — against the
-// provider's published JWKS, so Titan can be exposed directly.
+// provider's published JWKS, so Abhed can be exposed directly.
 //
 // Implemented against crypto/* rather than a JWT library: an air-gapped build
 // benefits from fewer dependencies, and the verification path is small enough
@@ -67,7 +67,7 @@ type Config struct {
 	TenantClaim string
 	// GroupsClaim names the claim carrying group membership.
 	GroupsClaim string
-	// Leeway absorbs clock skew between Titan and the IdP.
+	// Leeway absorbs clock skew between Abhed and the IdP.
 	Leeway time.Duration
 	// RefreshInterval bounds how long a rotated key takes to appear.
 	RefreshInterval time.Duration
@@ -109,7 +109,7 @@ func NewVerifier(cfg Config) (*Verifier, error) {
 	return &Verifier{cfg: cfg, keys: make(map[string]crypto.PublicKey)}, nil
 }
 
-// discovery is the subset of the OIDC discovery document Titan needs.
+// discovery is the subset of the OIDC discovery document Abhed needs.
 type discovery struct {
 	Issuer  string `json:"issuer"`
 	JWKSURI string `json:"jwks_uri"`

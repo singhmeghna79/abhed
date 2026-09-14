@@ -1,4 +1,4 @@
-# Security headers for the homepage, matching what Titan sets on its own
+# Security headers for the homepage, matching what Abhed sets on its own
 # responses. A static marketing page is a smaller target than an agent console,
 # but these cost nothing and the two should not disagree about the basics.
 #

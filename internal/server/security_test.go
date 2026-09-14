@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/auth"
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // These tests exist because the server is reachable from the public internet.
@@ -298,7 +298,7 @@ func TestSessionListIsPerUser(t *testing.T) {
 	mk := func(user, prompt string) {
 		req := httptest.NewRequest("POST", "/v1/sessions",
 			strings.NewReader(`{"prompt":"`+prompt+`"}`))
-		req.Header.Set("X-Titan-User", user)
+		req.Header.Set("X-Abhed-User", user)
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, req)
 		if rec.Code != http.StatusAccepted {
@@ -311,7 +311,7 @@ func TestSessionListIsPerUser(t *testing.T) {
 
 	list := func(user string) string {
 		req := httptest.NewRequest("GET", "/v1/sessions", nil)
-		req.Header.Set("X-Titan-User", user)
+		req.Header.Set("X-Abhed-User", user)
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, req)
 		return rec.Body.String()
@@ -358,7 +358,7 @@ func TestDownloadRequiresOwnership(t *testing.T) {
 	mk := func(user string) string {
 		req := httptest.NewRequest("POST", "/v1/sessions",
 			strings.NewReader(`{"prompt":"hi"}`))
-		req.Header.Set("X-Titan-User", user)
+		req.Header.Set("X-Abhed-User", user)
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, req)
 		var out struct {
@@ -373,7 +373,7 @@ func TestDownloadRequiresOwnership(t *testing.T) {
 	get := func(user, id, path string) int {
 		req := httptest.NewRequest("GET",
 			"/v1/sessions/"+id+"/download?path="+path, nil)
-		req.Header.Set("X-Titan-User", user)
+		req.Header.Set("X-Abhed-User", user)
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, req)
 		return rec.Code
@@ -408,7 +408,7 @@ func TestDeleteSessionRemovesTranscript(t *testing.T) {
 	s := proxyServer(t)
 	req := httptest.NewRequest("POST", "/v1/sessions",
 		strings.NewReader(`{"prompt":"secret"}`))
-	req.Header.Set("X-Titan-User", "alice")
+	req.Header.Set("X-Abhed-User", "alice")
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 	var out struct {
@@ -419,7 +419,7 @@ func TestDeleteSessionRemovesTranscript(t *testing.T) {
 
 	del := func(user string) int {
 		r := httptest.NewRequest("DELETE", "/v1/sessions/"+out.SessionID, nil)
-		r.Header.Set("X-Titan-User", user)
+		r.Header.Set("X-Abhed-User", user)
 		w := httptest.NewRecorder()
 		s.Handler().ServeHTTP(w, r)
 		return w.Code
@@ -433,7 +433,7 @@ func TestDeleteSessionRemovesTranscript(t *testing.T) {
 	}
 
 	r := httptest.NewRequest("GET", "/v1/sessions/"+out.SessionID+"/replay", nil)
-	r.Header.Set("X-Titan-User", "alice")
+	r.Header.Set("X-Abhed-User", "alice")
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	if w.Code != http.StatusNotFound {
@@ -454,9 +454,9 @@ func TestAdminRoutesRequireTheAdminGroup(t *testing.T) {
 
 	call := func(user, groups, method, path string) int {
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
-		req.Header.Set("X-Titan-User", user)
+		req.Header.Set("X-Abhed-User", user)
 		if groups != "" {
-			req.Header.Set("X-Titan-Groups", groups)
+			req.Header.Set("X-Abhed-Groups", groups)
 		}
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, req)
@@ -492,7 +492,7 @@ func TestAdminRoutesRequireTheAdminGroup(t *testing.T) {
 	}
 
 	// A group that merely looks adjacent must not pass.
-	if code := call("eve", "titan-admins,admin", "GET", "/v1/admin/users"); code != http.StatusForbidden {
+	if code := call("eve", "abhed-admins,admin", "GET", "/v1/admin/users"); code != http.StatusForbidden {
 		t.Errorf("a near-miss group name was accepted: %d", code)
 	}
 }
@@ -520,10 +520,10 @@ func TestInviteIsSingleUseAndExpires(t *testing.T) {
 	}
 }
 
-// Signup is closed by default because Titan runs shell commands. Invite-only is
+// Signup is closed by default because Abhed runs shell commands. Invite-only is
 // the middle ground, and it must actually refuse a request with no code.
 func TestSignupRequiresAnInviteWhenClosed(t *testing.T) {
-	// Local accounts, because signup only exists where Titan holds them.
+	// Local accounts, because signup only exists where Abhed holds them.
 	cfg := config.Default()
 	cfg.Auth.Mode = "local"
 	cfg.Auth.AllowSignup = false
@@ -564,7 +564,7 @@ func TestSessionProviderMustBeConfigured(t *testing.T) {
 	} {
 		body := `{"prompt":"hi","provider":"` + name + `"}`
 		req := httptest.NewRequest("POST", "/v1/sessions", strings.NewReader(body))
-		req.Header.Set("X-Titan-User", "alice")
+		req.Header.Set("X-Abhed-User", "alice")
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, req)
 
@@ -749,7 +749,7 @@ func TestInviteSignupIsReachableWhenClosed(t *testing.T) {
 // to the people who had just been given codes.
 func TestOverviewAnnouncesInviteSignup(t *testing.T) {
 	// Local accounts must actually be configured: the overview only reports
-	// signup state where Titan holds the accounts.
+	// signup state where Abhed holds the accounts.
 	cfg := config.Default()
 	cfg.Auth.Mode = "local"
 	cfg.Auth.AllowSignup = false
@@ -776,5 +776,47 @@ func TestOverviewAnnouncesInviteSignup(t *testing.T) {
 	if !o.InviteSignup {
 		t.Error("invite registration not announced — the sign-in card will " +
 			"hide a door that is open")
+	}
+}
+
+// TestCanonicalHostRedirect pins the rename contract: the old hostname keeps
+// answering, but only by sending the visitor to the new one, and never by
+// serving the console under both names.
+func TestCanonicalHostRedirect(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	h := canonicalHost("abhed.example.com", inner)
+
+	req := httptest.NewRequest(http.MethodGet, "/console?x=1", nil)
+	req.Host = "titan.example.com"
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMovedPermanently {
+		t.Fatalf("old host: got %d, want 301", rec.Code)
+	}
+	if got := rec.Header().Get("Location"); got != "https://abhed.example.com/console?x=1" {
+		t.Fatalf("old host: Location = %q", got)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/console", nil)
+	req.Host = "ABHED.example.com"
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("canonical host (any case): got %d, want the handler", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/v1/sessions", nil)
+	req.Host = "titan.example.com"
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMisdirectedRequest {
+		t.Fatalf("POST to old host: got %d, want 421", rec.Code)
+	}
+
+	// Unset means no redirect at all: a laptop answers on whatever it is called.
+	rec = httptest.NewRecorder()
+	canonicalHost("", inner).ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("no canonical host: got %d, want the handler", rec.Code)
 	}
 }

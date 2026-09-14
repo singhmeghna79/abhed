@@ -1,4 +1,4 @@
-# Titan — System Prompt & Memory Design
+# Abhed — System Prompt & Memory Design
 
 Status: Draft · 2026-09-02
 **Evidence status: [E]**, structured around verified findings P1 (harness dominance),
@@ -20,7 +20,7 @@ the prefix caches (P8).
 │    role-specific behavior, which tools matter, when to stop             │
 ├─ 3. ENVIRONMENT ───────────── per session, stable within it ────────────┤
 │    OS, shell, cwd, git state, available tools, model capabilities       │
-├─ 4. MEMORY (TITAN.md) ─────── per project, re-injected every turn ──────┤
+├─ 4. MEMORY (ABHED.md) ─────── per project, re-injected every turn ──────┤
 │    project conventions, build commands, architecture notes, user rules  │
 └─────────────────────────────────────────────────────────────────────────┘
        ↑ everything above is the cached prefix ↑
@@ -49,7 +49,7 @@ fires once a month belongs in the profile or memory layer, not core.
 ### Core content
 
 ```markdown
-You are Titan, a software engineering agent operating in a user's codebase.
+You are Abhed, a software engineering agent operating in a user's codebase.
 
 ## Working method
 - Understand before changing. Use grep and glob to locate relevant code; read it before
@@ -118,7 +118,7 @@ Available MCP servers: {list or "none"}
 **Date at day granularity, not timestamp** — a per-second timestamp invalidates the prefix
 cache on every request. This detail alone is worth the 17×.
 
-## 5. TITAN.md — the memory file
+## 5. ABHED.md — the memory file
 
 Per P4: compaction discards early instructions, so anything that must survive the whole
 session lives here and is re-injected every turn.
@@ -126,11 +126,11 @@ session lives here and is re-injected every turn.
 ### Discovery and precedence
 
 ```
-1. {workspace}/TITAN.md              project-level, committed, shared by the team
-2. {workspace}/TITAN.local.md        personal overrides, gitignored
-3. {subdir}/TITAN.md                 path-scoped; loaded when files under it are read
-4. ~/.titan/TITAN.md                 user global, all projects
-5. /etc/titan/TITAN.md               org-managed, cannot be overridden by the user (P7)
+1. {workspace}/ABHED.md              project-level, committed, shared by the team
+2. {workspace}/ABHED.local.md        personal overrides, gitignored
+3. {subdir}/ABHED.md                 path-scoped; loaded when files under it are read
+4. ~/.abhed/ABHED.md                 user global, all projects
+5. /etc/abhed/ABHED.md               org-managed, cannot be overridden by the user (P7)
 ```
 
 Later files override earlier on conflict, **except** the org-managed file, which always
@@ -158,7 +158,7 @@ Run a single test: go test ./pkg/foo -run TestName
 - Anything touching pkg/store needs a migration in migrations/
 
 ## Gotchas
-- Integration tests need TITAN_TEST_DB set; they are skipped otherwise
+- Integration tests need ABHED_TEST_DB set; they are skipped otherwise
 ```
 
 ### What must NOT go in it
@@ -172,12 +172,12 @@ Run a single test: go test ./pkg/foo -run TestName
 
 Two operator levers, both required (P4):
 
-1. **Summarization directives** — a section in TITAN.md telling the compactor what to
-   preserve. The compactor reads TITAN.md like any other context.
+1. **Summarization directives** — a section in ABHED.md telling the compactor what to
+   preserve. The compactor reads ABHED.md like any other context.
 2. **PreCompact hook** — runs before compaction, receives a `manual | auto` trigger,
    archives the full transcript to the event store.
 
-TITAN.md itself is **excluded from summarization and re-injected whole** after compaction.
+ABHED.md itself is **excluded from summarization and re-injected whole** after compaction.
 
 > **Validate this empirically.** The upstream system this pattern comes from has a reported
 > divergence between documented behavior and shipped behavior on exactly this point (memory
@@ -209,6 +209,6 @@ Observed failure modes worth naming, because each one is tempting:
 | Examples that contradict the rules | Models follow examples over instructions |
 | Per-model prompt forks | Unmaintainable; put differences in the adapter, not the prompt |
 
-The last one matters most for Titan: **model-specific behavior belongs in the adapter layer**
+The last one matters most for Abhed: **model-specific behavior belongs in the adapter layer**
 (arch §5), not in forked prompts. A prompt that has diverged per model means P12's
 cross-model consistency has already been abandoned.

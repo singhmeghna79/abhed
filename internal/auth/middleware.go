@@ -10,7 +10,7 @@ import (
 
 type ctxKey string
 
-const identityKey ctxKey = "titan.identity"
+const identityKey ctxKey = "abhed.identity"
 
 // FromContext returns the verified identity, if any.
 func FromContext(ctx context.Context) (*Identity, bool) {
@@ -33,7 +33,7 @@ func WithIdentity(ctx context.Context, id *Identity) context.Context {
 //   - neither                  → anonymous single-tenant, for local dev
 //
 // The proxy-header path is only safe when a trusted proxy is the sole route to
-// the port; it is not the default, and `titan doctor` says which mode is live.
+// the port; it is not the default, and `abhed doctor` says which mode is live.
 type Middleware struct {
 	Verifier     *Verifier
 	TrustHeaders bool
@@ -110,11 +110,11 @@ func (m Middleware) Wrap(next http.Handler) http.Handler {
 
 		if m.TrustHeaders {
 			id := &Identity{
-				Subject: headerOr(r, "X-Titan-User", "anonymous"),
-				Email:   r.Header.Get("X-Titan-Email"),
-				Tenant:  headerOr(r, "X-Titan-Tenant", "default"),
+				Subject: headerOr(r, "X-Abhed-User", "anonymous"),
+				Email:   r.Header.Get("X-Abhed-Email"),
+				Tenant:  headerOr(r, "X-Abhed-Tenant", "default"),
 			}
-			if groups := r.Header.Get("X-Titan-Groups"); groups != "" {
+			if groups := r.Header.Get("X-Abhed-Groups"); groups != "" {
 				id.Groups = strings.Split(groups, ",")
 			}
 			next.ServeHTTP(w, r.WithContext(WithIdentity(r.Context(), id)))
@@ -149,7 +149,7 @@ func headerOr(r *http.Request, key, fallback string) string {
 }
 
 func unauthorized(w http.ResponseWriter, reason string) {
-	w.Header().Set("WWW-Authenticate", `Bearer realm="titan"`)
+	w.Header().Set("WWW-Authenticate", `Bearer realm="abhed"`)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
 	json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized", "reason": reason})

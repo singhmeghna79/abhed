@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 // Compaction summarizes a conversation approaching the context limit and

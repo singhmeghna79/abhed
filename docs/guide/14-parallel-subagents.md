@@ -25,9 +25,9 @@ The interesting case is when subagents **write**. Two agents editing one
 checkout overwrite each other, and the parent cannot tell whose change
 survived. With `"isolation": "worktree"` each subagent gets:
 
-- its own **git worktree** under `.titan/worktrees/<id>` — a separate checkout
+- its own **git worktree** under `.abhed/worktrees/<id>` — a separate checkout
   of `HEAD`, so its files are its own;
-- its own **branch**, `titan/<id>`;
+- its own **branch**, `abhed/<id>`;
 - its own **scoping boundary**: the child's file and shell tools are rooted in
   the worktree and cannot reach the parent's tree or a sibling's.
 
@@ -38,12 +38,12 @@ subagent's summary and, for each worktree, what changed and how to take it:
 ## Task 1 — audit pkg/auth
 <summary>
 
-Worktree .titan/worktrees/k3f9q2 (branch titan/k3f9q2): 3 file(s) changed, UNCOMMITTED.
+Worktree .abhed/worktrees/k3f9q2 (branch abhed/k3f9q2): 3 file(s) changed, UNCOMMITTED.
  internal/auth/local.go | 12 ++++---
  …
-To take these changes: review with `git -C .titan/worktrees/k3f9q2 diff`, commit
-there, then `git merge titan/k3f9q2` from the main tree. To discard:
-`git worktree remove --force .titan/worktrees/k3f9q2 && git branch -D titan/k3f9q2`.
+To take these changes: review with `git -C .abhed/worktrees/k3f9q2 diff`, commit
+there, then `git merge abhed/k3f9q2` from the main tree. To discard:
+`git worktree remove --force .abhed/worktrees/k3f9q2 && git branch -D abhed/k3f9q2`.
 ```
 
 Changes are left **uncommitted in the worktree**, on purpose. Merging is a
@@ -67,7 +67,7 @@ without touching the repository's tracked `.gitignore`.
 
 ## What it is not
 
-It is not a multi-agent framework with roles and message passing. Titan's
+It is not a multi-agent framework with roles and message passing. Abhed's
 model is simpler and stays simple: a subagent is a fresh loop with a complete
 prompt, it returns a summary, and the parent decides what to do with it.
 Running several at once, in separate checkouts, is the whole of what this

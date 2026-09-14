@@ -1,6 +1,6 @@
-# Deploying Titan on a public domain
+# Deploying Abhed on a public domain
 
-This directory runs Titan at `https://zybuu.com` from a Mac on a home
+This directory runs Abhed at `https://zybuu.com` from a Mac on a home
 connection, under one hard requirement: **the agent must never be able to read
 or write a file belonging to the person running it.**
 
@@ -8,7 +8,7 @@ Everything here follows from that.
 
 ## Why a container, and not just a config setting
 
-Titan has a sandbox. It applies to `bash` and nothing else.
+Abhed has a sandbox. It applies to `bash` and nothing else.
 
 `internal/tools/bash.go:28` carries a `Sandbox` hook. The file tools do not:
 
@@ -41,7 +41,7 @@ $ ls /Users                          → No such file or directory
 $ cat /Users/.../.ssh/id_rsa         → No such file or directory
 $ echo x > /Users/.../pwned.txt      → Directory nonexistent
 $ echo x > /usr/local/bin/evil       → Read-only file system
-$ id                                 → uid=10001(titan)  # not root
+$ id                                 → uid=10001(abhed)  # not root
 $ mount | grep workspace             → /dev/vda4  # a disk in the VM
 ```
 
@@ -54,11 +54,11 @@ It reads like the security setting has been switched off. It has not; the
 boundary moved outward.
 
 Inside the container there is no nested container runtime and no `bubblewrap`,
-so any tier above `none` makes `sandbox.Select` fail and **Titan refuses to
+so any tier above `none` makes `sandbox.Select` fail and **Abhed refuses to
 start** — it never silently downgrades. Verified:
 
 ```
-titan: no sandbox backend meets the required minimum tier "process".
+abhed: no sandbox backend meets the required minimum tier "process".
 ```
 
 The alternative is nested containers, which needs the podman socket mounted into
@@ -90,7 +90,7 @@ internet
 ## Running it
 
 ```bash
-podman build -t titan:local -f Dockerfile .   # from the repo root
+podman build -t abhed:local -f Dockerfile .   # from the repo root
 ./deploy/run.sh                                # starts the container
 caddy run --config deploy/Caddyfile            # TLS edge (needs :80 and :443)
 ```
@@ -98,7 +98,7 @@ caddy run --config deploy/Caddyfile            # TLS edge (needs :80 and :443)
 Create the first account — there is no signup on a public deployment:
 
 ```bash
-podman exec -it titan titan user add <name>
+podman exec -it abhed abhed user add <name>
 ```
 
 ## What you must do by hand

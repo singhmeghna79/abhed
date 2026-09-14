@@ -1,4 +1,4 @@
-# Titan — Runbook
+# Abhed — Runbook
 
 Everything verified working on this machine (M3 Pro, 36 GB) as of 2026-09-02.
 
@@ -9,17 +9,17 @@ Everything verified working on this machine (M3 Pro, 36 GB) as of 2026-09-02.
 One command, from the repo root:
 
 ```bash
-./scripts/start-local.sh          # start Postgres, Ollama, and the Titan server
-./scripts/start-local.sh --stop   # stop Titan and Ollama
+./scripts/start-local.sh          # start Postgres, Ollama, and the Abhed server
+./scripts/start-local.sh --stop   # stop Abhed and Ollama
 ```
 
 It is idempotent — it skips whatever is already running, so re-running it is
 always safe. Then:
 
 ```bash
-cd .titan-workspace && titan doctor   # verify (run this before trusting a session)
+cd .abhed-workspace && abhed doctor   # verify (run this before trusting a session)
 open http://localhost:8420            # web UI
-titan                                 # interactive CLI
+abhed                                 # interactive CLI
 ```
 
 What it does, in order, and what each step is for:
@@ -28,8 +28,8 @@ What it does, in order, and what each step is for:
 |---|---|
 | 1. Postgres | A killed postmaster leaves a stale `postmaster.pid` that blocks startup. The script removes it **only** when no postgres process is running. |
 | 2. Ollama | Started with `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0` — without them a 26B model will not hold a long context in 36 GB. |
-| 3. Workspace | Checks `.titan-workspace/.titan/config.json` exists; scaffolds one with `titan init` if not. |
-| 4. Titan server | Refuses to start if :8420 is held by something that is not Titan. |
+| 3. Workspace | Checks `.abhed-workspace/.abhed/config.json` exists; scaffolds one with `abhed init` if not. |
+| 4. Abhed server | Refuses to start if :8420 is held by something that is not Abhed. |
 
 ### Doing it by hand
 
@@ -42,31 +42,31 @@ brew services start postgresql@16
 
 # 2. Ollama
 (OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 \
-   nohup ollama serve > .titan-workspace/logs/ollama.log 2>&1 &)
+   nohup ollama serve > .abhed-workspace/logs/ollama.log 2>&1 &)
 curl -s http://127.0.0.1:11434/api/version    # {"version":"0.33.2"}
 
-# 3. Titan server
-cd .titan-workspace
-(nohup titan serve -addr :8420 > logs/titan-serve.log 2>&1 &)
+# 3. Abhed server
+cd .abhed-workspace
+(nohup abhed serve -addr :8420 > logs/abhed-serve.log 2>&1 &)
 curl -s http://127.0.0.1:8420/v1/health       # {"status":"ok",...}
 ```
 
 Stopping by hand:
 
 ```bash
-pkill -f "titan serve"
+pkill -f "abhed serve"
 pkill -f "ollama serve"
 brew services stop postgresql@16    # usually worth leaving up
 ```
 
 > **The workspace lives in the repo, not `/tmp`.** It is
-> `.titan-workspace/` (gitignored, with its own `go.mod` so it stays out of
-> the parent Go module). It used to be `/tmp/titan-test`, and macOS purging
+> `.abhed-workspace/` (gitignored, with its own `go.mod` so it stays out of
+> the parent Go module). It used to be `/tmp/abhed-test`, and macOS purging
 > `/tmp` silently deleted the workspace and its config — that is what took the
 > stack down on 2026-09-05. Never put the workspace or its logs back in `/tmp`.
 
 > **Port note:** something else on this machine already uses **:8080**, so
-> Titan is set up on **:8420**. Check any port with
+> Abhed is set up on **:8420**. Check any port with
 > `lsof -nP -iTCP:8420 -sTCP:LISTEN` before using it.
 
 ---
@@ -76,14 +76,14 @@ brew services stop postgresql@16    # usually worth leaving up
 ```bash
 pg_isready                                        # Postgres
 curl -s http://127.0.0.1:11434/api/version        # Ollama
-curl -s http://127.0.0.1:8420/v1/health           # Titan
+curl -s http://127.0.0.1:8420/v1/health           # Abhed
 ollama ps                                         # is the model loaded in memory?
-pgrep -fl "titan serve"; pgrep -fl "ollama serve"
+pgrep -fl "abhed serve"; pgrep -fl "ollama serve"
 ```
 
 `ollama ps` printing an empty table means the model is on disk but not in
 memory — the next request pays an 18 GB load (`OLLAMA_KEEP_ALIVE=5m` unloads
-it after five idle minutes). `titan doctor` warms it as a side effect.
+it after five idle minutes). `abhed doctor` warms it as a side effect.
 
 ---
 
@@ -96,7 +96,7 @@ it after five idle minutes). `titan doctor` warms it as a side effect.
 OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
 
 # Start in the background
-(OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve > .titan-workspace/logs/ollama.log 2>&1 &)
+(OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve > .abhed-workspace/logs/ollama.log 2>&1 &)
 
 # Or as a managed service that restarts at login
 brew services start ollama
@@ -113,7 +113,7 @@ in 36 GB.
 
 ```bash
 curl -s http://127.0.0.1:11434/api/version     # {"version":"0.33.2"}
-tail -20 .titan-workspace/logs/ollama.log                       # startup log, GPU discovery
+tail -20 .abhed-workspace/logs/ollama.log                       # startup log, GPU discovery
 ```
 
 ### Stop it
@@ -146,7 +146,7 @@ ollama show gemma4:26b           # architecture, context length, licence
 | `gemma4:26b` | 18 GB | 35 tok/s | ✅ **The default.** MoE, 8 of 128 experts active |
 | `qwen3-coder:30b` | 18 GB | 47 tok/s | ⚠️ Faster, but misreports whether it verified its work |
 | `qwen3.8:27b` | 17 GB | 3 tok/s | ❌ Dense — every parameter activates. Correct but unusably slow |
-| `qwen2.5-coder:7b` | 4.7 GB | — | ❌ Fails `titan doctor` — emits tool calls as text |
+| `qwen2.5-coder:7b` | 4.7 GB | — | ❌ Fails `abhed doctor` — emits tool calls as text |
 
 `gemma4:26b` is the default because it found *both* planted bugs in a review
 task (a data race and an authorization hole), ran the build itself, and
@@ -183,7 +183,7 @@ Inspect what is in effect:
 
 ```bash
 ollama ps                                    # loaded models, context, expiry
-grep "inference compute" .titan-workspace/logs/ollama.log     # GPU detected and memory available
+grep "inference compute" .abhed-workspace/logs/ollama.log     # GPU detected and memory available
 du -sh ~/.ollama/models                      # disk used by weights
 ```
 
@@ -196,7 +196,7 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
   -d '{"model":"gemma4:26b","messages":[{"role":"user","content":"say ok"}]}' \
   | python3 -m json.tool
 
-# Tool calling — the capability Titan actually depends on
+# Tool calling — the capability Abhed actually depends on
 curl -s http://127.0.0.1:11434/v1/chat/completions \
   -H 'Content-Type: application/json' -d '{
    "model":"gemma4:26b",
@@ -206,18 +206,18 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['choices'][0]['message'].get('tool_calls'))"
 ```
 
-If that last command prints `None`, the model cannot drive Titan. Use a
-different one — this is exactly the check `titan doctor` automates.
+If that last command prints `None`, the model cannot drive Abhed. Use a
+different one — this is exactly the check `abhed doctor` automates.
 
 ---
 
-## 2. Titan CLI
+## 2. Abhed CLI
 
 ### Interactive
 
 ```bash
-cd .titan-workspace    # or any repo
-titan
+cd .abhed-workspace    # or any repo
+abhed
 ```
 
 Then type a task. Try:
@@ -237,7 +237,7 @@ The tests in pkg/auth are failing. Read the code, find the bug, fix it, then run
 | `/cost` | Tokens, cache hit rate, compactions |
 | `/compact` | Compact the context now |
 | `/clear` | Clear context, keep the workspace |
-| `/memory` | Show the TITAN.md files in effect |
+| `/memory` | Show the ABHED.md files in effect |
 | `/model` | Show or switch provider |
 | `/sessions` | Recent sessions (needs Postgres) |
 | `/resume <id>` | Replay a past session |
@@ -258,9 +258,9 @@ turn finishes.
 ### Headless
 
 ```bash
-titan -p "fix the failing tests" -mode auto -allow 'bash(go test*)'
-titan -p "explain what pkg/auth does" -mode plan
-titan -p "add a test for Valid" -mode auto -output-format json > events.jsonl
+abhed -p "fix the failing tests" -mode auto -allow 'bash(go test*)'
+abhed -p "explain what pkg/auth does" -mode plan
+abhed -p "add a test for Valid" -mode auto -output-format json > events.jsonl
 ```
 
 Exit codes: `0` completed · `2` turn limit · `3` budget · `4` policy denied ·
@@ -281,25 +281,25 @@ use `-mode auto` with explicit `-allow` rules.
 ### Other commands
 
 ```bash
-titan doctor                    # verify endpoint, tools, sandbox, storage, index
-titan providers                 # model providers this build supports
-titan rpc                       # drive Titan from another language over stdio
-titan init                      # write a starter .titan/config.json
-titan index                     # build the retrieval index
-titan eval                      # run the 144-task corpus
-titan -version
+abhed doctor                    # verify endpoint, tools, sandbox, storage, index
+abhed providers                 # model providers this build supports
+abhed rpc                       # drive Abhed from another language over stdio
+abhed init                      # write a starter .abhed/config.json
+abhed index                     # build the retrieval index
+abhed eval                      # run the 144-task corpus
+abhed -version
 ```
 
-**Run `titan doctor` first, always.** It catches a model that cannot emit tool
+**Run `abhed doctor` first, always.** It catches a model that cannot emit tool
 calls before you waste a run on it.
 
 ---
 
-## 3. Titan web UI
+## 3. Abhed web UI
 
 ```bash
-cd .titan-workspace
-titan serve -addr :8420
+cd .abhed-workspace
+abhed serve -addr :8420
 ```
 
 Open **http://localhost:8420**
@@ -325,9 +325,9 @@ In the console:
 Background it and watch the log:
 
 ```bash
-(titan serve -addr :8420 > .titan-workspace/logs/titan-serve.log 2>&1 &)
-tail -f .titan-workspace/logs/titan-serve.log
-pkill -f "titan serve"
+(abhed serve -addr :8420 > .abhed-workspace/logs/abhed-serve.log 2>&1 &)
+tail -f .abhed-workspace/logs/abhed-serve.log
+pkill -f "abhed serve"
 ```
 
 ### API
@@ -352,18 +352,18 @@ curl -s -X POST $B/v1/sessions/$SID/interrupt
 ## 4. Postgres
 
 Sessions survive restarts only with Postgres. Configured in
-`.titan-workspace/.titan/config.json`, which carries `storage.dsn` directly —
-so `titan doctor` and `titan serve` work with no environment variable set.
+`.abhed-workspace/.abhed/config.json`, which carries `storage.dsn` directly —
+so `abhed doctor` and `abhed serve` work with no environment variable set.
 
 If `storage.dsn` is ever missing while `storage.driver` is `postgres`, every
 command fails with *"storage.driver is postgres but no DSN is set"*. Either put
 the DSN back in the config or export it for the session:
 
 ```bash
-export TITAN_DATABASE_URL='postgres://titan_app:<password>@localhost:5432/titan_local'
+export ABHED_DATABASE_URL='postgres://abhed_app:<password>@localhost:5432/abhed_local'
 ```
 
-The real password is in `.titan-workspace/.titan/config.json` under
+The real password is in `.abhed-workspace/.abhed/config.json` under
 `storage.dsn` (gitignored — deliberately not committed here).
 
 ```bash
@@ -371,10 +371,10 @@ pg_isready
 brew services start postgresql@16
 brew services stop postgresql@16
 
-psql -d titan_local -c "SELECT count(*) FROM sessions;"
-psql -d titan_local -c "SELECT id, terminal_reason, turns, tokens_in
+psql -d abhed_local -c "SELECT count(*) FROM sessions;"
+psql -d abhed_local -c "SELECT id, terminal_reason, turns, tokens_in
                         FROM sessions ORDER BY started_at DESC LIMIT 5;"
-psql -d titan_local -c "SELECT type, count(*) FROM events GROUP BY type;"
+psql -d abhed_local -c "SELECT type, count(*) FROM events GROUP BY type;"
 ```
 
 ### Permission rules for skills
@@ -384,14 +384,14 @@ radius is unbounded. A skill that shells out — zrag runs its retrieval through
 `run.sh` — therefore prompts for approval on every call, which in the web UI
 looks like auto mode not working at all.
 
-The fix is a narrow allow rule in `.titan-workspace/.titan/config.json`, not a
+The fix is a narrow allow rule in `.abhed-workspace/.abhed/config.json`, not a
 broader mode:
 
 ```json
 "permissions": {
   "mode": "auto",
   "allow": [
-    "bash(*/.titan/skills-active/zrag/scripts/run.sh*)",
+    "bash(*/.abhed/skills-active/zrag/scripts/run.sh*)",
     "web_search"
   ]
 }
@@ -402,11 +402,11 @@ as `bash /path/run.sh …` and as `/path/run.sh …`, and a rule written for the
 first silently denies the second. Verify a rule allows what you meant and still
 refuses what you did not before trusting it.
 
-**Do not connect Titan as a superuser** — row-level security is what isolates
+**Do not connect Abhed as a superuser** — row-level security is what isolates
 tenants, and superusers bypass it.
 
 > **Tenant note:** `storage.tenant` in config must match the tenant your
-> requests carry. With `auth.mode: none` Titan reconciles this for you; with
+> requests carry. With `auth.mode: none` Abhed reconciles this for you; with
 > OIDC the token's tenant is authoritative.
 
 ---
@@ -414,13 +414,13 @@ tenants, and superusers bypass it.
 ## 5. Benchmarking
 
 ```bash
-titan-bench -model gemma4:26b -turns 20
+abhed-bench -model gemma4:26b -turns 20
 ```
 
 Reports cache hit rate, prefill savings, cold vs warm TTFT.
 
 **Expect 0% cache on Ollama** — it does not report `cached_tokens`. That is a
-serving-stack limitation, not a Titan one, and it is exactly why the same
+serving-stack limitation, not a Abhed one, and it is exactly why the same
 benchmark against vLLM on your cluster is worth running.
 
 ---
@@ -433,25 +433,25 @@ benchmark against vLLM on your cluster is worth running.
 | `doctor`: empty response | Reasoning consumed the token budget | Raise `context.max_tokens` |
 | `connection refused` :11434 | Ollama down | `./scripts/start-local.sh` |
 | Postgres will not start, log says `lock file "postmaster.pid" already exists` | Stale lock from an interrupted shutdown; the PID it names has been recycled | Confirm no postmaster runs (`pgrep -fl postgres`), check the PID is not postgres (`ps -p <pid>`), then `rm /opt/homebrew/var/postgresql@16/postmaster.pid` and restart. **Never remove it while a postmaster is live.** |
-| Workspace and config vanished | It was in `/tmp`, which macOS purges | Keep it at `.titan-workspace/` in the repo |
-| `storage.driver is postgres but no DSN is set` | `storage.dsn` missing from config | Add it to `.titan/config.json`, or export `TITAN_DATABASE_URL` |
+| Workspace and config vanished | It was in `/tmp`, which macOS purges | Keep it at `.abhed-workspace/` in the repo |
+| `storage.driver is postgres but no DSN is set` | `storage.dsn` missing from config | Add it to `.abhed/config.json`, or export `ABHED_DATABASE_URL` |
 | Wrong app answers the port | Port already taken | `lsof -nP -iTCP:8420 -sTCP:LISTEN` |
 | `row-level security policy` | Tenant mismatch | Match `storage.tenant` to the request tenant |
 | `operation not permitted` on build | Sandbox scoping | Expected outside the workspace |
 | Sessions vanish | Memory store | Set `storage.driver: postgres` |
 | Every request anonymous | `auth.mode: none` | Set `proxy` or `oidc` |
 | Model very slow | Cold load | First call loads 18 GB; `ollama ps` to confirm |
-| Ollama and Titan both die mid-run, macOS reports low memory | `context_window` exceeds what the GPU can hold | Ollama logs its own sizing at startup: `grep "vram-based default context" .titan-workspace/logs/ollama.log`. Set `context_window` to that number or below — asking for more does not fail loudly, it just stops fitting once a long session fills it. |
+| Ollama and Abhed both die mid-run, macOS reports low memory | `context_window` exceeds what the GPU can hold | Ollama logs its own sizing at startup: `grep "vram-based default context" .abhed-workspace/logs/ollama.log`. Set `context_window` to that number or below — asking for more does not fail loudly, it just stops fitting once a long session fills it. |
 | A retrieval session uses far more context than expected | a retrieval call returning 20 documents is ~7,700 tokens | Two hops plus the 5,000-token skill body is ~22,000 tokens before the answer. Size `context_window` for the worst case, or lower `k` in the retrieval profile. |
 | `go build` version mismatch | Toolchain confusion | Use `/usr/local/go/bin/go` |
 
 Diagnostics:
 
 ```bash
-titan doctor
-tail -50 .titan-workspace/logs/ollama.log
-tail -50 .titan-workspace/logs/titan-serve.log
-titan -p "..." -output-format json | jq 'select(.type=="observation")'
+abhed doctor
+tail -50 .abhed-workspace/logs/ollama.log
+tail -50 .abhed-workspace/logs/abhed-serve.log
+abhed -p "..." -output-format json | jq 'select(.type=="observation")'
 ```
 
 ---
@@ -461,13 +461,13 @@ titan -p "..." -output-format json | jq 'select(.type=="observation")'
 ```bash
 ./scripts/start-local.sh --stop
 ./scripts/start-local.sh
-cd .titan-workspace && titan doctor
+cd .abhed-workspace && abhed doctor
 ```
 
 Reset the demo bug so you have something to fix again:
 
 ```bash
-cd .titan-workspace && cat > pkg/auth/token.go <<'GO'
+cd .abhed-workspace && cat > pkg/auth/token.go <<'GO'
 package auth
 
 import (

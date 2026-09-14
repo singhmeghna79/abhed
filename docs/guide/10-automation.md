@@ -1,13 +1,13 @@
 # Automation
 
-Three ways to run Titan without a person at the prompt.
+Three ways to run Abhed without a person at the prompt.
 
 ## Headless
 
 ```bash
-titan -p "fix the failing tests" -mode auto -allow 'bash(go test*)'
-titan -p "explain what pkg/auth does" -mode plan
-titan -p "add a test for Valid" -output-format json > events.jsonl
+abhed -p "fix the failing tests" -mode auto -allow 'bash(go test*)'
+abhed -p "explain what pkg/auth does" -mode plan
+abhed -p "add a test for Valid" -output-format json > events.jsonl
 ```
 
 Exit codes: `0` completed · `2` turn limit · `3` budget · `4` policy denied ·
@@ -18,12 +18,12 @@ may run with `-allow`, and keep the list narrow.
 
 ## RPC
 
-For a caller that is not Go, `titan rpc` speaks line-delimited JSON on stdin and
+For a caller that is not Go, `abhed rpc` speaks line-delimited JSON on stdin and
 stdout — no server, no port, no auth for what is one process talking to its own
 child.
 
 ```python
-p = subprocess.Popen(["titan", "rpc"], stdin=PIPE, stdout=PIPE, text=True, bufsize=1)
+p = subprocess.Popen(["abhed", "rpc"], stdin=PIPE, stdout=PIPE, text=True, bufsize=1)
 
 def send(**kw):
     p.stdin.write(json.dumps(kw) + "\n"); p.stdin.flush()
@@ -50,7 +50,7 @@ per run.
 ## Server
 
 ```bash
-titan serve -addr :8420
+abhed serve -addr :8420
 ```
 
 A web console with an event stream, inline approvals and session history, plus a

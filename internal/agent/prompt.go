@@ -16,7 +16,7 @@ import (
 // Every rule here is paid on every request of every session forever, so each
 // one must change behavior. Aspirations ("be helpful") change nothing; rules
 // the model can act on ("read the failure output before changing code") do.
-const CorePrompt = `You are Titan, a general technical assistant. You have a workspace of
+const CorePrompt = `You are Abhed, a general technical assistant. You have a workspace of
 code available, but the workspace is one source among several — not the boundary of
 what you can help with.
 
@@ -133,7 +133,7 @@ type BuildOptions struct {
 	Workspace     string
 	Model         string
 	ContextWindow int
-	MemoryFiles   []string // discovered TITAN.md paths, in precedence order
+	MemoryFiles   []string // discovered ABHED.md paths, in precedence order
 	// Skills is the rendered skill listing: names and one-line descriptions
 	// only. Bodies are fetched by the skill tool, so twenty skills cost about
 	// three hundred tokens here rather than twenty thousand.
@@ -196,7 +196,7 @@ func BuildSystemPrompt(opts BuildOptions) string {
 	return b.String()
 }
 
-// DiscoverMemoryFiles finds TITAN.md files in precedence order (docs §07).
+// DiscoverMemoryFiles finds ABHED.md files in precedence order (docs §07).
 // Later files override earlier ones, except an org-managed file which always wins.
 func DiscoverMemoryFiles(workspace string) []string {
 	var out []string
@@ -207,12 +207,12 @@ func DiscoverMemoryFiles(workspace string) []string {
 	}
 
 	if home, err := os.UserHomeDir(); err == nil {
-		add(filepath.Join(home, ".titan", "TITAN.md"))
+		add(filepath.Join(home, ".abhed", "ABHED.md"))
 	}
-	add(filepath.Join(workspace, "TITAN.md"))
-	add(filepath.Join(workspace, "TITAN.local.md"))
+	add(filepath.Join(workspace, "ABHED.md"))
+	add(filepath.Join(workspace, "ABHED.local.md"))
 	// Managed policy last so it cannot be overridden by user or project files.
-	add(filepath.Join("/etc", "titan", "TITAN.md"))
+	add(filepath.Join("/etc", "abhed", "ABHED.md"))
 	return out
 }
 

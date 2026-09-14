@@ -212,7 +212,7 @@ type Profile struct {
 	Sampling Sampling `json:"-"`
 }
 
-// Adapter is the single seam that makes Titan model-agnostic.
+// Adapter is the single seam that makes Abhed model-agnostic.
 type Adapter interface {
 	Name() string
 	Profile() Profile

@@ -107,7 +107,7 @@ func TestDenialExplainsHowToGrantAccess(t *testing.T) {
 		t.Fatal("expected a denial")
 	}
 	msg := err.Error()
-	for _, want := range []string{"--add-dir", "titan -C", "Do not retry"} {
+	for _, want := range []string{"--add-dir", "abhed -C", "Do not retry"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("denial does not mention %q: %s", want, msg)
 		}

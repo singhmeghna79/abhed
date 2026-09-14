@@ -1,6 +1,6 @@
 // Package websearch gives the agent access to the public web.
 //
-// Titan is built to run air-gapped, so this is the one component that
+// Abhed is built to run air-gapped, so this is the one component that
 // deliberately crosses the boundary — and it is OFF by default. When enabled,
 // every query and every result is recorded in the event stream, and results are
 // tagged untrusted like any other tool output: a search result is attacker-
@@ -35,7 +35,7 @@ type Provider interface {
 	Name() string
 	Search(ctx context.Context, query string, limit int) ([]Result, error)
 	// RequiresKey reports whether this provider needs credentials, so
-	// `titan doctor` can say why a provider is unavailable.
+	// `abhed doctor` can say why a provider is unavailable.
 	RequiresKey() bool
 }
 
@@ -51,7 +51,7 @@ type Config struct {
 	// is already a meaningful slice of the context budget.
 	MaxResults int
 	Timeout    time.Duration
-	// UserAgent identifies Titan to upstream services. Some refuse an empty one.
+	// UserAgent identifies Abhed to upstream services. Some refuse an empty one.
 	UserAgent  string
 	HTTPClient *http.Client
 }
@@ -67,7 +67,7 @@ func (c *Config) applyDefaults() {
 		c.Timeout = 20 * time.Second
 	}
 	if c.UserAgent == "" {
-		c.UserAgent = "Mozilla/5.0 (compatible; Titan/0.1; +https://github.com/yuvrajsingh/titan)"
+		c.UserAgent = "Mozilla/5.0 (compatible; Abhed/0.1; +https://github.com/yuvrajsingh/abhed)"
 	}
 	if c.HTTPClient == nil {
 		c.HTTPClient = &http.Client{Timeout: c.Timeout}
@@ -110,7 +110,7 @@ func New(cfg Config) (Provider, error) {
 // duckDuckGo scrapes the HTML endpoint.
 //
 // The default because it is the only option that is genuinely free forever with
-// no account, no key and no quota — which matters when Titan is installed
+// no account, no key and no quota — which matters when Abhed is installed
 // somewhere nobody will be signing up for an API.
 //
 // The tradeoff is honest: it parses HTML, so a markup change upstream breaks it.
@@ -262,7 +262,7 @@ func (s *serper) Search(ctx context.Context, query string, limit int) ([]Result,
 // ---------------------------------------------------------------- SearXNG
 
 // searxng is self-hosted metasearch. The right answer for an enclave that has
-// brokered egress: run it inside the perimeter, point Titan at it, and the
+// brokered egress: run it inside the perimeter, point Abhed at it, and the
 // agent never talks to the public internet directly.
 type searxng struct{ cfg Config }
 

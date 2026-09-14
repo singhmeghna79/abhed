@@ -1,4 +1,4 @@
-// A small, deterministic motion engine for the Titan video series.
+// A small, deterministic motion engine for the Abhed video series.
 //
 // Everything on screen is a pure function of time. The renderer sets a global
 // clock with __seek(t) and takes a screenshot; nothing runs on the wall clock,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Grant someone access to the Titan console, and tell them so.
+# Grant someone access to the Abhed console, and tell them so.
 #
 #   ./deploy/grant-access.sh priya@siemens.com "Priya Raman"
 #   ./deploy/grant-access.sh priya@siemens.com "Priya Raman" 168   # 7 days
@@ -10,14 +10,14 @@
 # the code, composing the mail, and saying the same true things every time.
 #
 # It needs an admin session on the console. Sign in once at
-# https://titan.zybuu.com and export the cookie, or set TITAN_ADMIN_USER and
-# TITAN_ADMIN_PASS and this will sign in for you.
+# https://abhed.zybuu.com and export the cookie, or set ABHED_ADMIN_USER and
+# ABHED_ADMIN_PASS and this will sign in for you.
 set -euo pipefail
 
 EMAIL="${1:-}"
 NAME="${2:-}"
 HOURS="${3:-168}"          # 7 days, matching what the site implies
-BASE="${TITAN_BASE:-https://titan.zybuu.com}"
+BASE="${ABHED_BASE:-https://abhed.zybuu.com}"
 CACHE="${TMPDIR:-/tmp}/zybuu-npm"
 FROM="${ACCESS_FROM:-Zybuu <support@zybuu.com>}"
 REPLY="${ACCESS_TO:-support@zybuu.com}"
@@ -55,21 +55,21 @@ esac
 COOKIE_JAR="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
-if [ -n "${TITAN_SESSION:-}" ]; then
-    printf '%s\tTRUE\t/\tTRUE\t0\ttitan_session\t%s\n' \
-        "${BASE#https://}" "$TITAN_SESSION" > "$COOKIE_JAR"
-elif [ -n "${TITAN_ADMIN_USER:-}" ] && [ -n "${TITAN_ADMIN_PASS:-}" ]; then
-    echo "==> Signing in as $TITAN_ADMIN_USER"
+if [ -n "${ABHED_SESSION:-}" ]; then
+    printf '%s\tTRUE\t/\tTRUE\t0\tabhed_session\t%s\n' \
+        "${BASE#https://}" "$ABHED_SESSION" > "$COOKIE_JAR"
+elif [ -n "${ABHED_ADMIN_USER:-}" ] && [ -n "${ABHED_ADMIN_PASS:-}" ]; then
+    echo "==> Signing in as $ABHED_ADMIN_USER"
     curl -sS -c "$COOKIE_JAR" -X POST "$BASE/v1/signin" \
         -H 'Content-Type: application/json' \
-        -d "{\"username\":\"$TITAN_ADMIN_USER\",\"password\":\"$TITAN_ADMIN_PASS\"}" \
+        -d "{\"username\":\"$ABHED_ADMIN_USER\",\"password\":\"$ABHED_ADMIN_PASS\"}" \
         -o /dev/null
 else
     cat >&2 <<'AUTH'
 No admin credentials. Either:
 
-    export TITAN_ADMIN_USER=yuvraj TITAN_ADMIN_PASS=...
-or  export TITAN_SESSION=<the titan_session cookie from a signed-in browser>
+    export ABHED_ADMIN_USER=yuvraj ABHED_ADMIN_PASS=...
+or  export ABHED_SESSION=<the abhed_session cookie from a signed-in browser>
 
 The password is read from the environment rather than prompted for here so it
 never lands in shell history.
@@ -128,7 +128,7 @@ FIRST="${NAME%% *}"
 BODY="$(cat <<MAIL
 Hi $FIRST,
 
-Here is your access to the Titan console.
+Here is your access to the Abhed console.
 
   Sign in at:  $BASE
   Invite code: $CODE
@@ -137,7 +137,7 @@ Here is your access to the Titan console.
 The code works once. Use it to create your account, then sign in with the
 password you choose — the code is not the password and is not needed again.
 
-What the account can do: use Titan Chat, run the agent, read your own
+What the account can do: use Abhed Chat, run the agent, read your own
 sessions. It cannot administer the console, change policy, or invite anyone
 else. Every action the agent takes is recorded and replayable.
 
@@ -151,10 +151,10 @@ What to expect, stated plainly:
     and it also means the agent cannot fetch things from the internet.
   - Zybuu holds no SOC 2, ISO 27001 or HIPAA certification.
 
-Documentation: https://titan.zybuu.com/docs
+Documentation: https://abhed.zybuu.com/docs
 
 When the code expires, reply to this email and we will issue another. If you
-would rather run Titan on your own infrastructure than use the hosted console,
+would rather run Abhed on your own infrastructure than use the hosted console,
 reply and say so — that is a different and better conversation.
 
 — Zybuu
@@ -167,7 +167,7 @@ import json, sys
 frm, to, reply, name, body = sys.argv[1:6]
 print(json.dumps({
     "from": frm, "to": [to], "reply_to": reply,
-    "subject": "Your Titan access",
+    "subject": "Your Abhed access",
     "text": body,
 }))
 PY

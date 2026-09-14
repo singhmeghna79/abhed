@@ -1,5 +1,5 @@
-// Video 2 — Titan: what it is and what it can do. About 3½ minutes.
-window.VIDEOS['02-titan'] = () => {
+// Video 2 — Abhed: what it is and what it can do. About 3½ minutes.
+window.VIDEOS['02-abhed'] = () => {
   const { fx, ease, el } = Motion;
   const feature = (s, { kicker, title, cards, at = 0.1, cardAt = 2.4, cols = 3 }) => {
     Parts.kicker(s, kicker, 96, 120, at);
@@ -9,11 +9,11 @@ window.VIDEOS['02-titan'] = () => {
   };
   return [
     { beat: 'b1', build(s) {
-      const logo = Parts.logo(s, { x: 0, y: 0, text: 'Titan', mark: 'titan', at: 0.2, size: 160 });
+      const logo = Parts.logo(s, { x: 0, y: 0, text: 'Abhed', mark: 'abhed', at: 0.2, size: 160 });
       logo.style.left = '50%'; logo.style.top = '40%'; logo.style.transform = 'translate(-50%,-50%)';
       s.at(0.2, 1.0, (p) => { logo.style.opacity = p; logo.style.transform = `translate(-50%,-50%) scale(${0.9 + 0.1 * ease.outBack(p)})`; });
       const t = Parts.para(s, "Zybuu's first product · <b>a deep agent harness</b>", { x: 360, y: 640, w: 1200, at: 1.6, size: 40 }); t.style.textAlign = 'center';
-      Parts.foot(s, 'ZYBUU · TITAN · SERIES 2 OF 4', 2.2);
+      Parts.foot(s, 'ZYBUU · ABHED · SERIES 2 OF 4', 2.2);
     } },
 
     // b2: what a harness is — the model in the middle, the harness rings around it
@@ -77,7 +77,7 @@ window.VIDEOS['02-titan'] = () => {
       const card = el('div', 'card'); card.style.cssText += 'left:1060px;top:440px;width:760px;height:330px;border-color:rgba(224,138,76,.6)';
       card.innerHTML = `<div class="mono" style="font-size:20px;color:var(--warn);letter-spacing:.1em">APPROVAL NEEDED</div>
         <div style="font-size:30px;margin:14px 0 10px;font-weight:650">write <span class="mono" style="font-weight:500;color:var(--ink-2)">/workspace/NOTES.md</span></div>
-        <div class="mono" style="font-size:22px;color:var(--ink-2);background:#0B0E14;border-radius:12px;padding:14px 18px">+ Titan — the agent harness for work that cannot leave the building.</div>
+        <div class="mono" style="font-size:22px;color:var(--ink-2);background:#0B0E14;border-radius:12px;padding:14px 18px">+ Abhed — the agent harness for work that cannot leave the building.</div>
         <div style="display:flex;gap:14px;margin-top:22px"><span id="yes" style="background:var(--live);color:#04121F;padding:12px 26px;border-radius:12px;font-weight:700;font-size:24px">Approve</span><span style="border:1px solid var(--line-2);padding:12px 26px;border-radius:12px;font-size:24px">Deny</span></div>`;
       s.el.appendChild(card); s.at(1.4, 0.7, fx.rise(card, 26));
       const yes = card.querySelector('#yes');
@@ -110,9 +110,9 @@ window.VIDEOS['02-titan'] = () => {
       Parts.kicker(s, 'Embeds without weakening', 96, 120, 0.1);
       Parts.heading(s, 'Your software, <span class="hl">the same guarantees.</span>', { x: 96, y: 170, w: 1300, cls: 'l', at: 0.3 });
       Parts.terminal(s, { x: 96, y: 460, w: 1160, h: 520, title: 'main.go', at: 1.6, size: 23, lines: [
-        ['cmd', 'a, _ := titan.New(ctx, titan.Options{', 2.0],
+        ['cmd', 'a, _ := abhed.New(ctx, abhed.Options{', 2.0],
         ['dim', '    Workspace: "/srv/work",', 2.2],
-        ['dim', '    Provider:  &titan.Provider{Type: "openai-compatible", Model: "Qwen/Qwen3-32B"},', 2.4],
+        ['dim', '    Provider:  &abhed.Provider{Type: "openai-compatible", Model: "Qwen/Qwen3-32B"},', 2.4],
         ['dim', '    Deny:      []string{"bash(rm -rf *)"},', 2.6],
         ['dim', '    Approve:   askYourUser,   // no approver means refuse', 2.8],
         ['dim', '})', 3.0],
@@ -131,9 +131,9 @@ window.VIDEOS['02-titan'] = () => {
       Parts.heading(s, 'Subagents in <span class="hl">worktrees.</span> Runs on a <span class="hl">clock.</span>', { x: 96, y: 170, w: 1400, cls: 'l', at: 0.3 });
       Parts.diagram(s, { nodes: [
         { id: 'p', x: 120, y: 560, w: 300, h: 110, html: 'Parent agent<small>tasks · isolation: worktree</small>', cls: 'hot', at: 1.6 },
-        { id: 'w1', x: 620, y: 440, w: 320, h: 90, html: 'worktree · titan/k3f9q2', at: 2.6 },
-        { id: 'w2', x: 620, y: 570, w: 320, h: 90, html: 'worktree · titan/p8m2xa', at: 3.0 },
-        { id: 'w3', x: 620, y: 700, w: 320, h: 90, html: 'worktree · titan/c1v7dd', at: 3.4 },
+        { id: 'w1', x: 620, y: 440, w: 320, h: 90, html: 'worktree · abhed/k3f9q2', at: 2.6 },
+        { id: 'w2', x: 620, y: 570, w: 320, h: 90, html: 'worktree · abhed/p8m2xa', at: 3.0 },
+        { id: 'w3', x: 620, y: 700, w: 320, h: 90, html: 'worktree · abhed/c1v7dd', at: 3.4 },
       ], edges: [{ from: 'p', to: 'w1', at: 2.6 }, { from: 'p', to: 'w2', at: 3.0 }, { from: 'p', to: 'w3', at: 3.4 }] });
       Parts.check(s, 'Two writers can never collide', { x: 120, y: 860, at: 5.2 });
       Parts.terminal(s, { x: 1120, y: 460, w: 700, h: 300, title: 'config.json', at: 6.8, size: 22, lines: [
@@ -155,7 +155,7 @@ window.VIDEOS['02-titan'] = () => {
     { beat: 'b11', build(s) {
       Parts.kicker(s, 'Five surfaces', 96, 120, 0.1);
       Parts.heading(s, 'Five ways to run it. <span class="hl">One set of rules.</span>', { x: 96, y: 170, w: 1400, cls: 'l', at: 0.3 });
-      const rows = [['titan', 'interactive — line editor, slash commands, steer mid-run'], ['titan -p "…"', 'headless — one prompt, typed exit code'], ['-output-format json', 'one event per line, streamed'], ['titan rpc', 'JSONL over stdio, from any language'], ['titan serve', 'REST, SSE, a web console — multi-user, tenant-scoped']];
+      const rows = [['abhed', 'interactive — line editor, slash commands, steer mid-run'], ['abhed -p "…"', 'headless — one prompt, typed exit code'], ['-output-format json', 'one event per line, streamed'], ['abhed rpc', 'JSONL over stdio, from any language'], ['abhed serve', 'REST, SSE, a web console — multi-user, tenant-scoped']];
       rows.forEach(([c, d], i) => {
         const n = Parts.card(s, { x: 96, y: 470 + i * 104, w: 1500, h: 88, at: 2.6 + i * 0.75, html: `<div style="display:flex;align-items:center;gap:30px"><span class="mono" style="font-size:26px;color:var(--live);min-width:380px">${c}</span><span style="font-size:26px;color:var(--ink-2)">${d}</span></div>` });
         n.style.padding = '24px 34px';
@@ -175,11 +175,11 @@ window.VIDEOS['02-titan'] = () => {
     } },
 
     { beat: 'b13', build(s) {
-      const logo = Parts.logo(s, { x: 0, y: 0, text: 'Titan', mark: 'titan', at: 0.2, size: 160 });
+      const logo = Parts.logo(s, { x: 0, y: 0, text: 'Abhed', mark: 'abhed', at: 0.2, size: 160 });
       logo.style.left = '50%'; logo.style.top = '36%'; logo.style.transform = 'translate(-50%,-50%)';
       s.at(0.2, 1.0, (p) => { logo.style.opacity = p; logo.style.transform = `translate(-50%,-50%) scale(${0.9 + 0.1 * ease.outBack(p)})`; });
       const h = Parts.heading(s, 'The agent harness for work that <span class="hl">cannot leave the building.</span>', { x: 210, y: 560, w: 1500, cls: 'm', at: 1.0 }); h.style.textAlign = 'center';
-      const u = Parts.pill(s, 'zybuu.com/titan', { x: 800, y: 820, at: 4.2 }); u.style.fontSize = '30px';
+      const u = Parts.pill(s, 'zybuu.com/abhed', { x: 800, y: 820, at: 4.2 }); u.style.fontSize = '30px';
     } },
   ];
 };

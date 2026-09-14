@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // SearchTool exposes the index to the agent as tier-2 retrieval.
 //
 // The description deliberately tells the model when NOT to use it. Evidence for
-// agentic search over embeddings is real but contested, so Titan routes by
+// agentic search over embeddings is real but contested, so Abhed routes by
 // query shape: identifier-like queries go to grep, natural-language questions
 // about behavior come here. Usage is counted so the routing policy can be
 // evaluated on real sessions rather than assumed (docs §02 §4).
@@ -62,7 +62,7 @@ func (t *SearchTool) Run(ctx context.Context, sess *tools.Session, raw json.RawM
 	}
 	if t.Index == nil {
 		return tools.Result{
-			Content: "No index is available. Use grep and glob instead, or run `titan index` to build one.",
+			Content: "No index is available. Use grep and glob instead, or run `abhed index` to build one.",
 			IsError: true,
 		}
 	}
@@ -70,7 +70,7 @@ func (t *SearchTool) Run(ctx context.Context, sess *tools.Session, raw json.RawM
 	docs, _, _, _ := t.Index.Stats()
 	if docs == 0 {
 		return tools.Result{
-			Content: "The index is empty. Use grep and glob instead, or run `titan index` to build one.",
+			Content: "The index is empty. Use grep and glob instead, or run `abhed index` to build one.",
 			IsError: true,
 		}
 	}

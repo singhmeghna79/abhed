@@ -74,7 +74,7 @@ func (m *mockIDP) mint(t *testing.T) string {
 	t.Helper()
 	h, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT", "kid": "k1"})
 	c, _ := json.Marshal(map[string]any{
-		"iss": m.srv.URL, "aud": "titan", "sub": "user-7",
+		"iss": m.srv.URL, "aud": "abhed", "sub": "user-7",
 		"email": "yuvraj@example.com", "name": "Yuvraj Singh",
 		"tenant": "acme", "groups": []string{"engineering"},
 		"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
@@ -88,12 +88,12 @@ func (m *mockIDP) mint(t *testing.T) string {
 
 func newLogin(t *testing.T, idp *mockIDP) *Login {
 	t.Helper()
-	v, err := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "titan"})
+	v, err := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "abhed"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	l, err := NewLogin(LoginConfig{
-		Issuer: idp.srv.URL, ClientID: "titan", ClientSecret: "s3cret",
+		Issuer: idp.srv.URL, ClientID: "abhed", ClientSecret: "s3cret",
 		RedirectURL: "http://localhost:8420/auth/callback",
 	}, v)
 	if err != nil {
@@ -241,9 +241,9 @@ func TestLogoutClearsSession(t *testing.T) {
 
 func TestExpiredSessionRejected(t *testing.T) {
 	idp := newMockIDP(t)
-	v, _ := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "titan"})
+	v, _ := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "abhed"})
 	l, err := NewLogin(LoginConfig{
-		Issuer: idp.srv.URL, ClientID: "titan",
+		Issuer: idp.srv.URL, ClientID: "abhed",
 		RedirectURL: "http://localhost:8420/auth/callback",
 		SessionTTL:  time.Millisecond,
 	}, v)
@@ -257,7 +257,7 @@ func TestExpiredSessionRejected(t *testing.T) {
 	l.mu.Unlock()
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.AddCookie(&http.Cookie{Name: "titan_session", Value: "sid"})
+	req.AddCookie(&http.Cookie{Name: "abhed_session", Value: "sid"})
 	if _, ok := l.FromCookie(req); ok {
 		t.Fatal("an expired browser session must not authenticate")
 	}
@@ -308,9 +308,9 @@ func TestWhoamiReportsSignedOut(t *testing.T) {
 // is configured — providers ignore the request otherwise.
 func TestLogoutEndsTheIdPSession(t *testing.T) {
 	idp := newMockIDP(t)
-	v, _ := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "titan"})
+	v, _ := NewVerifier(Config{Issuer: idp.srv.URL, Audience: "abhed"})
 	l, err := NewLogin(LoginConfig{
-		Issuer: idp.srv.URL, ClientID: "titan-console",
+		Issuer: idp.srv.URL, ClientID: "abhed-console",
 		RedirectURL:   "http://localhost:8420/auth/callback",
 		PostLogoutURL: "http://localhost:8420/",
 	}, v)
@@ -332,7 +332,7 @@ func TestLogoutEndsTheIdPSession(t *testing.T) {
 		t.Fatalf("logout did not reach the end_session endpoint: %s", loc)
 	}
 	q := loc.Query()
-	if q.Get("client_id") != "titan-console" {
+	if q.Get("client_id") != "abhed-console" {
 		t.Error("client_id missing — providers ignore logout without it")
 	}
 	if q.Get("post_logout_redirect_uri") != "http://localhost:8420/" {

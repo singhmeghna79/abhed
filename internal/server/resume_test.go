@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/store"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/store"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // durableMem is the memory store plus the two things a durable store gives
@@ -79,7 +79,7 @@ func TestFinishedSessionContinuesFromRecord(t *testing.T) {
 		} else {
 			r = httptest.NewRequest(method, path, nil)
 		}
-		r.Header.Set("X-Titan-User", user)
+		r.Header.Set("X-Abhed-User", user)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w

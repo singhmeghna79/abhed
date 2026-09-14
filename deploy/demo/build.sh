@@ -3,7 +3,7 @@
 #
 #   UXUSER=<console user> UXPASS=<password> ./deploy/demo/build.sh [outdir]
 #
-# Produces web/zybuu/demo/titan-demo.mp4 and poster.jpg (gitignored; published
+# Produces web/zybuu/demo/abhed-demo.mp4 and poster.jpg (gitignored; published
 # with the site behind the signed-link gate) from deploy/demo/narration.json
 # and deploy/demo/record.mjs. Needs: ffmpeg, node with playwright (and system
 # Chrome), and a Python with edge-tts. The console user is a throwaway account
@@ -82,7 +82,7 @@ for f in $("$PY" -c "import json,sys;print(' '.join(s['id'] for s in json.load(o
   echo "file '$M'" >> "$LIST"
   echo "  $f  video ${dv%.*}s  audio ${da%.*}s"
 done
-FINAL="$ROOT/web/zybuu/demo/titan-demo.mp4"
+FINAL="$ROOT/web/zybuu/demo/abhed-demo.mp4"
 ffmpeg -y -v error -f concat -safe 0 -i "$LIST" -c copy -movflags +faststart "$FINAL"
 ffmpeg -y -v error -ss 3 -i "$FINAL" -frames:v 1 -q:v 3 "$ROOT/web/zybuu/demo/poster.jpg"
 SZ=$(du -h "$FINAL" | cut -f1); DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$FINAL")

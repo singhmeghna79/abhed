@@ -35,7 +35,7 @@ func TestWebSearchSurvivesSandboxHardening(t *testing.T) {
 	}
 
 	if !cfg.WebSearch.Enabled {
-		t.Error("web_search is disabled on the deployed config — Titan Chat " +
+		t.Error("web_search is disabled on the deployed config — Abhed Chat " +
 			"loses the ability to search, which is a product capability and " +
 			"not something sandbox hardening should have taken away")
 	}

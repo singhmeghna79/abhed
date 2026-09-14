@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Parallel subagents, optionally each in its own git worktree.
@@ -213,7 +213,7 @@ func requireGitRepo(ctx context.Context, ws string) error {
 
 // WorktreeDir is where isolated checkouts live, inside the workspace so the
 // parent's scoping boundary already covers them.
-const WorktreeDir = ".titan/worktrees"
+const WorktreeDir = ".abhed/worktrees"
 
 func addWorktree(ctx context.Context, ws string) (*worktree, error) {
 	id := newID()
@@ -221,7 +221,7 @@ func addWorktree(ctx context.Context, ws string) (*worktree, error) {
 		id = id[len(id)-8:]
 	}
 	dir := filepath.Join(ws, WorktreeDir, id)
-	branch := "titan/" + id
+	branch := "abhed/" + id
 	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
 		return nil, err
 	}
@@ -258,7 +258,7 @@ func excludeWorktrees(ws string) {
 		return
 	}
 	defer f.Close()
-	fmt.Fprintf(f, "\n# Titan subagent worktrees\n%s/\n", WorktreeDir)
+	fmt.Fprintf(f, "\n# Abhed subagent worktrees\n%s/\n", WorktreeDir)
 }
 
 // worktreeChanges summarises what a subagent left behind: a diff stat and

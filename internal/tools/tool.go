@@ -1,4 +1,4 @@
-// Package tools implements Titan's native tool set.
+// Package tools implements Abhed's native tool set.
 //
 // The contracts here are specified in docs/architecture/06-tool-contracts.md.
 // Two rules drive most of this code:

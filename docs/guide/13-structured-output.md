@@ -1,6 +1,6 @@
 # Structured output
 
-A program embedding Titan usually does not want prose. It wants a value: a
+A program embedding Abhed usually does not want prose. It wants a value: a
 verdict, a list of findings, a record it can store. `RunJSON` runs a prompt
 whose answer must match a JSON Schema, and decodes it into a Go value.
 

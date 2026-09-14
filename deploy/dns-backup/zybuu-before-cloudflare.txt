@@ -20,7 +20,7 @@
 
 ## subdomain records
   www.zybuu.com -> zybuu.com. zybuu.com. zybuu.com. "v=spf1 include:secureserver.net -all" zybuu.com. 
-  titan.zybuu.com -> 171.76.80.224 
+  abhed.zybuu.com -> 171.76.80.224 
   email.zybuu.com -> email.secureserver.net. email.secureserver.net. 76.223.17.250 15.197.155.180 email.secureserver.net. email.secureserver.net. 
   _dmarc.zybuu.com -> "v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc_rua@onsecureserver.net;" 
   _domainconnect.zybuu.com -> _domainconnect.gd.domaincontrol.com. _domainconnect.gd.domaincontrol.com. _domainconnect.gd.domaincontrol.com. "domainconnect.api.godaddy.com" _domainconnect.gd.domaincontrol.com. 

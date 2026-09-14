@@ -2,16 +2,16 @@
 
 ## Install
 
-Titan is a single static binary with no runtime to install.
+Abhed is a single static binary with no runtime to install.
 
 ```bash
-go build -o ~/.local/bin/titan ./cmd/titan
-titan -version
+go build -o ~/.local/bin/abhed ./cmd/abhed
+abhed -version
 ```
 
 ## Point it at a model
 
-Titan does not ship a model. It needs an endpoint, and the fastest one to get
+Abhed does not ship a model. It needs an endpoint, and the fastest one to get
 running is a local server:
 
 ```bash
@@ -22,11 +22,11 @@ ollama pull qwen3-coder:30b
 Then, in the directory you want the agent to work in:
 
 ```bash
-titan init      # writes .titan/config.json
-titan doctor    # check the endpoint before you rely on it
+abhed init      # writes .abhed/config.json
+abhed doctor    # check the endpoint before you rely on it
 ```
 
-`titan doctor` is worth the ten seconds. It checks that the endpoint answers,
+`abhed doctor` is worth the ten seconds. It checks that the endpoint answers,
 **and that the model can emit a structured tool call** — a model that describes a
 tool call in prose instead of emitting one cannot drive an agent at all, however
 well it writes, and finding that out during a real task wastes the run.
@@ -42,10 +42,10 @@ Ready.
 ## First run
 
 ```bash
-titan
+abhed
 ```
 
-Type a task. Titan reads code, runs commands, edits files, and asks before
+Type a task. Abhed reads code, runs commands, edits files, and asks before
 anything it is not permitted to do unattended.
 
 ```
@@ -85,9 +85,9 @@ the session; Ctrl-D exits.
 ## Without a terminal
 
 ```bash
-titan -p "explain what pkg/auth does" -mode plan
-titan -p "fix the failing tests" -mode auto -allow 'bash(go test*)'
-titan -p "add a test for Valid" -output-format json > events.jsonl
+abhed -p "explain what pkg/auth does" -mode plan
+abhed -p "fix the failing tests" -mode auto -allow 'bash(go test*)'
+abhed -p "add a test for Valid" -output-format json > events.jsonl
 ```
 
 Exit codes: `0` completed · `2` turn limit · `3` budget · `4` policy denied ·

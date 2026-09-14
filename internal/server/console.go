@@ -46,8 +46,8 @@ var consoleHTML = strings.ReplaceAll(`<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Titan Console</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22tf%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2255%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22tcore%22%20cx=%2240%25%22%20cy=%2235%25%22%20r=%2270%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22/%3E%20%3Cstop%20offset=%2270%25%22%20stop-color=%22%23DDEFFF%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%239ED2FF%22/%3E%20%3C/radialGradient%3E%20%3CradialGradient%20id=%22tglow%22%20cx=%2250%25%22%20cy=%2250%25%22%20r=%2250%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%22.5%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%235CC4FF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3C/defs%3E%20%3Cg%20fill=%22none%22%20stroke=%22url(%23tf)%22%20stroke-width=%2228%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%20%3Cpath%20d=%22M104%2034%20H64%20a20%2020%200%200%200%20-20%2020%20V202%20a20%2020%200%200%200%2020%2020%20H104%22/%3E%20%3Cpath%20d=%22M152%2034%20H192%20a20%2020%200%200%201%2020%2020%20V202%20a20%2020%200%200%201%20-20%2020%20H152%22/%3E%20%3C/g%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2260%22%20fill=%22url(%23tglow)%22/%3E%20%3Ccircle%20cx=%22128%22%20cy=%22128%22%20r=%2231%22%20fill=%22url(%23tcore)%22/%3E%20%3C/svg%3E">
+<title>Abhed Console</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%20256%20256%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22fwall%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%235CC4FF%22%2F%3E%3Cstop%20offset%3D%2255%25%22%20stop-color%3D%22%232A8CF0%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%230B3C8C%22%2F%3E%3C%2FlinearGradient%3E%3CradialGradient%20id%3D%22fcore%22%20cx%3D%2240%25%22%20cy%3D%2235%25%22%20r%3D%2270%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23FFFFFF%22%2F%3E%3Cstop%20offset%3D%2270%25%22%20stop-color%3D%22%23DDEFFF%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%239ED2FF%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22fglow%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%235CC4FF%22%20stop-opacity%3D%22.55%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%235CC4FF%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M218.6%2090.5%20L165.5%2037.4%20L90.5%2037.4%20L37.4%2090.5%20L37.4%20165.5%20L90.5%20218.6%20L165.5%20218.6%20L218.6%20165.5%20Z%22%20fill%3D%22none%22%20stroke%3D%22url%28%23fwall%29%22%20stroke-width%3D%2224%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2262%22%20fill%3D%22none%22%20stroke%3D%22url%28%23fwall%29%22%20stroke-width%3D%226%22%20opacity%3D%22.45%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2250%22%20fill%3D%22url%28%23fglow%29%22%2F%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22128%22%20r%3D%2223%22%20fill%3D%22url%28%23fcore%29%22%2F%3E%3C%2Fsvg%3E">
 <style>
 :root{
   --bg:#F4F6FA; --surface:#FFFFFF; --raised:#FFFFFF; --sunken:#E6EBF3;
@@ -525,9 +525,9 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     </svg>
   </button>
   <div class="brand">
-    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
+    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="tt-wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="55%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><radialGradient id="tt-core" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="70%" stop-color="#DDEFFF"/><stop offset="100%" stop-color="#9ED2FF"/></radialGradient><radialGradient id="tt-glow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#5CC4FF" stop-opacity=".55"/><stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/></radialGradient></defs><path d="M218.6 90.5 L165.5 37.4 L90.5 37.4 L37.4 90.5 L37.4 165.5 L90.5 218.6 L165.5 218.6 L218.6 165.5 Z" fill="none" stroke="url(#tt-wall)" stroke-width="24" stroke-linejoin="round"/><circle cx="128" cy="128" r="62" fill="none" stroke="url(#tt-wall)" stroke-width="6" opacity=".45"/><circle cx="128" cy="128" r="50" fill="url(#tt-glow)"/><circle cx="128" cy="128" r="23" fill="url(#tt-core)"/></svg>
     <a href="/" style="text-decoration:none;color:inherit;display:flex;
-       align-items:baseline;gap:8px" title="Overview"><b>Titan</b><span
+       align-items:baseline;gap:8px" title="Overview"><b>Abhed</b><span
        id="ver">console</span></a><!--HOME-->
   </div>
   <div class="stat"><span class="led" id="led"></span><span id="health">connecting</span></div>
@@ -571,7 +571,7 @@ select{background:var(--sunken);border:1px solid var(--line);border-radius:6px;
     </div>
     <div class="transcript" id="tx">
       <div class="empty">
-        <svg class="mark-lg" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="tt-tf" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="55%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="tt-tcore" cx="40%" cy="35%" r="70%"> <stop offset="0%"   stop-color="#FFFFFF"/> <stop offset="70%"  stop-color="#DDEFFF"/> <stop offset="100%" stop-color="#9ED2FF"/> </radialGradient> <radialGradient id="tt-tglow" cx="50%" cy="50%" r="50%"> <stop offset="0%"   stop-color="#5CC4FF" stop-opacity=".5"/> <stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/> </radialGradient> </defs> <g fill="none" stroke="url(#tt-tf)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"> <path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/> <path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/> </g> <circle cx="128" cy="128" r="60" fill="url(#tt-tglow)"/> <circle cx="128" cy="128" r="31" fill="url(#tt-tcore)"/> </svg>
+        <svg class="mark-lg" viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="tt-wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="55%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><radialGradient id="tt-core" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="70%" stop-color="#DDEFFF"/><stop offset="100%" stop-color="#9ED2FF"/></radialGradient><radialGradient id="tt-glow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#5CC4FF" stop-opacity=".55"/><stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/></radialGradient></defs><path d="M218.6 90.5 L165.5 37.4 L90.5 37.4 L37.4 90.5 L37.4 165.5 L90.5 218.6 L165.5 218.6 L218.6 165.5 Z" fill="none" stroke="url(#tt-wall)" stroke-width="24" stroke-linejoin="round"/><circle cx="128" cy="128" r="62" fill="none" stroke="url(#tt-wall)" stroke-width="6" opacity=".45"/><circle cx="128" cy="128" r="50" fill="url(#tt-glow)"/><circle cx="128" cy="128" r="23" fill="url(#tt-core)"/></svg>
         <div class="k" id="greet">What should we <span class="hl">work on</span>?</div>
         <div class="s">Ask a question, describe a change, or attach a document. Every
           step the agent takes is recorded; pick any chat on the left to replay it.</div>
@@ -953,7 +953,7 @@ function render(ev){
       hideThinking();
       if(!streamEl){
         streamEl = node('said');
-        streamEl.append(node('who','titan'));
+        streamEl.append(node('who','abhed'));
         streamBody = document.createTextNode('');
         streamEl.appendChild(streamBody);
         (turnEl || tx).appendChild(streamEl);
@@ -1003,7 +1003,7 @@ function render(ev){
       const body = document.createElement('div');
       body.className = 'md';
       body.innerHTML = md(p.text);
-      b.append(node('who','titan'), body);
+      b.append(node('who','abhed'), body);
       (turnEl || tx).appendChild(b);
       break;
     }
@@ -1084,7 +1084,7 @@ function render(ev){
         body.appendChild(b);
       }
       if(ev.trust === 'untrusted' && !p.is_error){
-        // Provenance is a first-class concept in Titan: tool output is data,
+        // Provenance is a first-class concept in Abhed: tool output is data,
         // never instruction. Saying so in the UI keeps that visible.
         body.appendChild(node('tag','untrusted data'));
       }
@@ -1642,9 +1642,9 @@ async function whoami(){
 
   $('who').textContent = me.email || me.name || me.subject;
   try{
-    if(sessionStorage.getItem('titan.must_change') === '1'){
-      sessionStorage.removeItem('titan.must_change');
-      note('This password was set for you. Change it: titan user passwd <you>, or ask your administrator.');
+    if(sessionStorage.getItem('abhed.must_change') === '1'){
+      sessionStorage.removeItem('abhed.must_change');
+      note('This password was set for you. Change it: abhed user passwd <you>, or ask your administrator.');
     }
   }catch{}
   $('who').title = 'tenant ' + me.tenant +
@@ -1668,7 +1668,7 @@ async function capabilities(){
 }
 
 // A first-run console that only says "ask something" teaches nothing. These
-// are the three shapes Titan handles, so the examples double as documentation.
+// are the three shapes Abhed handles, so the examples double as documentation.
 // Deliberately generic. The first example was "What is z/OS and where is it
 // used?", which read as a product aimed at mainframe shops to everyone else —
 // a first-run screen sets the expectation of what the tool is FOR, so a niche
@@ -1768,20 +1768,20 @@ a{color:#4C8FD6}
     <rect x="14.4" y="7.5" width="1.6" height="9" rx=".6" opacity=".85"/>
     <rect x="3" y="18" width="18" height="3" rx="1"/></svg>
     Sign-in is not configured</h1>
-  <p>This Titan server runs with <code>auth.mode: none</code> — a single-tenant
+  <p>This Abhed server runs with <code>auth.mode: none</code> — a single-tenant
      setup with no user accounts, so there is nobody to sign in or out as.</p>
   <p>To enable sign-in, add an identity provider to your config:</p>
   <pre>{
   "auth": {
     "mode": "oidc",
     "issuer": "https://idp.internal/realms/engineering",
-    "audience": "titan",
-    "client_id": "titan-console",
-    "client_secret_env": "TITAN_OIDC_SECRET",
+    "audience": "abhed",
+    "client_id": "abhed-console",
+    "client_secret_env": "ABHED_OIDC_SECRET",
     "redirect_url": "http://localhost:8420/auth/callback",
     "tenant_claim": "org_id"
   }
 }</pre>
   <p>See <code>docs/ops/enabling-auth.md</code> for per-provider settings.</p>
-  <p><a href="/">← Back to Titan</a></p>
+  <p><a href="/">← Back to Abhed</a></p>
 </div>`

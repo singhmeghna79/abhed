@@ -2,7 +2,7 @@
 //
 // Design position (docs/architecture/03-security.md): the deep-research pass
 // produced ZERO verified claims on sandboxing and REFUTED two candidate claims,
-// so the isolation posture of comparable agents is unverified. Titan therefore
+// so the isolation posture of comparable agents is unverified. Abhed therefore
 // treats isolation as a requirement to establish rather than a solved problem
 // to copy, and this package is written to that stance:
 //
@@ -35,7 +35,7 @@ const (
 	// kernel. Not sufficient for genuinely hostile code.
 	TierContainer Tier = "container"
 	// TierVM runs in a microVM (Firecracker/Kata) or gVisor's userspace kernel:
-	// a hardware or syscall-interception boundary. Titan's production default.
+	// a hardware or syscall-interception boundary. Abhed's production default.
 	TierVM Tier = "vm"
 )
 
@@ -93,7 +93,7 @@ type Sandbox interface {
 	Available() (bool, string)
 	// Command returns an exec.Cmd that runs `command` under isolation.
 	Command(ctx context.Context, cwd, command string) *exec.Cmd
-	// Describe is shown by `titan doctor` and recorded in the audit trail.
+	// Describe is shown by `abhed doctor` and recorded in the audit trail.
 	Describe() string
 }
 

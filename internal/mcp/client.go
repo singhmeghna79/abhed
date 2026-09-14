@@ -106,7 +106,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 	params, _ := json.Marshal(map[string]any{
 		"protocolVersion": protocolVersion,
 		"capabilities":    map[string]any{"tools": map[string]any{}},
-		"clientInfo":      map[string]any{"name": "titan", "version": "0.1.0"},
+		"clientInfo":      map[string]any{"name": "abhed", "version": "0.1.0"},
 	})
 	if _, err := c.call(ctx, "initialize", params); err != nil {
 		return fmt.Errorf("initialize %s: %w", c.name, err)

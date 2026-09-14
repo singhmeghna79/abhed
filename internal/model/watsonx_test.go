@@ -11,7 +11,7 @@ func TestWatsonXBuildsRequest(t *testing.T) {
 		BaseURL: "https://x", APIKey: "k", SpaceID: "sp", ModelID: "openai/gpt-oss-120b"})
 
 	req := w.buildRequest(Request{
-		System:   "You are Titan.",
+		System:   "You are Abhed.",
 		Messages: []Message{{Role: RoleUser, Content: "hi"}},
 		Tools: []ToolDef{{Name: "glob", Description: "Find files.",
 			InputSchema: json.RawMessage(`{"type":"object"}`)}},
@@ -24,7 +24,7 @@ func TestWatsonXBuildsRequest(t *testing.T) {
 	if len(req.Messages) != 2 || req.Messages[0].Role != "system" {
 		t.Fatalf("system prompt not sent as the first message: %+v", req.Messages)
 	}
-	if req.Messages[0].Content != "You are Titan." {
+	if req.Messages[0].Content != "You are Abhed." {
 		t.Errorf("system content = %v", req.Messages[0].Content)
 	}
 	if req.SpaceID != "sp" || req.ProjectID != "" {
@@ -53,7 +53,7 @@ func TestWatsonXSynthesisesMissingToolCallID(t *testing.T) {
 
 // gpt-oss-120b sometimes ends its reasoning with the tool ARGUMENTS and never
 // emits a tool_calls delta — leaving the loop nothing to dispatch and the turn
-// silently empty. Observed live with Titan's real system prompt.
+// silently empty. Observed live with Abhed's real system prompt.
 func TestSalvageBareArgsFromReasoning(t *testing.T) {
 	tools := []ToolDef{
 		{Name: "read", InputSchema: json.RawMessage(

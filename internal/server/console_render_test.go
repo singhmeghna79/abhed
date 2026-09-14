@@ -11,7 +11,7 @@ import (
 // TestConsoleRenderNoDuplicateReply drives the console's render() headlessly.
 //
 // The console is JavaScript embedded in a Go string, which makes it the one
-// part of Titan with no test coverage — and it shipped a bug that printed every
+// part of Abhed with no test coverage — and it shipped a bug that printed every
 // reply twice. The logic is ordinary and testable; only its packaging is
 // awkward. So the test extracts render() and its helpers, runs them against a
 // minimal DOM in node, and asserts the reply appears exactly once under every

@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	titan "github.com/yuvrajsingh/titan/sdk"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	abhed "github.com/yuvrajsingh/abhed/sdk"
 )
 
-// rpcCmd drives Titan over stdin and stdout as line-delimited JSON.
+// rpcCmd drives Abhed over stdin and stdout as line-delimited JSON.
 //
 // The SDK covers a caller written in Go. Everything else — a Python service, a
 // TypeScript extension, an editor plugin — had only the HTTP server, which
@@ -27,7 +27,7 @@ func rpcCmd(workspace string) int {
 	in.Buffer(make([]byte, 0, 64<<10), 8<<20)
 	out := json.NewEncoder(os.Stdout)
 
-	var a *titan.Agent
+	var a *abhed.Agent
 	defer func() {
 		if a != nil {
 			a.Close()
@@ -36,7 +36,7 @@ func rpcCmd(workspace string) int {
 
 	emit := func(v any) {
 		if err := out.Encode(v); err != nil {
-			fmt.Fprintf(os.Stderr, "titan: rpc write failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: rpc write failed: %v\n", err)
 		}
 	}
 
@@ -61,7 +61,7 @@ func rpcCmd(workspace string) int {
 			if ws == "" {
 				ws = workspace
 			}
-			opts := titan.Options{
+			opts := abhed.Options{
 				Workspace: ws, ConfigDir: ws, Mode: req.Mode,
 				Allow: req.Allow, Deny: req.Deny,
 				// Events are forwarded as they happen so a caller can render
@@ -71,7 +71,7 @@ func rpcCmd(workspace string) int {
 				},
 			}
 			var err error
-			a, err = titan.New(context.Background(), opts)
+			a, err = abhed.New(context.Background(), opts)
 			if err != nil {
 				emit(rpcResponse{ID: req.ID, Type: "error", Error: err.Error()})
 				continue
@@ -118,7 +118,7 @@ func rpcCmd(workspace string) int {
 			emit(rpcResponse{ID: req.ID, Type: "export", Answer: a.ExportHTML()})
 
 		case "providers":
-			emit(rpcResponse{ID: req.ID, Type: "providers", Providers: titan.Providers()})
+			emit(rpcResponse{ID: req.ID, Type: "providers", Providers: abhed.Providers()})
 
 		case "quit":
 			emit(rpcResponse{ID: req.ID, Type: "bye"})
@@ -131,7 +131,7 @@ func rpcCmd(workspace string) int {
 		}
 	}
 	if err := in.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "titan: rpc read failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: rpc read failed: %v\n", err)
 		return 1
 	}
 	return 0

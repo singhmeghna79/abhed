@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 // Choosing the model from the console.
 //
 // Twenty providers ship, hosted and on-prem alike, behind one abstraction —
 // and switching between them meant editing a config file and restarting. That
-// hid the thing Titan is actually built on: the harness is the product, and the
+// hid the thing Abhed is actually built on: the harness is the product, and the
 // model is a swappable input. Being able to run the same task against four
 // models and watch the harness hold steady is the argument, made visible.
 //

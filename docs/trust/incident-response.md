@@ -8,18 +8,18 @@ is written that way on purpose rather than dressed up as something bigger.
 
 There is no dedicated monitoring team. Detection depends on:
 
-- **Application logs** — `titan serve` logging, and the append-only event
+- **Application logs** — `abhed serve` logging, and the append-only event
   store itself (`internal/store/schema.sql`), which is queryable for
   anomalous action sequences after the fact even without live alerting.
 - **The health endpoint** — `GET /v1/health`, checked manually
-  (`deploy/GO-LIVE.md`'s verify step: `curl -s https://titan.zybuu.com/v1/health`).
+  (`deploy/GO-LIVE.md`'s verify step: `curl -s https://abhed.zybuu.com/v1/health`).
   There is no automated uptime monitor wired to it today; the operator
   checks it and would notice a service-down condition on next use, not
   necessarily immediately.
 - **Cloudflare** — DNS, the Pages deployment, and (for mail) DNS-based
   delivery signals sit in front of `zybuu.com`; Cloudflare's own dashboard
   is a source of anomaly signal for the site surface (traffic spikes,
-  blocked requests) even though Titan itself is not proxied through it
+  blocked requests) even though Abhed itself is not proxied through it
   (`deploy/GO-LIVE.md`: the console is reached through a tunnel/port-forward
   to the operator's own machine, separate from the Cloudflare Pages site).
 - **Policy denials** as a signal. `docs/ops/air-gap.md`'s observability
@@ -63,7 +63,7 @@ For anything Sev 1 or Sev 2 involving the hosted console:
    `wrangler pages secret put` on stdin). Run this if the Resend API key or
    the access-request routing address is suspected compromised.
 4. **If the container image or host itself is suspected compromised**, stop
-   the container (`podman stop titan` / `docker stop titan`) rather than
+   the container (`podman stop abhed` / `docker stop abhed`) rather than
    restart it — the workspace and state volumes persist independently of the
    container, so stopping does not lose data, and a compromised running
    process should not be trusted to shut down cleanly.

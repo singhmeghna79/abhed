@@ -7,7 +7,7 @@ function run(label, events){
   tx.childNodes.length = 0;
   for(const ev of events) render(ev);
   const bubbles = tx.querySelectorAll('.said:not(.user)');
-  const texts = bubbles.map(b => b.textContent.replace(/^titan/,''));
+  const texts = bubbles.map(b => b.textContent.replace(/^abhed/,''));
   const dup = texts.filter(t => t.trim() === REPLY.trim()).length;
   console.log(`${dup===1?'PASS':'FAIL'}  ${label} -> ${bubbles.length} bubble(s), reply x${dup}`);
   if(dup!==1) texts.forEach((t,i)=>console.log(`        [${i}] ${JSON.stringify(t.slice(0,70))}`));

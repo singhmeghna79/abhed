@@ -108,7 +108,7 @@ func serveConn(nConn net.Conn, cfg *ssh.ServerConfig) {
 					fmt.Fprint(ch.Stderr(), "it failed\n")
 					status = 3
 				case strings.Contains(payload.Command, "hostname"):
-					fmt.Fprint(ch, "titan-test-vm\n")
+					fmt.Fprint(ch, "abhed-test-vm\n")
 				default:
 					fmt.Fprintf(ch, "ran: %s\n", payload.Command)
 				}
@@ -156,7 +156,7 @@ func TestRunAgainstRealSSHServer(t *testing.T) {
 	if res.IsError {
 		t.Fatalf("command failed: %s", res.Content)
 	}
-	if !strings.Contains(res.Content, "titan-test-vm") {
+	if !strings.Contains(res.Content, "abhed-test-vm") {
 		t.Errorf("stdout missing: %s", res.Content)
 	}
 	if !strings.Contains(res.Content, "tester@vm1") {
@@ -274,7 +274,7 @@ func TestResolveKeyPathHandlesTypedPaths(t *testing.T) {
 	if err := os.MkdirAll(dl, 0o755); err != nil {
 		t.Skip("cannot create Downloads")
 	}
-	name := "titan-test-key (1).prv"
+	name := "abhed-test-key (1).prv"
 	real := filepath.Join(dl, name)
 	if err := os.WriteFile(real, []byte("x"), 0o600); err != nil {
 		t.Skip("cannot write test key")

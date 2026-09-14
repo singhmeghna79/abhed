@@ -1,27 +1,27 @@
-# Embedding Titan
+# Embedding Abhed
 
 Status: 2026-09-06
 
-Everything Titan does lives under `internal/`, which Go refuses to let another
+Everything Abhed does lives under `internal/`, which Go refuses to let another
 module import. That is right for a binary and a wall for anyone who wants the
 agent inside their own service. The `sdk` package is the supported surface
 across that wall, kept small so the internals stay free to change.
 
 ```go
-import titan "github.com/yuvrajsingh/titan/sdk"
+import abhed "github.com/yuvrajsingh/abhed/sdk"
 
-a, err := titan.New(ctx, titan.Options{
+a, err := abhed.New(ctx, abhed.Options{
     Workspace: "/srv/work",
-    Provider: &titan.Provider{
+    Provider: &abhed.Provider{
         Type: "anthropic", Model: "claude-opus-5",
         APIKey: os.Getenv("ANTHROPIC_API_KEY"),
     },
     Mode: "auto",
     Deny: []string{"bash(rm -rf *)"},
-    Approve: func(ctx context.Context, tool string, args json.RawMessage, d titan.Decision) (bool, error) {
+    Approve: func(ctx context.Context, tool string, args json.RawMessage, d abhed.Decision) (bool, error) {
         return askTheUser(tool, args, d.Reason)
     },
-    OnEvent: func(ev titan.Event) { log.Println(ev.Type) },
+    OnEvent: func(ev abhed.Event) { log.Println(ev.Type) },
 })
 if err != nil {
     return err
@@ -59,12 +59,12 @@ on the command line.
 
 ## Driving it from another language
 
-`titan rpc` speaks line-delimited JSON on stdin and stdout, for callers that are
+`abhed rpc` speaks line-delimited JSON on stdin and stdout, for callers that are
 not Go. See [15-extensions.md](15-extensions.md).
 
 ## What is not here yet
 
 **Subscription auth.** Pi can sign in with a Claude Pro, ChatGPT Plus or GitHub
-Copilot subscription. Titan takes an API key. Closing this needs each vendor's
+Copilot subscription. Abhed takes an API key. Closing this needs each vendor's
 OAuth device flow and token refresh, one at a time — real work, and worth doing,
 but not a change to the harness.

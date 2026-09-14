@@ -84,7 +84,7 @@ func Providers() []string {
 	return out
 }
 
-// Describe lists each provider with its one-line summary, for `titan providers`.
+// Describe lists each provider with its one-line summary, for `abhed providers`.
 func Describe() []string {
 	out := make([]string, 0, len(providers))
 	for _, n := range Providers() {

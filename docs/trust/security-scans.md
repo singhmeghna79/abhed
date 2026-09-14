@@ -33,19 +33,19 @@ exactly.
 | Tool | Version | Command |
 |---|---|---|
 | Go | go1.26.0 darwin/arm64 (ambient toolchain; `go.mod` pins `go 1.26.0`) | `env -u GOROOT go run golang.org/x/vuln/cmd/govulncheck@latest ./...` |
-| govulncheck | v1.8.0 (DB downloaded 2026-09-14) | as above, plus a binary-mode cross-check: `podman run --rm -v <out>:/out --entrypoint /bin/sh localhost/titan:local -c "cp /usr/local/bin/titan /out/"`, then `env -u GOROOT go version -m titan` (reports the image's actual go1.26.8) and `env -u GOROOT go run golang.org/x/vuln/cmd/govulncheck@latest -mode binary titan` |
+| govulncheck | v1.8.0 (DB downloaded 2026-09-14) | as above, plus a binary-mode cross-check: `podman run --rm -v <out>:/out --entrypoint /bin/sh localhost/abhed:local -c "cp /usr/local/bin/abhed /out/"`, then `env -u GOROOT go version -m abhed` (reports the image's actual go1.26.8) and `env -u GOROOT go run golang.org/x/vuln/cmd/govulncheck@latest -mode binary abhed` |
 | gosec | v2.29.0 | `env -u GOROOT go run github.com/securego/gosec/v2/cmd/gosec@latest ./...` |
 | staticcheck | 2026.2.1 (0.8.1) | `env -u GOROOT go run honnef.co/go/tools/cmd/staticcheck@latest ./...` |
 | go vet | go1.26.0 | `env -u GOROOT go vet ./...` |
-| semgrep | 1.177.0 | `semgrep --config auto --exclude web/zybuu --exclude docs --exclude internal/docsite/site --exclude node_modules --exclude .titan-workspace .` |
-| trivy | 0.74.0 (DB 2026-09-13) | `trivy image titan:local` (via a `podman save` tarball — see note below) and `trivy fs --scanners vuln,secret,misconfig /Users/yuvrajsingh/titan` |
+| semgrep | 1.177.0 | `semgrep --config auto --exclude web/zybuu --exclude docs --exclude internal/docsite/site --exclude node_modules --exclude .abhed-workspace .` |
+| trivy | 0.74.0 (DB 2026-09-13) | `trivy image abhed:local` (via a `podman save` tarball — see note below) and `trivy fs --scanners vuln,secret,misconfig /Users/yuvrajsingh/titan` |
 | gitleaks | 8.30.1 | `gitleaks detect --source /Users/yuvrajsingh/titan` |
-| podman | 5.2.2 | `podman inspect titan`, `podman exec titan id`, `podman exec titan cat /proc/1/status` |
+| podman | 5.2.2 | `podman inspect abhed`, `podman exec abhed id`, `podman exec abhed cat /proc/1/status` |
 
-**Note on `trivy image`:** `trivy image titan:local` initially failed because
-trivy tried to pull `titan:local` from Docker Hub rather than reading it from
-podman's local store. It was run instead against `podman save titan:local -o
-titan-local.tar` followed by `trivy image --input titan-local.tar`, which is
+**Note on `trivy image`:** `trivy image abhed:local` initially failed because
+trivy tried to pull `abhed:local` from Docker Hub rather than reading it from
+podman's local store. It was run instead against `podman save abhed:local -o
+abhed-local.tar` followed by `trivy image --input abhed-local.tar`, which is
 byte-for-byte the same image.
 
 Scans that produce structured output were also captured as JSON
@@ -73,12 +73,12 @@ patch release just to satisfy that directive). Every one of the 19 "called"
 findings is fixed somewhere between go1.26.1 and go1.26.6, so against a
 `go1.26.0` toolchain all 19 are real.
 
-**However, the actual `titan:local` image was not built with go1.26.0.**
+**However, the actual `abhed:local` image was not built with go1.26.0.**
 The Dockerfile's build stage uses the floating tag `FROM golang:1.26-bookworm`,
 which resolves to whatever the latest `1.26.x` point release is on the day
 of `podman build` — not a version pinned in this repository. Extracting the
-binary from the already-built image (`podman run ... cat /usr/local/bin/titan`)
-and inspecting its build info directly (`go version -m titan`) shows it was
+binary from the already-built image (`podman run ... cat /usr/local/bin/abhed`)
+and inspecting its build info directly (`go version -m abhed`) shows it was
 compiled with **go1.26.8**, five patch releases ahead of what `go.mod`
 declares. Re-running govulncheck in `-mode binary` against that extracted
 binary confirms **zero of the 19 stdlib vulnerabilities are present in the
@@ -111,7 +111,7 @@ accident of when the image was last built.
 | Medium | GO-2026-5039 | `net/textproto` | go1.26.4 | `internal/k8s/client.go:406` (`io.ReadAll` → `ReadMIMEHeader`) | to fix — toolchain bump |
 | Medium | GO-2026-5037 | `crypto/x509` (hostname parsing perf) | go1.26.4 | `internal/server/server.go:1448` | to fix — toolchain bump |
 | Medium | GO-2026-5026 | `golang.org/x/net/idna` via `net/http` | go1.26.6 | `internal/mcp/http.go:339`, `internal/k8s/client.go:400` | to fix — toolchain bump |
-| Low | GO-2026-4971 | `net` (Windows NUL-byte panic) | go1.26.3 | `internal/remote/ssh.go:95/187`, `internal/server/server.go:1448`, `internal/store/postgres.go:92` | accepted with reason — Titan's server and container run on Linux/macOS, not Windows; still fixed for free by the bump |
+| Low | GO-2026-4971 | `net` (Windows NUL-byte panic) | go1.26.3 | `internal/remote/ssh.go:95/187`, `internal/server/server.go:1448`, `internal/store/postgres.go:92` | accepted with reason — Abhed's server and container run on Linux/macOS, not Windows; still fixed for free by the bump |
 | High | GO-2026-4947 | `crypto/x509` (unbounded chain-building work) | go1.26.2 | `internal/server/server.go:1448` | to fix — toolchain bump; this is a DoS vector against the TLS listener |
 | Medium | GO-2026-4946 | `crypto/x509` (inefficient policy validation) | go1.26.2 | `internal/server/server.go:1448` | to fix — toolchain bump |
 | Medium | GO-2026-4918 | `net/http/internal/http2` (infinite loop on bad SETTINGS frame) | go1.26.3 | `internal/mcp/http.go:339`, `internal/k8s/client.go:400` | to fix — toolchain bump; DoS vector |
@@ -122,9 +122,9 @@ accident of when the image was last built.
 | High | GO-2026-4600 | `crypto/x509` (panic on malformed cert name constraints) | go1.26.1 | `internal/server/server.go:1448` | to fix — toolchain bump; a malformed client cert could crash the process |
 | High | GO-2026-4599 | `crypto/x509` (incorrect email constraint enforcement) | go1.26.1 | `internal/server/server.go:1448` | to fix — toolchain bump |
 
-*Severity as reported by the Go vulnerability database's own classification where given; several (marked DoS vector above) are practically higher risk for Titan specifically because `internal/server/server.go:1448` is the public HTTPS listener.
+*Severity as reported by the Go vulnerability database's own classification where given; several (marked DoS vector above) are practically higher risk for Abhed specifically because `internal/server/server.go:1448` is the public HTTPS listener.
 
-**Net assessment:** none of these are code bugs in Titan. All 19 are removed
+**Net assessment:** none of these are code bugs in Abhed. All 19 are removed
 by rebuilding with a current go1.26.x point release — no source change
 required. Three or four (the `crypto/tls`/`crypto/x509` DoS and
 chain-building issues reachable from `server.Server.ListenAndServe`) are
@@ -153,22 +153,22 @@ did not find a live call path today.
 
 | ID | Module | Fixed in | Triage |
 |---|---|---|---|
-| GO-2026-5932 | `golang.org/x/crypto/openpgp` | N/A — package is unmaintained upstream | accepted with reason — `golang.org/x/crypto` is a direct dependency (`go.mod`), but nothing in Titan imports the `openpgp` subpackage; govulncheck confirms no call path. No action possible short of dropping `golang.org/x/crypto` entirely, which is not realistic (it's also required for `x/crypto/ssh` used by `internal/remote`) |
+| GO-2026-5932 | `golang.org/x/crypto/openpgp` | N/A — package is unmaintained upstream | accepted with reason — `golang.org/x/crypto` is a direct dependency (`go.mod`), but nothing in Abhed imports the `openpgp` subpackage; govulncheck confirms no call path. No action possible short of dropping `golang.org/x/crypto` entirely, which is not realistic (it's also required for `x/crypto/ssh` used by `internal/remote`) |
 | GO-2026-4986 | stdlib `net/mail` (quadratic string concat in `consumeComment`) | go1.26.3 | to fix — toolchain bump |
 | GO-2026-4977 | stdlib `net/mail` (quadratic string concat in `consumePhrase`) | go1.26.3 | to fix — toolchain bump |
-| GO-2026-4976 | stdlib `net/http/httputil` (ReverseProxy forwards oversized query) | go1.26.3 | to fix — toolchain bump; Titan does not appear to use `httputil.ReverseProxy` today, but the fix is free |
+| GO-2026-4976 | stdlib `net/http/httputil` (ReverseProxy forwards oversized query) | go1.26.3 | to fix — toolchain bump; Abhed does not appear to use `httputil.ReverseProxy` today, but the fix is free |
 | GO-2026-4869 | stdlib `archive/tar` (unbounded allocation, old GNU sparse format) | go1.26.2 | to fix — toolchain bump |
 
 **govulncheck total: 34 distinct advisories, 0 requiring a code change, 34
 resolved by explicitly pinning the Go toolchain (both `Dockerfile` and
 `go.mod`) to go1.26.6 or later — see the pinning note above; the
 currently-built image already happens to carry go1.26.8, verified by
-extracting `/usr/local/bin/titan` from `titan:local` and running
-`env -u GOROOT go version -m titan` (reports `go1.26.8`) followed by
-`env -u GOROOT go run golang.org/x/vuln/cmd/govulncheck@latest -mode binary titan`,
+extracting `/usr/local/bin/abhed` from `abhed:local` and running
+`env -u GOROOT go version -m abhed` (reports `go1.26.8`) followed by
+`env -u GOROOT go run golang.org/x/vuln/cmd/govulncheck@latest -mode binary abhed`,
 which finds 0 of the 19 stdlib advisories in that binary — only the
 `x/crypto/openpgp` module finding remains, unchanged from the source-mode
-result and still not called by any Titan code. This is a point-in-time
+result and still not called by any Abhed code. This is a point-in-time
 fact about today's image, not a guarantee about the next one; see
 Recommended Fixes #1.**
 
@@ -243,7 +243,7 @@ Recommended Fixes #1.**
 
 #### G304 — potential file inclusion via variable (23 findings)
 
-Titan is an agentic coding harness: the model is expected to name files to
+Abhed is an agentic coding harness: the model is expected to name files to
 read and write, so a "variable" reaching a file-path call is the product's
 core function, not automatically a bug. The real question for each finding
 is whether the variable is model/request-controlled and, if so, whether it
@@ -254,8 +254,8 @@ inside the configured workspace root(s) — or `Server.resolveInWorkspace`
 
 | Severity | file:line | Finding | Triage |
 |---|---|---|---|
-| Medium | cmd/titan/main.go:709 | `os.ReadFile` on a path from the session's own undo-tracker | False positive — path list is produced internally from calls already resolved |
-| Medium | cmd/titan/main.go:737 | `os.ReadFile` over `agent.DiscoverMemoryFiles` results | False positive — fixed filenames (`TITAN.md`, `TITAN.local.md`) under the workspace root |
+| Medium | cmd/abhed/main.go:709 | `os.ReadFile` on a path from the session's own undo-tracker | False positive — path list is produced internally from calls already resolved |
+| Medium | cmd/abhed/main.go:737 | `os.ReadFile` over `agent.DiscoverMemoryFiles` results | False positive — fixed filenames (`ABHED.md`, `ABHED.local.md`) under the workspace root |
 | Medium | internal/agent/parallel.go:251 | `os.ReadFile` on `<git-common-dir>/info/exclude` | False positive — `gitDir` comes from `git rev-parse --git-common-dir` on the operator's own workspace |
 | Medium | internal/agent/parallel.go:256 | same `p` re-read | False positive — same reasoning |
 | Medium | internal/agent/prompt.go:187 | `os.ReadFile` over `opts.MemoryFiles` | False positive — fixed filenames, no attacker-controlled component |
@@ -314,8 +314,8 @@ findings are genuine, if minor, misses.
 
 | Severity | file:line | Finding | Triage |
 |---|---|---|---|
-| Low | cmd/titan/main.go:1221 | `os.WriteFile(jsonPath, ...)` ignored, then unconditionally prints "report written to %s" | **To fix** — a failed write is reported to the operator as success |
-| Low | cmd/titan/main.go:1305 | `fs.Parse(rest)` return ignored in `titan user add` flag parsing | Accepted with reason — malformed flags fail more specifically downstream |
+| Low | cmd/abhed/main.go:1221 | `os.WriteFile(jsonPath, ...)` ignored, then unconditionally prints "report written to %s" | **To fix** — a failed write is reported to the operator as success |
+| Low | cmd/abhed/main.go:1305 | `fs.Parse(rest)` return ignored in `abhed user add` flag parsing | Accepted with reason — malformed flags fail more specifically downstream |
 | Low | internal/agent/export.go:100 | `json.Unmarshal` ignored rendering a session export | Accepted with reason — best-effort HTML render, leaves stats zero-valued |
 | Low | internal/agent/loop.go:125,203,213-215,253-255,267,285,364-365,392-393,398-399,472-474,551-553,569-571,590-592,651-658,896 | `l.Recorder.Record(...)` ignored (15 call sites) | Accepted with reason — best-effort audit-log append; `Record`'s error is a store-append failure, not a policy decision |
 | Low | internal/agent/subagent.go:270-275,293-300 | `rec.Record(...)` ignored (2 call sites) | Accepted with reason — same audit-log pattern |
@@ -341,7 +341,7 @@ findings are genuine, if minor, misses.
 
 | file:line | Finding | Triage |
 |---|---|---|
-| cmd/titan/main.go:1665, :1769 | `int32(cfg.Storage.MaxConns)` (2 call sites) | False positive — small operator-set config integer, no realistic overflow path |
+| cmd/abhed/main.go:1665, :1769 | `int32(cfg.Storage.MaxConns)` (2 call sites) | False positive — small operator-set config integer, no realistic overflow path |
 | internal/agent/id.go:46-51 | `byte(ms >> N)` truncating a millisecond timestamp into an ID (6 call sites) | False positive — deliberate, documented bit-packing to build a sortable ID |
 
 #### G703 — path traversal via taint analysis (6 findings, all HIGH by gosec default)
@@ -350,16 +350,16 @@ findings are genuine, if minor, misses.
 |---|---|---|
 | internal/auth/filestore.go:53,89,92 | Read/write/rename of the local-auth `users.json` (3 sites) | False positive — `f.path` is the fixed, operator-configured location set at startup, never request-derived |
 | internal/k8s/client.go:136 | Kubeconfig read | False positive — same as the G304 finding at this line, env/operator-controlled |
-| internal/server/upload.go:113 | `os.MkdirAll` for `<workspace>/.titan/uploads/<sessionID>` | False positive — `sessionID` is validated by `validSessionID()` before use |
+| internal/server/upload.go:113 | `os.MkdirAll` for `<workspace>/.abhed/uploads/<sessionID>` | False positive — `sessionID` is validated by `validSessionID()` before use |
 | internal/server/upload.go:118 | `os.WriteFile` at `dir/safeUploadName(header.Filename)` | False positive — `safeUploadName` (upload.go:162) strips path separators, control characters, and leading dots, and appends a random suffix; verified it cannot produce a traversal segment |
 
 #### G306 — WriteFile permissions looser than 0600 (6 findings, MEDIUM)
 
 | file:line | Finding | Triage |
 |---|---|---|
-| cmd/titan-bench/main.go:141 | Benchmark results written 0644 | Accepted with reason — dev/CI tool output, not sensitive |
-| cmd/titan/main.go:845 | Written 0644 | To fix (verify) — confirm this path never carries credentials/tokens before accepting; tighten to 0600 if unsure |
-| cmd/titan/main.go:1221 | Eval/report JSON written 0644 | Accepted with reason — report output meant to be read by other tooling, not credential-bearing |
+| cmd/abhed-bench/main.go:141 | Benchmark results written 0644 | Accepted with reason — dev/CI tool output, not sensitive |
+| cmd/abhed/main.go:845 | Written 0644 | To fix (verify) — confirm this path never carries credentials/tokens before accepting; tighten to 0600 if unsure |
+| cmd/abhed/main.go:1221 | Eval/report JSON written 0644 | Accepted with reason — report output meant to be read by other tooling, not credential-bearing |
 | internal/agent/undo.go:122 | Undo-log snapshot written 0644 | **To fix** — snapshots can contain the full content of any file the agent touched, including ones holding secrets; tighten to 0600 to match the precedent already set by `FileUserStore` (`internal/auth/filestore.go:87`) |
 | internal/config/config.go:662 | Config file written 0644 | To fix (verify) — if this path can persist secrets (API keys, a DSN with a password) it must be 0600; confirm and tighten |
 | internal/eval/eval.go:142 | Eval fixture/output written 0644 | Accepted with reason — dev/CI harness, non-sensitive |
@@ -421,7 +421,7 @@ future hardening step but not urgent.
 
 ## 3. semgrep (`--config auto`)
 
-**Command:** `semgrep --config auto --exclude web/zybuu --exclude docs --exclude internal/docsite/site --exclude node_modules --exclude .titan-workspace .`
+**Command:** `semgrep --config auto --exclude web/zybuu --exclude docs --exclude internal/docsite/site --exclude node_modules --exclude .abhed-workspace .`
 
 **Counts: 27 findings — 9 ERROR, 18 WARNING (semgrep's own severity labels; "Ran 551 rules on 187 files").**
 
@@ -461,9 +461,9 @@ future hardening step but not urgent.
 
 ## 4. trivy
 
-### `trivy image titan:local`
+### `trivy image abhed:local`
 
-**Command:** `podman save titan:local -o titan-local.tar && trivy image --input titan-local.tar` (see note in the tool-versions table on why the tarball route was needed)
+**Command:** `podman save abhed:local -o abhed-local.tar && trivy image --input abhed-local.tar` (see note in the tool-versions table on why the tarball route was needed)
 
 **Base image:** `debian:bookworm-slim` (Debian 12.15) at build time, `golang:1.26-bookworm` build stage.
 
@@ -471,7 +471,7 @@ future hardening step but not urgent.
 |---|---|---|---|---|---|---|
 | OS packages (Debian) | 646 | 16 | 131 | 267 | 218 | 14 |
 | Python packages | 41 | 0 | 2 | 36 | 3 | 0 |
-| `usr/local/bin/titan` (Go binary) | 1 | 0 | 0 | 0 | 0 | 1 |
+| `usr/local/bin/abhed` (Go binary) | 1 | 0 | 0 | 0 | 0 | 1 |
 
 **Why the OS count is large:** the runtime stage installs `ca-certificates`,
 `git`, `ripgrep`, `curl`, `python3`/`python3-pip`, `zip`, `unzip`,
@@ -480,22 +480,22 @@ and the `pip3 install matplotlib` step in particular pull in a large
 transitive chain of image/codec libraries (`libaom3`, `libde265-0`,
 `libheif`-adjacent packages, etc.) that a pure Go HTTP service would not
 otherwise need — this is the direct cause of the CVE count being much higher
-than the size of Titan's own code would suggest.
+than the size of Abhed's own code would suggest.
 
 **8 distinct CRITICAL-severity OS packages** (16 rows because `perl`,
 `perl-base`, and `perl-modules-5.36` share one CVE):
 
 | Package | CVE | Status | Triage |
 |---|---|---|---|
-| `libaom3` | CVE-2023-6879 (heap-buffer-overflow on frame size change) | affected | To fix — pulled in transitively by `matplotlib`/`graphviz`; Titan never decodes AV1 video, so this is unreachable in practice, but it should not exist in the image at all. See Recommended fixes for the packaging-level fix |
+| `libaom3` | CVE-2023-6879 (heap-buffer-overflow on frame size change) | affected | To fix — pulled in transitively by `matplotlib`/`graphviz`; Abhed never decodes AV1 video, so this is unreachable in practice, but it should not exist in the image at all. See Recommended fixes for the packaging-level fix |
 | `libglib2.0-0` | CVE-2026-58016 (integer underflow in D-Bus introspection XML) | fix_deferred | Accepted with reason — no D-Bus usage in this image; upstream has deferred a fix |
-| `libperl5.36` / `perl` / `perl-base` / `perl-modules-5.36` | CVE-2026-13221 (regex processing) | affected | To fix (packaging) — Perl is a transitive dependency of Debian's base tooling, not something Titan invokes; remove or minimize if practical |
-| `libsqlite3-0` | CVE-2025-7458 (integer overflow) | — | Accepted with reason — Titan's own storage is Postgres or a JSON file (`internal/store`), not SQLite; this is base-image baggage |
+| `libperl5.36` / `perl` / `perl-base` / `perl-modules-5.36` | CVE-2026-13221 (regex processing) | affected | To fix (packaging) — Perl is a transitive dependency of Debian's base tooling, not something Abhed invokes; remove or minimize if practical |
+| `libsqlite3-0` | CVE-2025-7458 (integer overflow) | — | Accepted with reason — Abhed's own storage is Postgres or a JSON file (`internal/store`), not SQLite; this is base-image baggage |
 | `zlib1g` | CVE-2023-45853 (integer overflow, heap buffer overflow) | will_not_fix | Accepted with reason — upstream has marked this will-not-fix; zlib is used transitively by many tools in the image |
 
-**Assessment:** none of the 8 CRITICAL packages are exercised by Titan's own
+**Assessment:** none of the 8 CRITICAL packages are exercised by Abhed's own
 code paths (video codecs, D-Bus, Perl, SQLite are all incidental to the
-apt/pip package set, not things `cmd/titan` calls). They are real
+apt/pip package set, not things `cmd/abhed` calls). They are real
 vulnerabilities in the image an attacker who achieved code execution inside
 the container could potentially pivot on, which is exactly the scenario the
 container hardening in §6 is designed to contain — but they should not be
@@ -518,7 +518,7 @@ library.
 | Medium | 36 | To fix — the remaining DoS CVEs in the same library, same reachability |
 | Low | 3 | Accepted with reason — lower-severity DoS variants |
 
-**Go binary (`usr/local/bin/titan`):** 1 UNKNOWN-severity finding —
+**Go binary (`usr/local/bin/abhed`):** 1 UNKNOWN-severity finding —
 `golang.org/x/crypto` GO-2026-5932, the same "openpgp is unmaintained"
 advisory already covered under govulncheck §1 above (no call path to the
 affected subpackage). Not double-counted as a new issue.
@@ -529,7 +529,7 @@ affected subpackage). Not double-counted as a new issue.
 
 | Target | Type | Vulnerabilities | Secrets | Misconfigurations |
 |---|---|---|---|---|
-| `.titan-workspace/go.mod` | gomod | 0 | – | – |
+| `.abhed-workspace/go.mod` | gomod | 0 | – | – |
 | `go.mod` | gomod | 1 | – | – |
 | `Dockerfile` | dockerfile | – | – | 0 (clean) |
 
@@ -563,7 +563,7 @@ job).
 
 | Severity | Commit | file:line | Rule | Triage |
 |---|---|---|---|---|
-| Medium | 9aaf949abb0be375c0bd3d12130361627daa49d9 | docs/ops/enabling-auth.md:42 | generic-api-key | **False positive** — the matched text is `# generated password: 7Kq2mVx9pLd4  (change it after first sign-in)`, an illustrative example of CLI output in a documentation code block showing what `titan user add` prints, not a real credential tied to any live system |
+| Medium | 9aaf949abb0be375c0bd3d12130361627daa49d9 | docs/ops/enabling-auth.md:42 | generic-api-key | **False positive** — the matched text is `# generated password: 7Kq2mVx9pLd4  (change it after first sign-in)`, an illustrative example of CLI output in a documentation code block showing what `abhed user add` prints, not a real credential tied to any live system |
 
 **The expected historical secret was not what gitleaks' pattern rules
 caught, but it is confirmed present in history by direct commit
@@ -590,11 +590,11 @@ pattern-match hit.
 
 ## 6. Container posture
 
-**Commands:** `podman inspect titan`, `podman exec titan id`, `podman exec titan cat /proc/1/status | grep -i cap`
+**Commands:** `podman inspect abhed`, `podman exec abhed id`, `podman exec abhed cat /proc/1/status | grep -i cap`
 
 | Property | Value | Assessment |
 |---|---|---|
-| User | `10001:10001` (config), confirmed at runtime: `uid=10001(titan) gid=10001(titan) groups=10001(titan)` | Non-root, fixed UID that owns nothing in the image (Dockerfile) |
+| User | `10001:10001` (config), confirmed at runtime: `uid=10001(abhed) gid=10001(abhed) groups=10001(abhed)` | Non-root, fixed UID that owns nothing in the image (Dockerfile) |
 | Capabilities (inspect `CapDrop`) | `CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_FOWNER, CAP_FSETID, CAP_KILL, CAP_NET_BIND_SERVICE, CAP_SETFCAP, CAP_SETGID, CAP_SETPCAP, CAP_SETUID, CAP_SYS_CHROOT` dropped, `CapAdd: []` | All Linux capabilities dropped, none added |
 | Capabilities (runtime, `/proc/1/status`) | `CapInh/CapPrm/CapEff/CapBnd/CapAmb` all `0000000000000000` | Confirmed empty at runtime — matches the inspect-time configuration exactly |
 | Read-only rootfs | `ReadonlyRootfs: true` | Confirmed |
@@ -605,7 +605,7 @@ pattern-match hit.
 | CPU limit | 2 CPUs (`NanoCpus: 2000000000`, `CpuQuota: 200000` at the default 100ms period) | Set |
 | Published ports | `8080/tcp` bound to `127.0.0.1:8080` only | Loopback-only, not exposed on all interfaces |
 | Network mode | `bridge` | Standard podman bridge, not host networking |
-| Mounts | `titan-workspace` volume → `/workspace` (rw, `nosuid,nodev`); `titan-state` volume → `/home/titan/.titan` (rw, `nosuid,nodev`); `.titan/skills` bind → `/workspace/.titan/skills` (ro); `deploy/config.json` bind → `/etc/titan/config.json` (ro) | Config and skills mounted read-only; the two writable mounts are both `nosuid,nodev` |
+| Mounts | `abhed-workspace` volume → `/workspace` (rw, `nosuid,nodev`); `abhed-state` volume → `/home/abhed/.abhed` (rw, `nosuid,nodev`); `.abhed/skills` bind → `/workspace/.abhed/skills` (ro); `deploy/config.json` bind → `/etc/abhed/config.json` (ro) | Config and skills mounted read-only; the two writable mounts are both `nosuid,nodev` |
 
 **Assessment: this is a well-hardened container configuration.** Non-root
 UID with nothing in the image owned by it, every Linux capability dropped
@@ -633,7 +633,7 @@ These tests are notable because several of them (`TestSelectRefusesToDowngrade`,
 exactly the kind of check that would have caught some of the risk classes
 this scan looked for by hand — e.g. `TestDeployedDenyRulesMatchRealPaths`
 independently asserts the deployed policy denies SSH keys, cloud
-credentials, `.env` files, and the Titan config itself. Their passing is
+credentials, `.env` files, and the Abhed config itself. Their passing is
 evidence the repo tests its own security claims, not just a green CI badge.
 
 ---
@@ -684,7 +684,7 @@ Ordered most severe first. None of these were applied as part of this scan.
    has touched, which can include secrets; the same repo already sets 0600
    for exactly this reason in `internal/auth/filestore.go:87`. Verify and
    apply the same fix to `internal/config/config.go:662` and
-   `cmd/titan/main.go:845` if those paths can ever contain credential
+   `cmd/abhed/main.go:845` if those paths can ever contain credential
    material.
 
 5. **Give `internal/index/index.go:191`'s exported `Index.Update(ctx, path)`
@@ -697,11 +697,11 @@ Ordered most severe first. None of these were applied as part of this scan.
    `internal/tools/bash.go:151`'s `Sandbox == nil` fallback runs the agent's
    shell command directly on the host with no isolation at all when no
    sandbox function is configured. Traced all production wiring
-   (`cmd/titan/main.go:188,895,1138`, all three via `buildSandbox` at
+   (`cmd/abhed/main.go:188,895,1138`, all three via `buildSandbox` at
    line 154, which calls `fail(err)` and exits on any error before
    `tools.Bash{Sandbox: sb.Command}` is ever constructed): the nil-sandbox
    branch is unreachable from the shipped CLI today, only reachable by a
-   library caller outside `cmd/titan` that constructs `tools.Bash{}`
+   library caller outside `cmd/abhed` that constructs `tools.Bash{}`
    directly without setting `Sandbox`. Consider making `tools.Bash`'s
    zero-value refuse to run rather than silently falling back to
    unsandboxed `exec.Command`, so a future integration cannot reintroduce
@@ -719,9 +719,9 @@ Ordered most severe first. None of these were applied as part of this scan.
    (currently 646 CVEs across the Debian base, including 8 distinct CRITICAL
    packages: `libaom3`, `libglib2.0-0`, `perl`/`perl-base`/`perl-modules`,
    `libsqlite3-0`, `zlib1g`). None of these are directly exercised by
-   Titan's own code, but `graphviz` and `matplotlib` (installed for document
+   Abhed's own code, but `graphviz` and `matplotlib` (installed for document
    generation) pull in a large transitive chain of image/codec libraries
-   Titan never uses. Consider whether `matplotlib`'s chart-generation use
+   Abhed never uses. Consider whether `matplotlib`'s chart-generation use
    case can be served by a lighter plotting path, or accept the current
    trade-off explicitly in `docs/trust/security-posture.md` rather than
    leaving it implicit.
@@ -756,8 +756,8 @@ Applied the same day, in commit order after this report was written:
    `Default()`); plain-HTTP development now has to ask for the insecure
    setting explicitly.
 4. **Owner-only files**: undo snapshots (`internal/agent/undo.go`), the
-   written config (`internal/config/config.go`) and `titan init`'s output
-   (`cmd/titan/main.go`) are created 0600.
+   written config (`internal/config/config.go`) and `abhed init`'s output
+   (`cmd/abhed/main.go`) are created 0600.
 5. **`Index.Update` refuses paths outside its root**
    (`internal/index/index.go`), independent of what the caller resolved.
 6. **OIDC EC keys** are parsed with `ecdsa.ParseUncompressedPublicKey`,
@@ -768,7 +768,7 @@ Applied the same day, in commit order after this report was written:
 
 Not applied, on purpose: `tools.Bash{}` with no sandbox still runs on the
 host. That is the SDK's documented contract — the embedding program owns
-isolation, and the site and `sdk/titan.go` say so — and a guard in
+isolation, and the site and `sdk/abhed.go` say so — and a guard in
 `internal/sitecheck` keeps the two statements consistent. Changing it is a
 product decision about the SDK, not a scan finding.
 
@@ -786,10 +786,10 @@ toolchain, pypdf 6.18.1 and pip removed:
 | LOW | 214 | 152 |
 | pypdf findings | 41 | 0 |
 
-What remains is the Debian base's own backlog in packages Titan does not
+What remains is the Debian base's own backlog in packages Abhed does not
 call (graphics and codec libraries pulled in by graphviz and matplotlib for
 the document tools). The next reduction is to move document generation out
 of the runtime image into a separate, optional one; that is on the list,
 not done. In-container checks after the rebuild: the document libraries
 import, bubblewrap 0.12 runs a command under the process tier, and
-`titan doctor` reports the sandbox exec check as ok.
+`abhed doctor` reports the sandbox exec check as ok.

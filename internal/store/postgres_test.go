@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
-// Integration tests run against a real Postgres. Set TITAN_TEST_DSN to enable;
+// Integration tests run against a real Postgres. Set ABHED_TEST_DSN to enable;
 // they are skipped otherwise so `go test ./...` works without a database.
 func testDSN(t *testing.T) string {
 	t.Helper()
-	dsn := os.Getenv("TITAN_TEST_DSN")
+	dsn := os.Getenv("ABHED_TEST_DSN")
 	if dsn == "" {
-		t.Skip("set TITAN_TEST_DSN to run store integration tests")
+		t.Skip("set ABHED_TEST_DSN to run store integration tests")
 	}
 	return dsn
 }
@@ -31,7 +31,7 @@ func openStore(t *testing.T, tenant string) *Postgres {
 	if err != nil {
 		// Open refuses a superuser, and the isolation tests below would then
 		// report leaks that are really the test database's fault. Say which.
-		t.Fatalf("open (TITAN_TEST_DSN must be a plain role, not a superuser): %v", err)
+		t.Fatalf("open (ABHED_TEST_DSN must be a plain role, not a superuser): %v", err)
 	}
 	t.Cleanup(p.Close)
 	return p

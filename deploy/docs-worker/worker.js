@@ -1,7 +1,7 @@
-// Serve the Titan documentation at titan.zybuu.com/docs.
+// Serve the Abhed documentation at abhed.zybuu.com/docs.
 //
-// Docs belong under the product they document — titan.zybuu.com/docs, and the
-// same shape for every product Zybuu ships after this. But titan.zybuu.com is
+// Docs belong under the product they document — abhed.zybuu.com/docs, and the
+// same shape for every product Zybuu ships after this. But abhed.zybuu.com is
 // a Cloudflare Tunnel to a laptop, and documentation that disappears when a lid
 // closes is not documentation. So the path is split at the edge: /docs/* is
 // answered from Cloudflare Pages, which is always up, and everything else
@@ -11,7 +11,7 @@
 // rewriting, no auth, no logic that could disagree with what Pages serves.
 
 // The pages.dev origin, deliberately, not zybuu.com. The apex carries a
-// _redirects rule sending /docs/* here to titan.zybuu.com — which is this
+// _redirects rule sending /docs/* here to abhed.zybuu.com — which is this
 // Worker's own route, so fetching the apex would make the Worker redirect
 // into itself. The project origin serves the same files with no such rule.
 const ORIGIN = "https://zybuu.pages.dev";
@@ -19,6 +19,12 @@ const ORIGIN = "https://zybuu.pages.dev";
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+
+    // The product was renamed; the old hostname redirects, permanently, path
+    // and query intact, so nothing printed before the rename goes dark.
+    if (url.hostname === "titan.zybuu.com") {
+      return Response.redirect("https://abhed.zybuu.com" + url.pathname + url.search, 301);
+    }
 
     // /docs and /docs/ both mean the index.
     let path = url.pathname;
@@ -45,7 +51,7 @@ export default {
     });
 
     // A redirect from Pages points at zybuu.com; rewrite it so a reader who
-    // arrived at titan.zybuu.com stays there rather than being bounced to the
+    // arrived at abhed.zybuu.com stays there rather than being bounced to the
     // other hostname mid-navigation.
     const loc = res.headers.get("location");
     if (loc) {

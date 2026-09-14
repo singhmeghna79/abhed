@@ -8,9 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Budget enforces hierarchical spend limits across a session and its subagents.

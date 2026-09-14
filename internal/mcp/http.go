@@ -14,7 +14,7 @@ import (
 
 // HTTP transport for remote MCP servers.
 //
-// The stdio transport only reaches servers Titan can spawn as a subprocess,
+// The stdio transport only reaches servers Abhed can spawn as a subprocess,
 // which excludes every server that already runs somewhere else — a team's
 // shared retrieval service, an internal tool gateway, anything in a cluster.
 // Those speak MCP over HTTP.

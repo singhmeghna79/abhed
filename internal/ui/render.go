@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 // ANSI codes, disabled when not writing to a terminal or when NO_COLOR is set.

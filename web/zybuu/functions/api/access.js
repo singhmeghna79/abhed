@@ -1,7 +1,7 @@
 // Access requests from the homepage.
 //
-// A Cloudflare Pages Function rather than an endpoint on Titan, deliberately.
-// Titan runs an agent with a shell; it does not need a new unauthenticated
+// A Cloudflare Pages Function rather than an endpoint on Abhed, deliberately.
+// Abhed runs an agent with a shell; it does not need a new unauthenticated
 // write path so a stranger can leave their name. This runs on Cloudflare's
 // edge, stores nothing, and forwards to a mailbox.
 //
@@ -91,7 +91,7 @@ export async function onRequestPost({ request, env }) {
         // The requester's address, so a reply goes to them rather than to the
         // sending domain.
         reply_to: email,
-        subject: `Titan access request — ${name}${company ? ` (${company})` : ""}${demo ? " · wants demo" : ""}`,
+        subject: `Abhed access request — ${name}${company ? ` (${company})` : ""}${demo ? " · wants demo" : ""}`,
         text: body,
       }),
     });
@@ -129,9 +129,9 @@ async function acknowledge(env, { name, email, from }) {
   const text = [
     `Hi ${first},`,
     "",
-    "Thanks — your request for Titan access is in, and a person will read it.",
+    "Thanks — your request for Abhed access is in, and a person will read it.",
     "",
-    "Titan is a deep agent harness that runs on your own hardware, against a",
+    "Abhed is a deep agent harness that runs on your own hardware, against a",
     "model you host. If the hosted console is what you want, the reply will",
     "carry a sign-in code. If you would rather run it on your own",
     "infrastructure, say so and we will talk about that instead.",
@@ -145,7 +145,7 @@ async function acknowledge(env, { name, email, from }) {
     "    in procurement.",
     "",
     "Documentation, if you want to read ahead:",
-    "  https://titan.zybuu.com/docs",
+    "  https://abhed.zybuu.com/docs",
     "",
     "Reply to this email and it reaches a person, not a queue.",
     "",
@@ -163,7 +163,7 @@ async function acknowledge(env, { name, email, from }) {
         from,
         to: [email],
         reply_to: env.ACCESS_TO || TO,
-        subject: "Your Titan access request",
+        subject: "Your Abhed access request",
         text,
       }),
     });
@@ -177,7 +177,7 @@ async function acknowledge(env, { name, email, from }) {
 // Anything other than POST. Answering rather than 405ing means a stray GET
 // lands the visitor back on the page instead of on an error document.
 export async function onRequest({ request }) {
-  return Response.redirect(new URL("/titan/#access", request.url).toString(), 303);
+  return Response.redirect(new URL("/abhed/#access", request.url).toString(), 303);
 }
 
 // The page is static, so the result is carried in the fragment and read by the
@@ -186,13 +186,13 @@ export async function onRequest({ request }) {
 function back(request, status) {
   // Back to the page that submitted, not a path baked in here. This returned
   // people to "/" — correct when the form lived on the homepage, wrong the
-  // moment it moved to /titan/, and the symptom was silent: the submission
+  // moment it moved to /abhed/, and the symptom was silent: the submission
   // worked, the email arrived, and the visitor landed on a page with no form
   // and no handler, so nothing acknowledged them.
   //
   // The Referer is the submitting page. It is same-origin here because the
   // CSP sets form-action 'self', so it cannot be pointed at another site.
-  let path = "/titan/";
+  let path = "/abhed/";
   const ref = request.headers.get("Referer");
   if (ref) {
     try {

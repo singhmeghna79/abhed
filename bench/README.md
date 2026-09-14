@@ -4,7 +4,7 @@ This directory holds a small, honest benchmark comparing three coding-agent
 harnesses driven by the **same local model**, so what's being measured is the
 harness, not the model:
 
-1. **titan** — this repository's own CLI (`cmd/titan`).
+1. **titan** — this repository's own CLI (built here as `cmd/titan`).
 2. **aider** — [aider-chat](https://aider.chat), a widely used open-source
    coding agent.
 3. **bare** — a ~150-line hand-written tool-use loop
@@ -17,6 +17,15 @@ All three are pointed at the same Ollama-served local model
 prompt for each exercise.
 
 See `RESULTS.md` for the numbers and their honest interpretation.
+
+**A note on naming.** This benchmark was built and run against the CLI at
+`cmd/titan`, at commit `de52025`, under the project name "Titan." Later
+commits on this branch renamed the project to "Abhed" (a real, intentional
+rename — the project name conflicted with Amazon's own "Titan" product — not
+a benchmark artifact). This directory keeps calling it Titan throughout,
+because that is the name under which it was actually built and measured; if
+you are reproducing this after the rename, read every `titan` here as
+`abhed` and build `./cmd/abhed` instead.
 
 ## What's being tested
 

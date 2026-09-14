@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Start the local Titan stack: Postgres -> Ollama -> Titan server.
+# Start the local Abhed stack: Postgres -> Ollama -> Abhed server.
 # Safe to re-run: every step is idempotent and skips what is already up.
 #
 #   ./scripts/start-local.sh          # start everything
-#   ./scripts/start-local.sh --stop   # stop Titan and Ollama (leaves Postgres)
+#   ./scripts/start-local.sh --stop   # stop Abhed and Ollama (leaves Postgres)
 
 set -uo pipefail
 
 # Everything lives inside this repo: /tmp is purged by macOS, which is what
-# silently destroyed the old /tmp/titan-test workspace.
+# silently destroyed the old /tmp/abhed-test workspace.
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE="$REPO/.titan-workspace"
-LOGDIR="$REPO/.titan-workspace/logs"
+WORKSPACE="$REPO/.abhed-workspace"
+LOGDIR="$REPO/.abhed-workspace/logs"
 ADDR=:8420
 PORT=8420
 PGDATA=/opt/homebrew/var/postgresql@16
@@ -24,8 +24,8 @@ warn() { printf '  \033[33mwarn\033[0m %s\n' "$*"; }
 die()  { printf '  \033[31mfail\033[0m %s\n' "$*"; exit 1; }
 
 if [[ "${1:-}" == "--stop" ]]; then
-  say "Stopping Titan stack"
-  pkill -f "titan serve" && ok "titan serve stopped" || warn "titan serve was not running"
+  say "Stopping Abhed stack"
+  pkill -f "abhed serve" && ok "abhed serve stopped" || warn "abhed serve was not running"
   pkill -f "ollama serve" && ok "ollama stopped"      || warn "ollama was not running"
   echo "  (Postgres left running: brew services stop postgresql@16)"
   exit 0
@@ -68,38 +68,38 @@ fi
 # The workspace is committed-adjacent (gitignored) inside the repo, so it
 # survives reboots. A missing config here means it was deleted by hand.
 say "3/4  Workspace $WORKSPACE"
-if [[ -f "$WORKSPACE/.titan/config.json" ]]; then
+if [[ -f "$WORKSPACE/.abhed/config.json" ]]; then
   ok "config present"
 else
-  warn "no .titan/config.json - scaffolding a new one"
+  warn "no .abhed/config.json - scaffolding a new one"
   mkdir -p "$WORKSPACE"
-  ( cd "$WORKSPACE" && titan init >/dev/null 2>&1 )
-  [[ -f "$WORKSPACE/.titan/config.json" ]] \
+  ( cd "$WORKSPACE" && abhed init >/dev/null 2>&1 )
+  [[ -f "$WORKSPACE/.abhed/config.json" ]] \
     && ok "scaffold written - re-add storage.dsn, model and skills settings" \
-    || die "titan init did not produce a config"
+    || die "abhed init did not produce a config"
 fi
 
-# 4. Titan server -----------------------------------------------------------
-say "4/4  Titan server"
+# 4. Abhed server -----------------------------------------------------------
+say "4/4  Abhed server"
 if lsof -nP -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; then
-  if pgrep -qf "titan serve"; then
+  if pgrep -qf "abhed serve"; then
     ok "already listening on $ADDR"
   else
-    die "port $PORT is taken by something that is not titan - lsof -nP -iTCP:$PORT -sTCP:LISTEN"
+    die "port $PORT is taken by something that is not abhed - lsof -nP -iTCP:$PORT -sTCP:LISTEN"
   fi
 else
-  ( cd "$WORKSPACE" && nohup titan serve -addr "$ADDR" > "$LOGDIR/titan-serve.log" 2>&1 & )
+  ( cd "$WORKSPACE" && nohup abhed serve -addr "$ADDR" > "$LOGDIR/abhed-serve.log" 2>&1 & )
   for _ in $(seq 1 20); do
     curl -sf --max-time 2 "http://127.0.0.1:$PORT/v1/health" >/dev/null && break
     sleep 1
   done
   curl -sf --max-time 3 "http://127.0.0.1:$PORT/v1/health" >/dev/null \
-    && ok "started (log: $LOGDIR/titan-serve.log)" || die "did not come up - tail $LOGDIR/titan-serve.log"
+    && ok "started (log: $LOGDIR/abhed-serve.log)" || die "did not come up - tail $LOGDIR/abhed-serve.log"
 fi
 
 say "Health"
 curl -s "http://127.0.0.1:$PORT/v1/health"; echo
 echo
 echo "  Web UI   http://localhost:$PORT"
-echo "  Verify   cd $WORKSPACE && titan doctor"
+echo "  Verify   cd $WORKSPACE && abhed doctor"
 echo "  Stop     $0 --stop"

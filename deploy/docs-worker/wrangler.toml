@@ -1,8 +1,14 @@
-name = "titan-docs"
+name = "abhed-docs"
 main = "worker.js"
 compatibility_date = "2026-09-01"
 
-# One route. Everything else on titan.zybuu.com keeps going to the tunnel.
+# One route. Everything else on abhed.zybuu.com keeps going to the tunnel.
+[[routes]]
+pattern = "abhed.zybuu.com/docs*"
+zone_name = "zybuu.com"
+
+# The old product hostname keeps answering, as a redirect, so links printed
+# before the rename still land.
 [[routes]]
 pattern = "titan.zybuu.com/docs*"
 zone_name = "zybuu.com"

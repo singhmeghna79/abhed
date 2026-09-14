@@ -1,6 +1,6 @@
-// Package titan embeds the agent in another Go program.
+// Package abhed embeds the agent in another Go program.
 //
-// Everything Titan does lives under internal/, which Go refuses to let another
+// Everything Abhed does lives under internal/, which Go refuses to let another
 // module import — deliberate for a binary, and a wall for anyone who wants the
 // agent inside their own service. This package is the supported surface across
 // that wall: it is small on purpose, so the internals stay free to change.
@@ -16,7 +16,7 @@
 // would have wrapped it in the configured tier. A host that needs isolation
 // owns it — a container, a jail, a separate user — exactly as for any other
 // library that shells out.
-package titan
+package abhed
 
 import (
 	"context"
@@ -25,12 +25,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/extension"
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/extension"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Event is one recorded action or observation. The stream is the session: a
@@ -53,7 +53,7 @@ type Options struct {
 	// tool is scoped to it.
 	Workspace string
 
-	// ConfigDir loads .titan/config.json from a directory, the same file the
+	// ConfigDir loads .abhed/config.json from a directory, the same file the
 	// CLI reads. Provider overrides what it names.
 	ConfigDir string
 
@@ -103,7 +103,7 @@ type Provider struct {
 	MaxTokens     int
 }
 
-// Agent is an embedded Titan.
+// Agent is an embedded Abhed.
 type Agent struct {
 	registry *tools.Registry
 	loop     *agent.Loop
@@ -115,14 +115,14 @@ type Agent struct {
 // New builds an agent.
 func New(ctx context.Context, opts Options) (*Agent, error) {
 	if opts.Workspace == "" {
-		return nil, fmt.Errorf("titan: Workspace is required")
+		return nil, fmt.Errorf("abhed: Workspace is required")
 	}
 
 	cfg := config.Default()
 	if opts.ConfigDir != "" {
 		loaded, err := config.Load(opts.ConfigDir)
 		if err != nil {
-			return nil, fmt.Errorf("titan: %w", err)
+			return nil, fmt.Errorf("abhed: %w", err)
 		}
 		cfg = loaded
 	}
@@ -139,16 +139,16 @@ func New(ctx context.Context, opts Options) (*Agent, error) {
 
 	provider, err := cfg.Provider()
 	if err != nil {
-		return nil, fmt.Errorf("titan: %w", err)
+		return nil, fmt.Errorf("abhed: %w", err)
 	}
 	adapter, err := provider.Adapter()
 	if err != nil {
-		return nil, fmt.Errorf("titan: %w", err)
+		return nil, fmt.Errorf("abhed: %w", err)
 	}
 
 	sess, err := tools.NewSession(opts.Workspace)
 	if err != nil {
-		return nil, fmt.Errorf("titan: %w", err)
+		return nil, fmt.Errorf("abhed: %w", err)
 	}
 
 	mode := opts.Mode
@@ -157,10 +157,10 @@ func New(ctx context.Context, opts Options) (*Agent, error) {
 	}
 	pol := policy.New(policy.Mode(orDefault(mode, "default")))
 	if err := pol.AddDeny(append(cfg.Permissions.Deny, opts.Deny...)...); err != nil {
-		return nil, fmt.Errorf("titan: deny rule: %w", err)
+		return nil, fmt.Errorf("abhed: deny rule: %w", err)
 	}
 	if err := pol.AddAllow(append(cfg.Permissions.Allow, opts.Allow...)...); err != nil {
-		return nil, fmt.Errorf("titan: allow rule: %w", err)
+		return nil, fmt.Errorf("abhed: allow rule: %w", err)
 	}
 
 	host := extension.NewHost(nil)
@@ -220,7 +220,7 @@ func (a *Agent) Run(ctx context.Context, prompt string) (string, error) {
 		return "", err
 	}
 	if reason != agent.TermCompleted {
-		return a.lastMessage(), fmt.Errorf("titan: ended as %s", reason)
+		return a.lastMessage(), fmt.Errorf("abhed: ended as %s", reason)
 	}
 	return a.lastMessage(), nil
 }
@@ -248,7 +248,7 @@ func (a *Agent) RunJSON(ctx context.Context, prompt string, schema json.RawMessa
 		return nil
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("titan: result matched the schema but not the target type: %w", err)
+		return fmt.Errorf("abhed: result matched the schema but not the target type: %w", err)
 	}
 	return nil
 }
@@ -261,10 +261,10 @@ func (a *Agent) RunStructured(ctx context.Context, prompt string, schema json.Ra
 		if errors.As(err, &nr) {
 			return nil, ErrNoResult{Reason: string(nr.Reason), LastMessage: nr.Last}
 		}
-		return nil, fmt.Errorf("titan: %w", err)
+		return nil, fmt.Errorf("abhed: %w", err)
 	}
 	if reason != agent.TermCompleted {
-		return raw, fmt.Errorf("titan: ended as %s", reason)
+		return raw, fmt.Errorf("abhed: ended as %s", reason)
 	}
 	return raw, nil
 }
@@ -277,7 +277,7 @@ type ErrNoResult struct {
 }
 
 func (e ErrNoResult) Error() string {
-	return "titan: run ended (" + e.Reason + ") without a result matching the schema"
+	return "abhed: run ended (" + e.Reason + ") without a result matching the schema"
 }
 
 // Continue sends a follow-up on the same conversation.

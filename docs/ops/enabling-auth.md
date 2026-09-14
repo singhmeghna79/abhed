@@ -1,12 +1,12 @@
-# Titan — Enabling Authentication
+# Abhed — Enabling Authentication
 
-Four modes. Pick by how Titan is exposed, not by how much security sounds good.
+Four modes. Pick by how Abhed is exposed, not by how much security sounds good.
 
 | Mode | Who it is for | Identity comes from |
 |---|---|---|
 | `none` | Local development, single user | Nobody — everything is "anonymous/default" |
-| `local` | A team with no identity provider | A username and password Titan holds |
-| `proxy` | Behind an authenticating reverse proxy | `X-Titan-User` / `X-Titan-Tenant` headers |
+| `local` | A team with no identity provider | A username and password Abhed holds |
+| `proxy` | Behind an authenticating reverse proxy | `X-Abhed-User` / `X-Abhed-Tenant` headers |
 | `oidc` | An organisation with an IdP | A verified token, or a browser sign-in |
 
 `local` and `oidc` are **not exclusive**. Set `mode: "local"` and also give a
@@ -20,7 +20,7 @@ choose its own tenant by setting a header — there is a test asserting exactly 
 
 ## Local accounts (no identity provider)
 
-The mode for a pilot, an air-gapped enclave, or a team standing Titan up before
+The mode for a pilot, an air-gapped enclave, or a team standing Abhed up before
 central IT is involved.
 
 ```json
@@ -38,7 +38,7 @@ central IT is involved.
 Create the first account from the CLI:
 
 ```bash
-titan -C /srv/titan user add alice -email alice@corp.internal -name "Alice"
+abhed -C /srv/abhed user add alice -email alice@corp.internal -name "Alice"
 # generated password: 7Kq2mVx9pLd4  (change it after first sign-in)
 ```
 
@@ -46,19 +46,19 @@ Then open the server in a browser and sign in with it.
 
 | Command | Does |
 |---|---|
-| `titan user add <name>` | Create an account. `-password` sets one; omitted, one is generated |
-| `titan user list` | Show accounts, emails, tenants and groups |
-| `titan user passwd <name>` | Reset a forgotten password to a new generated one |
-| `titan user remove <name>` | Delete an account |
+| `abhed user add <name>` | Create an account. `-password` sets one; omitted, one is generated |
+| `abhed user list` | Show accounts, emails, tenants and groups |
+| `abhed user passwd <name>` | Reset a forgotten password to a new generated one |
+| `abhed user remove <name>` | Delete an account |
 
 ### Where accounts live
 
 With `storage.driver: postgres`, accounts are a table in the same database as
 the event store, which is what a multi-node deployment needs. Without it, they
-go to `<workspace>/.titan/users.json`, mode `0600`, written atomically.
+go to `<workspace>/.abhed/users.json`, mode `0600`, written atomically.
 
 The file store exists because the alternative was silently broken: an in-memory
-store meant `titan user add` created an account inside a CLI process that then
+store meant `abhed user add` created an account inside a CLI process that then
 exited, reported success, and left the user unable to sign in.
 
 ### Moving accounts to Postgres
@@ -68,8 +68,8 @@ existing accounts across — Postgres simply starts empty, with no error. Import
 them:
 
 ```bash
-export TITAN_DATABASE_URL='postgres://titan_app:...@db.internal:5432/titan'
-titan -C /srv/titan user import
+export ABHED_DATABASE_URL='postgres://abhed_app:...@db.internal:5432/abhed'
+abhed -C /srv/abhed user import
 ```
 
 It never overwrites an account that already exists in the target, so a re-run
@@ -108,8 +108,8 @@ accounts are created by an administrator, which is true and actionable.
     "mode": "local",
     "provider": "google",
     "client_id": "...apps.googleusercontent.com",
-    "client_secret_env": "TITAN_OIDC_SECRET",
-    "redirect_url": "https://titan.internal/auth/callback"
+    "client_secret_env": "ABHED_OIDC_SECRET",
+    "redirect_url": "https://abhed.internal/auth/callback"
   }
 }
 ```
@@ -125,25 +125,25 @@ accounts are created by an administrator, which is true and actionable.
   "auth": {
     "mode": "oidc",
     "issuer": "https://idp.internal/realms/engineering",
-    "audience": "titan",
-    "client_id": "titan-console",
-    "client_secret_env": "TITAN_OIDC_SECRET",
-    "redirect_url": "https://titan.internal/auth/callback",
+    "audience": "abhed",
+    "client_id": "abhed-console",
+    "client_secret_env": "ABHED_OIDC_SECRET",
+    "redirect_url": "https://abhed.internal/auth/callback",
     "tenant_claim": "org_id",
     "groups_claim": "groups",
-    "require_group": "titan-users",
+    "require_group": "abhed-users",
     "cookie_secure": true,
     "session_hours": 12
   }
 }
 ```
 
-Then register `https://titan.internal/auth/callback` as a redirect URI with your
+Then register `https://abhed.internal/auth/callback` as a redirect URI with your
 provider, and:
 
 ```bash
-export TITAN_OIDC_SECRET=...
-titan serve -addr :8420
+export ABHED_OIDC_SECRET=...
+abhed serve -addr :8420
 ```
 
 Opening the console now redirects to your IdP, and after sign-in the header shows
@@ -158,7 +158,7 @@ who you are and which tenant you are in.
 4. A `HttpOnly`, `SameSite=Lax` cookie holds the session
 5. `GET /logout` clears it and, where the provider supports it, ends the IdP session
 
-PKCE is used even though Titan has a client secret: an authorization code in a
+PKCE is used even though Abhed has a client secret: an authorization code in a
 browser URL bar is precisely what PKCE exists to protect, and it costs one hash.
 
 ### Security properties, each with a test
@@ -176,7 +176,7 @@ browser URL bar is precisely what PKCE exists to protect, and it costs one hash.
 
 ## Signing in as a different user
 
-Clearing Titan's session is not enough. The IdP keeps its own session, so
+Clearing Abhed's session is not enough. The IdP keeps its own session, so
 clicking "sign in" again silently returns the same person — which reads as
 logout being broken.
 
@@ -184,7 +184,7 @@ Two controls, and they differ:
 
 | Route | Effect |
 |---|---|
-| `/logout` | Ends Titan's session **and** the IdP's, then returns to `post_logout_redirect_url` |
+| `/logout` | Ends Abhed's session **and** the IdP's, then returns to `post_logout_redirect_url` |
 | `/switch-user` | Sends `prompt=login`, forcing a credential prompt even with an active IdP session |
 
 Both appear in the console header once someone is signed in.
@@ -197,8 +197,8 @@ do not recognise, leaving the user stranded at the IdP or still signed in.
 {
   "auth": {
     "mode": "oidc",
-    "redirect_url": "https://titan.internal/auth/callback",
-    "post_logout_redirect_url": "https://titan.internal/"
+    "redirect_url": "https://abhed.internal/auth/callback",
+    "post_logout_redirect_url": "https://abhed.internal/"
   }
 }
 ```
@@ -221,7 +221,7 @@ than no link.
 Bearer tokens work unchanged, and take precedence over a cookie:
 
 ```bash
-curl -H "Authorization: Bearer $TOKEN" https://titan.internal/v1/sessions
+curl -H "Authorization: Bearer $TOKEN" https://abhed.internal/v1/sessions
 ```
 
 A browser navigation with no session is redirected to sign in; an API call with
@@ -237,7 +237,7 @@ Per-provider claim names — Keycloak, Okta, Entra ID, Auth0, Google — are in
 [`oidc-providers.md`](oidc-providers.md), with the specific gotcha for each.
 
 When `storage.driver` is `postgres`, `storage.tenant` must match the tenant your
-tokens carry, or the first write fails RLS. Titan reports the mismatch by name
+tokens carry, or the first write fails RLS. Abhed reports the mismatch by name
 rather than passing Postgres's opaque error through.
 
 ## Air-gapped
@@ -248,17 +248,17 @@ JWKS is not:
 
 ```json
 { "auth": { "mode": "oidc", "issuer": "https://idp.internal/realms/eng",
-            "jwks_url": "https://jwks-mirror.internal/keys", "audience": "titan" } }
+            "jwks_url": "https://jwks-mirror.internal/keys", "audience": "abhed" } }
 ```
 
-A mirrored discovery document must keep the original `issuer` value — Titan
+A mirrored discovery document must keep the original `issuer` value — Abhed
 refuses one that disagrees, because that is either a misconfiguration or an
 attack.
 
 ## Verifying
 
 ```bash
-titan doctor      # reports the auth mode and whether the JWKS is reachable
+abhed doctor      # reports the auth mode and whether the JWKS is reachable
 ```
 
 It fails at startup rather than on a user's first request, so a bad issuer or an
@@ -268,5 +268,5 @@ unreachable IdP surfaces during deployment.
 
 The tests replay documented provider wire formats. They do not exercise a live
 IdP's consent screen, refresh tokens, or revocation. Get a real token from your
-provider and confirm `titan doctor` accepts it — a five-minute check that closes
+provider and confirm `abhed doctor` accepts it — a five-minute check that closes
 the gap.

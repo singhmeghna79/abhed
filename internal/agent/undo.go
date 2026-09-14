@@ -67,7 +67,7 @@ func (u *UndoLog) Record(path string, before []byte, existed bool) {
 
 	if persist != nil {
 		if err := persist(cp); err != nil {
-			fmt.Fprintf(os.Stderr, "titan: checkpoint not persisted for %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "abhed: checkpoint not persisted for %s: %v\n", path, err)
 		}
 	}
 }

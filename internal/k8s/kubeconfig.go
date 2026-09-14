@@ -8,7 +8,7 @@ import (
 
 // A small YAML reader for kubeconfig files.
 //
-// Titan has no YAML dependency and this is not a reason to add one: a general
+// Abhed has no YAML dependency and this is not a reason to add one: a general
 // YAML library is a large, historically CVE-prone surface, and an air-gapped
 // bundle has to justify every dependency in it. Kubeconfig is a narrow, well
 // known shape — nested maps, lists of maps, scalar strings and bools — and
@@ -34,7 +34,7 @@ func parseKubeconfig(raw []byte) (*kubeconfig, error) {
 		{"<<:", "merge keys"},
 	} {
 		if strings.Contains(text, unsupported.token) {
-			return nil, fmt.Errorf("this kubeconfig uses %s, which Titan's reader "+
+			return nil, fmt.Errorf("this kubeconfig uses %s, which Abhed's reader "+
 				"does not support; point it at a plain kubeconfig with -kubeconfig",
 				unsupported.why)
 		}

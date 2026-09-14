@@ -1,4 +1,4 @@
-# Titan — Evaluation Harness
+# Abhed — Evaluation Harness
 
 Status: Draft · 2026-09-02
 **Evidence status:** design [E], motivated by verified findings P1 and P10.
@@ -43,14 +43,14 @@ Run when a model is registered; gates whether it may serve traffic (arch §5).
 | Error recovery | Recovers from each §06 error within 2 turns, ≥ 90% |
 | Long-context retrieval | Finds a fact at 25/50/75% depth in a filled window |
 | Reasoning-token hygiene | Zero reasoning tokens leak into tool arguments |
-| Instruction adherence | Follows TITAN.md conventions ≥ 90% |
+| Instruction adherence | Follows ABHED.md conventions ≥ 90% |
 | Refusal rate | < 2% on benign engineering tasks |
 
 The output is a **capability profile** stored in the model registry: which features are safe
 to enable, what the compaction threshold should be, whether guided decoding is needed.
 
 **This suite is P12's differentiator.** Run across model families, it *is* the cross-model
-consistency benchmark that nobody has published — simultaneously the eval Titan needs and
+consistency benchmark that nobody has published — simultaneously the eval Abhed needs and
 the proof its abstraction works.
 
 ## 4. L3 — Task suite
@@ -81,7 +81,7 @@ codebase by definition; nobody can write those for you, and they are the highest
 To close them:
 
 ```bash
-# SWE-bench: convert a downloaded subset into Titan task JSON
+# SWE-bench: convert a downloaded subset into Abhed task JSON
 python3 internal/eval/corpus/from_swebench.py --split verified --limit 100
 
 # Internal: seed from real fixes in your own history

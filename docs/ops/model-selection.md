@@ -1,7 +1,7 @@
-# Titan — Choosing a Model
+# Abhed — Choosing a Model
 
 Measured on an Apple M3 Pro, 36 GB unified memory, Ollama 0.33.2, September 2026.
-Reproduce with `titan-modelcmp`; the numbers below are from this machine and will
+Reproduce with `abhed-modelcmp`; the numbers below are from this machine and will
 differ on yours.
 
 ## The short answer
@@ -52,7 +52,7 @@ matter more than speed:
    the command ran fine seconds later in the same workspace.
 2. **Its explanations read like reference material.** Asked to explain LLMs
    simply, it produced a headed, bulleted outline. It *can* do better — asked
-   directly, without Titan's system prompt, it gave a genuinely good analogy —
+   directly, without Abhed's system prompt, it gave a genuinely good analogy —
    which points at the prompt as much as the model (see below).
 
 A model that misreports whether it verified its own work is the single most
@@ -66,7 +66,7 @@ inherits the false premise.
 > Answer concisely. The user is a working engineer, not an audience.
 
 That is right for a coding turn and wrong for a teaching one. The same model,
-same weights, produced a headed outline through Titan and a clear analogy when
+same weights, produced a headed outline through Abhed and a clear analogy when
 asked directly. Before blaming a model for its explanations, check what the
 harness told it to be.
 
@@ -81,10 +81,10 @@ Ollama's native `/api/chat`** with `"think": false`:
 | `/v1/chat/completions` | `"think": false` | **silently ignored** |
 | `/v1/chat/completions` | `chat_template_kwargs.enable_thinking` | **silently ignored** |
 
-Titan speaks the OpenAI protocol, so `model.Think` is wired through config and
+Abhed speaks the OpenAI protocol, so `model.Think` is wired through config and
 sent, but Ollama drops it. Set `think` in the provider config for servers that
 honour it (vLLM, SGLang); on Ollama today it has no effect, and the model's
-thinking phase cannot be disabled through Titan.
+thinking phase cannot be disabled through Abhed.
 
 ## Recommendation
 
@@ -111,14 +111,14 @@ unprompted.
 - **Avoid:** `qwen3.8:27b` on this hardware. Correct and honest, but dense, so
   3 tok/s makes it unusable interactively.
 - **Neither is Claude Code.** Both are ~30B models on a laptop. For the deep-agent
-  workload Titan targets, a served `gpt-oss-120b` on the OCP cluster remains the
+  workload Abhed targets, a served `gpt-oss-120b` on the OCP cluster remains the
   intended production path; these are the development stand-ins.
 
 ## Reproducing
 
 ```bash
-go build -o /tmp/titan-modelcmp ./cmd/titan-modelcmp
-/tmp/titan-modelcmp -models qwen3-coder:30b,qwen3.8:27b -json results.json
+go build -o /tmp/abhed-modelcmp ./cmd/abhed-modelcmp
+/tmp/abhed-modelcmp -models qwen3-coder:30b,qwen3.8:27b -json results.json
 ```
 
 The tool checks four tool-calling behaviours (single tool, choosing among
@@ -130,7 +130,7 @@ opinion and would not be evidence.
 
 ## watsonx.ai and gpt-oss-120b
 
-Titan speaks watsonx directly (`"type": "watsonx"`), so an IBM deployment can
+Abhed speaks watsonx directly (`"type": "watsonx"`), so an IBM deployment can
 use a model served there rather than a local one.
 
 ```json
@@ -153,7 +153,7 @@ use a model served there rather than a local one.
 ```
 
 `space_id` **or** `project_id`, never both — the API rejects a request carrying
-each, so `titan doctor` fails at startup rather than on the first turn.
+each, so `abhed doctor` fails at startup rather than on the first turn.
 Authentication exchanges the API key for an IAM token, cached and refreshed a
 minute before expiry.
 

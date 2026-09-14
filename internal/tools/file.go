@@ -89,7 +89,7 @@ func (r Read) Run(_ context.Context, s *Session, raw json.RawMessage) Result {
 	}
 
 	if isBinary(data) {
-		return errf("%s appears to be a binary file (%d bytes). Titan does not read binary content; use bash with an appropriate tool if you need to inspect it.", a.Path, len(data))
+		return errf("%s appears to be a binary file (%d bytes). Abhed does not read binary content; use bash with an appropriate tool if you need to inspect it.", a.Path, len(data))
 	}
 
 	content := string(data)
@@ -243,7 +243,7 @@ func (Write) Run(_ context.Context, s *Session, raw json.RawMessage) Result {
 // crash mid-write leaves the original intact rather than a truncated file.
 func atomicWrite(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".titan-*")
+	tmp, err := os.CreateTemp(dir, ".abhed-*")
 	if err != nil {
 		return err
 	}

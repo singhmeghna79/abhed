@@ -1,7 +1,7 @@
 # Permissions and safety
 
 An agent that can run shell commands in your repository needs a real answer to
-"what is it allowed to do". Titan's answer is a policy engine that decides every
+"what is it allowed to do". Abhed's answer is a policy engine that decides every
 tool call, in a fixed order, with one rule that nothing can override.
 
 ## Modes

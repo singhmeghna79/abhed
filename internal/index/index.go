@@ -5,7 +5,7 @@
 // settled finding — the strongest supporting statistic was refuted, and a
 // counter-result puts keyword search via tool use at >90% of RAG performance.
 //
-// So Titan is agentic-first with retrieval as an accelerator, and it MEASURES
+// So Abhed is agentic-first with retrieval as an accelerator, and it MEASURES
 // which tier resolved each query rather than assuming. The tiers:
 //
 //	Tier 0  glob/grep              always available, no index (internal/tools)
@@ -95,7 +95,7 @@ func (ix *Index) WithEmbedder(e Embedder) *Index {
 	return ix
 }
 
-// Stats reports index size, for `titan doctor` and capacity planning.
+// Stats reports index size, for `abhed doctor` and capacity planning.
 func (ix *Index) Stats() (docs int, terms int, vectors int, built time.Time) {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
@@ -130,7 +130,7 @@ func DefaultBuildOptions() BuildOptions {
 var skipDirs = map[string]bool{
 	".git": true, "node_modules": true, "vendor": true, "target": true,
 	"dist": true, "build": true, "__pycache__": true, ".venv": true,
-	"venv": true, ".next": true, ".cache": true, ".titan": true,
+	"venv": true, ".next": true, ".cache": true, ".abhed": true,
 }
 
 // Build walks the workspace and indexes it. Incremental updates go through

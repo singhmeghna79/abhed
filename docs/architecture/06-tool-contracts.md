@@ -1,4 +1,4 @@
-# Titan — Tool Contracts
+# Abhed — Tool Contracts
 
 Status: Draft · 2026-09-02
 **Evidence status: [E] engineering judgment**, informed by verified finding P2 (tool surface
@@ -241,7 +241,7 @@ a dead-end into a recoverable turn. Compute it with a similarity pass over candi
 **Errors**
 | Condition | Message |
 |---|---|
-| Invalid regex | `Invalid pattern: {err}. Titan uses RE2 syntax — lookahead/backreference are unsupported. Rewrite without {construct}.` |
+| Invalid regex | `Invalid pattern: {err}. Abhed uses RE2 syntax — lookahead/backreference are unsupported. Rewrite without {construct}.` |
 | No matches | `No matches for {pattern}{in path}. Try a broader pattern or check the path.` |
 
 ---
@@ -306,7 +306,7 @@ force-push) require confirmation **in every mode**, including the most permissiv
 ```
 
 **Semantics** (per P3, arch §3)
-- Fresh context: own system prompt + TITAN.md, **no parent turns**.
+- Fresh context: own system prompt + ABHED.md, **no parent turns**.
 - Returns a bounded summary (target 1–2k tokens). Truncate and note if exceeded.
 - **Budget is hierarchical** — subagent spend counts against the parent cap. On exhaustion,
   spawn fails cleanly with `Budget limit reached` and running subagents are stopped.

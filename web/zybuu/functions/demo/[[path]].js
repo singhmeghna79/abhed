@@ -49,7 +49,7 @@ function refused(status, msg) {
   const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Zybuu demo</title><style>body{margin:0;background:#06090F;color:#E8EEF7;font:16px/1.6 -apple-system,Inter,Segoe UI,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px}
 .c{max-width:440px;border:1px solid #182231;border-radius:16px;padding:28px;background:#0D131C}h1{font-size:22px;margin:0 0 10px;letter-spacing:-.02em}p{color:#B0BFD2;margin:0 0 8px}a{color:#3BA9FF}</style>
-<div class="c"><h1>${msg}</h1><p>The demo and the deck are shared on request, with a link that expires.</p><p>Ask for a fresh one at <a href="mailto:support@zybuu.com">support@zybuu.com</a>, or through the form on <a href="https://zybuu.com/titan/#access">zybuu.com/titan</a>.</p></div>`;
+<div class="c"><h1>${msg}</h1><p>The demo and the deck are shared on request, with a link that expires.</p><p>Ask for a fresh one at <a href="mailto:support@zybuu.com">support@zybuu.com</a>, or through the form on <a href="https://zybuu.com/abhed/#access">zybuu.com/abhed</a>.</p></div>`;
   return new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" } });
 }
 

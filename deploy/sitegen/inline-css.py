@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 PAGES = [
     os.path.join(ROOT, "web", "zybuu", "index.html"),
-    os.path.join(ROOT, "web", "zybuu", "titan", "index.html"),
+    os.path.join(ROOT, "web", "zybuu", "abhed", "index.html"),
 ]
 BLOCK = re.compile(r"<style data-shared>.*?</style>", re.S)
 

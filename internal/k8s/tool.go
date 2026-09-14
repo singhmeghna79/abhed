@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Tool gives the agent access to a Kubernetes cluster.
@@ -17,7 +17,7 @@ import (
 // Two things shape the design.
 //
 // First, reads and writes are different tools, not one tool with a verb
-// argument. Titan's permission engine decides by tool name and arguments, and
+// argument. Abhed's permission engine decides by tool name and arguments, and
 // a single k8s tool would force it to parse an opaque verb to tell "list pods"
 // from "delete namespace". Splitting them means the read tool is genuinely
 // non-mutating and never prompts, while every write goes through approval by
@@ -25,7 +25,7 @@ import (
 //
 // Second, the cluster is chosen by naming a context the operator already has
 // in their kubeconfig. The model cannot supply a server URL or a token, so the
-// worst it can do is act on a cluster the person running Titan can already
+// worst it can do is act on a cluster the person running Abhed can already
 // reach — which is the same blast radius as their own kubectl.
 
 // Manager holds connections, opened lazily and reused.
@@ -296,7 +296,7 @@ func (t ApplyTool) apply(ctx context.Context, c *Cluster, a applyArgs) tools.Res
 
 	// Server-side apply: one PATCH that creates or updates, so there is no
 	// read-modify-write race between checking existence and writing.
-	path := base + "/" + name + "?fieldManager=titan&force=true"
+	path := base + "/" + name + "?fieldManager=abhed&force=true"
 	body, _ := json.Marshal(obj)
 	data, err := c.doPatch(ctx, path, body, "application/apply-patch+yaml")
 	if err != nil {
@@ -346,7 +346,7 @@ func (t ApplyTool) restart(ctx context.Context, c *Cluster, a applyArgs) tools.R
 	}
 	// The same annotation kubectl rollout restart sets.
 	body := []byte(`{"spec":{"template":{"metadata":{"annotations":` +
-		`{"titan.restartedAt":"` + nowRFC3339() + `"}}}}}`)
+		`{"abhed.restartedAt":"` + nowRFC3339() + `"}}}}}`)
 	if _, err := c.doPatch(ctx, path, body, "application/strategic-merge-patch+json"); err != nil {
 		return errf("%v", err)
 	}
@@ -483,7 +483,7 @@ func resourcePath(c *Cluster, resource, namespace, name string) (string, error) 
 	case r == "ingresses":
 		base = "/apis/networking.k8s.io/v1"
 	default:
-		return "", fmt.Errorf("resource %q is not one Titan knows how to address. "+
+		return "", fmt.Errorf("resource %q is not one Abhed knows how to address. "+
 			"Supported: %s. For anything else, use bash with kubectl",
 			resource, strings.Join(knownResources(), ", "))
 	}
@@ -696,7 +696,7 @@ func (t LoginTool) Run(ctx context.Context, _ *tools.Session, raw json.RawMessag
 	t.M.login(a.Server, a.Token)
 	return tools.Result{Content: fmt.Sprintf(
 		"Authenticated to %s (namespace %s). This credential is held in memory for "+
-			"this Titan process only and is not written to your kubeconfig. "+
+			"this Abhed process only and is not written to your kubeconfig. "+
 			"k8s_get will now use it.", a.Server, c.Namespace)}
 }
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-Build the Titan (Zybuu) investor/customer deck.
+Build the Abhed (Zybuu) investor/customer deck.
 
 Source of truth for every claim in this deck:
   - /Users/yuvrajsingh/titan/docs/vision.md
   - /Users/yuvrajsingh/titan/web/zybuu/index.html
-  - /Users/yuvrajsingh/titan/web/zybuu/titan/index.html
+  - /Users/yuvrajsingh/titan/web/zybuu/abhed/index.html
   - /Users/yuvrajsingh/titan/docs/guide/README.md
 
 No invented numbers, customers, revenue or certifications. Zybuu holds no
@@ -162,7 +162,7 @@ def thin_rule(slide, left, top, width, color=ACCENT, height=Pt(2.2)):
 def add_footer(slide, page_num):
     y = SLIDE_H - Inches(0.42)
     add_text(slide, MARGIN, y, Inches(4), Inches(0.3),
-              "Zybuu · Titan", size=10.5, color=MUTED, font=MONO_FONT)
+              "Zybuu · Abhed", size=10.5, color=MUTED, font=MONO_FONT)
     add_text(slide, SLIDE_W - MARGIN - Inches(1.5), y, Inches(1.5), Inches(0.3),
               f"{page_num:02d} / 12", size=10.5, color=MUTED, font=MONO_FONT, align=PP_ALIGN.RIGHT)
 
@@ -223,7 +223,7 @@ def card(slide, left, top, width, height, title, body, title_size=15, body_size=
     return c
 
 
-def term_window(slide, left, top, width, height, title="~/demo — titan"):
+def term_window(slide, left, top, width, height, title="~/demo — abhed"):
     win = rounded_rect(slide, left, top, width, height, fill=RGBColor(0x0B, 0x0E, 0x14),
                         line_color=RGBColor(0x23, 0x2B, 0x38), radius=0.045)
     bar_h = Inches(0.34)
@@ -300,7 +300,7 @@ thin_rule(s, MARGIN, Inches(1.55), Inches(1.0), color=ACCENT, height=Pt(3))
 add_text(s, MARGIN, Inches(0.9), Inches(6), Inches(0.4), "ZYBUU", size=16,
           color=ACCENT, bold=True, font=MONO_FONT)
 
-headline(s, "Titan", Inches(1.9), size=64, color=TEXT)
+headline(s, "Abhed", Inches(1.9), size=64, color=TEXT)
 add_text(s, MARGIN, Inches(3.0), Inches(11.5), Inches(1.6),
           "The agent harness for work that\ncannot leave the building.",
           size=32, color=SECONDARY, bold=True, font=HEAD_FONT, line_spacing=1.08)
@@ -380,14 +380,14 @@ arrow(s, bx + bw/2, y1 + bh, bx + bw/2, y2, color=AMBER)
 add_text(s, left_x + Inches(0.25), diag_top + diag_h - Inches(0.62), col_w - Inches(0.5), Inches(0.45),
           "Data leaves the building on every turn.", size=12, color=SECONDARY, italic=True, align=PP_ALIGN.CENTER)
 
-# ---- Right: Titan flow ----
+# ---- Right: Abhed flow ----
 rounded_rect(s, right_x, diag_top, col_w, diag_h, fill=SURFACE, line_color=ACCENT, radius=0.04, line_w=Pt(1.4))
 add_text(s, right_x + Inches(0.25), diag_top + Inches(0.2), col_w - Inches(0.5), Inches(0.4),
-          "TITAN", size=13, color=ACCENT, bold=True, font=MONO_FONT)
+          "ABHED", size=13, color=ACCENT, bold=True, font=MONO_FONT)
 
 bx2 = right_x + (col_w - bw) / 2
 box_label(s, bx2, y0, bw, bh, "Your data", fill=RGBColor(0x14,0x1B,0x27), border=BORDER)
-box_label(s, bx2, y1, bw, bh, "Titan (your boundary)", fill=RGBColor(0x0B,0x25,0x40), border=ACCENT, tcolor=ACCENT)
+box_label(s, bx2, y1, bw, bh, "Abhed (your boundary)", fill=RGBColor(0x0B,0x25,0x40), border=ACCENT, tcolor=ACCENT)
 box_label(s, bx2, y2, bw, bh, "Any model — incl. yours", fill=RGBColor(0x14,0x1B,0x27), border=BORDER)
 arrow(s, bx2 + bw/2, y1, bx2 + bw/2, y0 + bh, color=ACCENT)   # model comes to data (down arrow reversed feel)
 arrow(s, bx2 + bw/2, y2, bx2 + bw/2, y1 + bh, color=ACCENT)
@@ -424,7 +424,7 @@ for i, (title, body) in enumerate(tiers):
 add_text(s, MARGIN, ty + th + Inches(0.35), CONTENT_W, Inches(0.6),
           "Same guarantees at every tier.", size=20, color=ACCENT, bold=True, font=HEAD_FONT)
 add_text(s, MARGIN, ty + th + Inches(0.95), CONTENT_W, Inches(0.6),
-          "Titan is the first product on this layer.", size=13.5, color=MUTED, font=HEAD_FONT, italic=True)
+          "Abhed is the first product on this layer.", size=13.5, color=MUTED, font=HEAD_FONT, italic=True)
 
 add_footer(s, 4)
 
@@ -432,7 +432,7 @@ add_footer(s, 4)
 # SLIDE 5 — Under your control
 # =============================================================================
 s = add_slide()
-kicker(s, "Titan")
+kicker(s, "Abhed")
 headline(s, "Five things “under your control” means.", Inches(1.1), size=32)
 add_text(s, MARGIN, Inches(1.85), Inches(11.6), Inches(0.5),
           "Each one is a property this repository tests, not a line of copy.",
@@ -470,12 +470,12 @@ term_h = Inches(4.55)
 body_top, body_h = term_window(s, term_left, term_top, term_w, term_h)
 
 lines = [
-    ("cmd",  "$ titan doctor"),
+    ("cmd",  "$ abhed doctor"),
     ("ok",   "checking endpoint... ok"),
     ("ok",   "checking tool calling... ok"),
     ("ok",   "Ready."),
     ("dim",  ""),
-    ("cmd",  '$ titan -p "Add a FToC function ... and a table-driven test ... Then run go test."'),
+    ("cmd",  '$ abhed -p "Add a FToC function ... and a table-driven test ... Then run go test."'),
     ("tool", "● glob tempconv*"),
     ("tool", "● read tempconv.go"),
     ("warn", "│ path must be absolute. Did you mean ~/demo/tempconv.go?"),
@@ -507,19 +507,19 @@ cols7 = [
     ("Cloud coding agents", "Claude Code, OpenAI Codex CLI",
      [("Built for", "One developer, one vendor's models"),
       ("Where model runs", "The vendor's cloud"),
-      ("Titan's difference", "Runs where the data is, on any model, with policy and a record the organisation owns.")],
+      ("Abhed's difference", "Runs where the data is, on any model, with policy and a record the organisation owns.")],
      False),
     ("Terminal harnesses", "pi.dev",
-     [("Built for", "One developer, many models, in a terminal — better than Titan for that developer"),
+     [("Built for", "One developer, many models, in a terminal — better than Abhed for that developer"),
       ("Where model runs", "Wherever you point it"),
-      ("Titan's difference", "Built for a platform team serving an organisation: users, tenants, policy, audit, a server, an SDK.")],
+      ("Abhed's difference", "Built for a platform team serving an organisation: users, tenants, policy, audit, a server, an SDK.")],
      False),
     ("Agent frameworks", "CrewAI and frameworks like it",
      [("Built for", "A Python team assembling agents"),
       ("Left to you", "The sandbox, the approvals, the audit log, the deployment"),
-      ("Titan's difference", "The assembled, hardened thing — with extensions, skills and MCP underneath for the parts that should be yours.")],
+      ("Abhed's difference", "The assembled, hardened thing — with extensions, skills and MCP underneath for the parts that should be yours.")],
      False),
-    ("Titan", None,
+    ("Abhed", None,
      [("Built for", "Organisations whose data cannot leave"),
       ("Where it runs", "Laptop, rack, or air-gapped enclave — one binary"),
       ("Model", "Twenty providers, including the one on your GPUs"),
@@ -640,7 +640,7 @@ gtm_w = CONTENT_W
 card(s, MARGIN, gtm_y, gtm_w, gtm_h,
      "Land — with platform and security teams in regulated industries",
      "Usually through the SDK: they have an agent they cannot ship because of where it would run, "
-     "and Titan is the shortest path to shipping it.",
+     "and Abhed is the shortest path to shipping it.",
      title_size=16, body_size=13, accent_bar=ACCENT)
 
 y2 = gtm_y + gtm_h + Inches(0.18)
@@ -684,7 +684,7 @@ add_text(s, lx + Inches(0.25), ty11 + Inches(0.2), col_w11 - Inches(0.5), Inches
           "SHIPPED", size=13, color=GREEN, bold=True, font=MONO_FONT)
 shipped = [
     "Harness (CLI, headless, JSON, RPC, server)",
-    "Console (Titan Chat, reference app)",
+    "Console (Abhed Chat, reference app)",
     "Go SDK",
     "Structured output",
     "Parallel subagents with worktree isolation",
@@ -735,12 +735,12 @@ add_text(s, MARGIN, Inches(3.75), Inches(11), Inches(0.5),
 add_text(s, MARGIN, Inches(4.35), Inches(11), Inches(0.5),
           "zybuu.com", size=17, color=SECONDARY, font=MONO_FONT)
 add_text(s, MARGIN, Inches(4.85), Inches(11), Inches(0.5),
-          "titan.zybuu.com/docs", size=17, color=SECONDARY, font=MONO_FONT)
+          "abhed.zybuu.com/docs", size=17, color=SECONDARY, font=MONO_FONT)
 
 add_footer(s, 12)
 
 # ---------------------------------------------------------------- save -----
-OUT = "<scratch>/deck/titan-deck.pptx"
+OUT = "<scratch>/deck/abhed-deck.pptx"
 prs.save(OUT)
 print(f"Saved {OUT}")
 print(f"Slide count: {len(prs.slides._sldIdLst)}")

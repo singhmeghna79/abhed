@@ -1,21 +1,21 @@
-# Titan — Usage Guide
+# Abhed — Usage Guide
 
-Everything you need to run Titan from the CLI and the web UI, including a
+Everything you need to run Abhed from the CLI and the web UI, including a
 zero-dependency path that needs no GPU.
 
 ---
 
 ## 0. Five-minute start with no model endpoint
 
-You do not need a GPU to see Titan work. This mock endpoint replays a scripted
+You do not need a GPU to see Abhed work. This mock endpoint replays a scripted
 agent so you can exercise the CLI, the console, undo, and the audit trail.
 
 ```bash
-cd ~/titan
-go build -o titan ./cmd/titan
+cd ~/abhed
+go build -o abhed ./cmd/abhed
 
 # A demo workspace with a deliberately broken test
-mkdir -p /tmp/titan-demo && cd /tmp/titan-demo
+mkdir -p /tmp/abhed-demo && cd /tmp/abhed-demo
 cat > go.mod <<'GOMOD'
 module example.com/demo
 
@@ -78,11 +78,11 @@ Run it:
 
 ```bash
 python3 mock.py &
-export TITAN_BASE_URL=http://127.0.0.1:8099/v1
-export TITAN_MODEL=mock
+export ABHED_BASE_URL=http://127.0.0.1:8099/v1
+export ABHED_MODEL=mock
 
-~/titan/titan doctor
-~/titan/titan -p "fix the failing test" -mode auto -allow 'bash(go test*)'
+~/abhed/abhed doctor
+~/abhed/abhed -p "fix the failing test" -mode auto -allow 'bash(go test*)'
 go test ./...    # now passes
 ```
 
@@ -93,24 +93,24 @@ the interactive mode and the console below.
 
 ## 1. Pointing at a real model
 
-Titan speaks the OpenAI chat-completions API, so anything that serves it works.
+Abhed speaks the OpenAI chat-completions API, so anything that serves it works.
 
 ```bash
-export TITAN_BASE_URL=http://your-gpu-host:8000/v1
-export TITAN_MODEL=Qwen/Qwen3-32B
-export TITAN_API_KEY=...        # only if your endpoint requires one
-titan doctor
+export ABHED_BASE_URL=http://your-gpu-host:8000/v1
+export ABHED_MODEL=Qwen/Qwen3-32B
+export ABHED_API_KEY=...        # only if your endpoint requires one
+abhed doctor
 ```
 
 Or write it into config:
 
 ```bash
-titan init          # creates .titan/config.json
-$EDITOR .titan/config.json
+abhed init          # creates .abhed/config.json
+$EDITOR .abhed/config.json
 ```
 
-**`titan doctor` is the command to run first.** It checks the endpoint responds,
-that the model actually emits tool calls (the capability Titan depends on), and
+**`abhed doctor` is the command to run first.** It checks the endpoint responds,
+that the model actually emits tool calls (the capability Abhed depends on), and
 reports the sandbox tier, auth mode, storage backend, index size and MCP servers.
 
 Serving stacks known to work: vLLM, SGLang, TensorRT-LLM's OpenAI server,
@@ -125,11 +125,11 @@ see §7.
 
 ```bash
 cd /path/to/your/repo
-titan
+abhed
 ```
 
 ```
-titan 0.1.0-dev  Qwen/Qwen3-32B · /home/you/repo
+abhed 0.1.0-dev  Qwen/Qwen3-32B · /home/you/repo
 Type a task, or /help for commands. Ctrl-C interrupts, Ctrl-D exits.
 
 › fix the failing auth tests
@@ -146,10 +146,10 @@ Type a task, or /help for commands. Ctrl-C interrupts, Ctrl-D exits.
 ### Headless
 
 ```bash
-titan -p "fix the failing tests"
-titan -p "review this diff" -mode plan
-titan -p "add tests for the parser" -mode auto -allow 'bash(go test*)'
-titan -p "summarize this repo" -output-format json > events.jsonl
+abhed -p "fix the failing tests"
+abhed -p "review this diff" -mode plan
+abhed -p "add tests for the parser" -mode auto -allow 'bash(go test*)'
+abhed -p "summarize this repo" -output-format json > events.jsonl
 ```
 
 Exit codes let CI distinguish outcomes:
@@ -188,7 +188,7 @@ Exit codes let CI distinguish outcomes:
 | `/cost` | Tokens, cache hit rate, prefill saving, compactions |
 | `/compact` | Compact the context now |
 | `/clear` | Clear context, keep the workspace |
-| `/memory` | Show the TITAN.md files in effect |
+| `/memory` | Show the ABHED.md files in effect |
 | `/model [name]` | Show or switch the configured provider |
 | `/sessions` | Recent sessions (needs Postgres) |
 | `/resume <id>` | Replay a past session's transcript |
@@ -217,7 +217,7 @@ Deny rules are **absolute** — they hold even in `bypass`. Destructive commands
 ## 3. Web UI
 
 ```bash
-titan serve -addr :8080
+abhed serve -addr :8080
 ```
 
 Open `http://localhost:8080`.
@@ -256,8 +256,8 @@ curl -X POST localhost:8080/v1/sessions/<id>/interrupt
 
 ## 4. Configuration
 
-`.titan/config.json` in the repo, `~/.titan/config.json` for user defaults, and
-`/etc/titan/config.json` for org policy. **Managed config always wins** — a local
+`.abhed/config.json` in the repo, `~/.abhed/config.json` for user defaults, and
+`/etc/abhed/config.json` for org policy. **Managed config always wins** — a local
 file cannot escalate past it.
 
 ```json
@@ -269,7 +269,7 @@ file cannot escalate past it.
         "type": "openai-compatible",
         "base_url": "http://vllm.internal:8000/v1",
         "model": "Qwen/Qwen3-32B",
-        "api_key_env": "TITAN_API_KEY",
+        "api_key_env": "ABHED_API_KEY",
         "context_window": 131072
       }
     }
@@ -287,10 +287,10 @@ file cannot escalate past it.
 }
 ```
 
-Environment overrides: `TITAN_BASE_URL`, `TITAN_MODEL`, `TITAN_API_KEY`,
-`TITAN_DATABASE_URL`.
+Environment overrides: `ABHED_BASE_URL`, `ABHED_MODEL`, `ABHED_API_KEY`,
+`ABHED_DATABASE_URL`.
 
-### TITAN.md
+### ABHED.md
 
 Project conventions the agent should always know. Re-injected on every request,
 so keep it short — every line is paid on every turn.
@@ -317,12 +317,12 @@ Without Postgres, sessions vanish on exit. With it, they persist and can be
 replayed — which is what audit requires.
 
 ```bash
-createdb titan
-psql -d titan -c "CREATE ROLE titan_app LOGIN PASSWORD 'changeme';"
-psql -d titan -c "GRANT ALL ON SCHEMA public TO titan_app;"
+createdb abhed
+psql -d abhed -c "CREATE ROLE abhed_app LOGIN PASSWORD 'changeme';"
+psql -d abhed -c "GRANT ALL ON SCHEMA public TO abhed_app;"
 
-export TITAN_DATABASE_URL="postgres://titan_app:changeme@localhost:5432/titan"
-titan doctor     # confirms "postgres (durable...)"
+export ABHED_DATABASE_URL="postgres://abhed_app:changeme@localhost:5432/abhed"
+abhed doctor     # confirms "postgres (durable...)"
 ```
 
 The schema applies automatically on first start. Then:
@@ -338,9 +338,9 @@ and superusers bypass it.
 
 ---
 
-## 5b. Which files Titan can reach
+## 5b. Which files Abhed can reach
 
-Titan is scoped to the directory it was started in. Everything under it is
+Abhed is scoped to the directory it was started in. Everything under it is
 reachable; nothing outside it is. This is the boundary that stops an agent
 which has read an attacker-influenced file — a dependency's README, a search
 result, an issue comment — from reaching `~/.ssh`, `~/.aws`, or a sibling
@@ -348,10 +348,10 @@ project it was never asked to touch.
 
 The model cannot lift it by asking. Only you can, in one of two ways:
 
-**Start Titan where the work is.** Usually the right answer:
+**Start Abhed where the work is.** Usually the right answer:
 
 ```bash
-titan -C ~/src/my-project
+abhed -C ~/src/my-project
 ```
 
 **Grant an extra directory.** For work that genuinely spans two trees — porting
@@ -359,11 +359,11 @@ a change between checkouts, reading a shared library alongside the service that
 uses it:
 
 ```bash
-titan -C ~/src/service --add-dir ~/src/shared-lib
-titan -C ~/src/service --add-dir ~/src/lib-a,~/src/lib-b   # comma-separated
+abhed -C ~/src/service --add-dir ~/src/shared-lib
+abhed -C ~/src/service --add-dir ~/src/lib-a,~/src/lib-b   # comma-separated
 ```
 
-Or in `.titan/config.json`, which the server also reads:
+Or in `.abhed/config.json`, which the server also reads:
 
 ```json
 { "additional_dirs": ["/srv/shared-lib"] }
@@ -378,8 +378,8 @@ them, so the model stops retrying and you know what to change:
 
 ```
 /Users/you/other/repo is outside this session's workspace.
-Reachable: /private/tmp/titan-test. Do not retry; ask the user to restart
-Titan in that directory (titan -C <dir>) or grant it with --add-dir <dir>
+Reachable: /private/tmp/abhed-test. Do not retry; ask the user to restart
+Abhed in that directory (abhed -C <dir>) or grant it with --add-dir <dir>
 ```
 
 ## 6. Security
@@ -397,8 +397,8 @@ Titan in that directory (titan -C <dir>) or grant it with --add-dir <dir>
 { "sandbox": { "min_tier": "container", "allow_network": false } }
 ```
 
-Titan **fails to start** rather than silently downgrading below your configured
-tier. `titan doctor` always reports the tier actually in force.
+Abhed **fails to start** rather than silently downgrading below your configured
+tier. `abhed doctor` always reports the tier actually in force.
 
 ### Authentication
 
@@ -407,10 +407,10 @@ tier. `titan doctor` always reports the tier actually in force.
   "auth": {
     "mode": "oidc",
     "issuer": "https://idp.internal/realms/engineering",
-    "audience": "titan",
+    "audience": "abhed",
     "tenant_claim": "org_id",
     "groups_claim": "groups",
-    "require_group": "titan-users"
+    "require_group": "abhed-users"
   }
 }
 ```
@@ -419,7 +419,7 @@ See [`docs/ops/oidc-providers.md`](docs/ops/oidc-providers.md) for copy-paste
 blocks for Keycloak, Okta, Entra ID, Auth0 and Google, each with its specific
 gotcha.
 
-`mode: "proxy"` trusts `X-Titan-User` / `X-Titan-Tenant` headers and is only safe
+`mode: "proxy"` trusts `X-Abhed-User` / `X-Abhed-Tenant` headers and is only safe
 when a trusted proxy is the sole route to the port. `mode: "none"` is
 single-tenant local development.
 
@@ -427,11 +427,11 @@ single-tenant local development.
 
 ## 7. Measuring your serving stack
 
-Titan's context design assumes prefix caching works. Verify it:
+Abhed's context design assumes prefix caching works. Verify it:
 
 ```bash
-go build -o titan-bench ./cmd/titan-bench
-titan-bench -model Qwen/Qwen3-32B -turns 40
+go build -o abhed-bench ./cmd/abhed-bench
+abhed-bench -model Qwen/Qwen3-32B -turns 40
 ```
 
 ```
@@ -455,9 +455,9 @@ add `--enable-prefix-caching`.
 ## 8. Evaluation
 
 ```bash
-titan eval                                    # 144-task corpus
-titan eval -json report.json                  # machine-readable
-titan eval -corpus /path/to/your/tasks        # your own
+abhed eval                                    # 144-task corpus
+abhed eval -json report.json                  # machine-readable
+abhed eval -corpus /path/to/your/tasks        # your own
 ```
 
 The report carries behavioural flags alongside the score, because identical pass
@@ -474,7 +474,7 @@ gaming. Exit code is non-zero on failure so CI can gate on it.
 ```
 
 ```bash
-titan index      # build the index
+abhed index      # build the index
 ```
 
 Symbol and BM25 tiers need no embedding model. For natural-language search over
@@ -491,7 +491,7 @@ docs, add the vector tier:
 }
 ```
 
-Titan is **agentic-first**: grep and glob are always available, and the index
+Abhed is **agentic-first**: grep and glob are always available, and the index
 accelerates rather than replaces them. The evidence favouring one over the other
 is contested, so the search tool counts its own calls and you can measure which
 your codebase actually needs.
@@ -530,8 +530,8 @@ engine.
 scripts/build-bundle.sh -v 1.0.0 -k signing-key.pem
 
 # Enclave
-scripts/verify-bundle.sh titan-1.0.0.tar.gz public-key.pem
-tar -xzf titan-1.0.0.tar.gz && cd titan-1.0.0 && sudo ./install.sh
+scripts/verify-bundle.sh abhed-1.0.0.tar.gz public-key.pem
+tar -xzf abhed-1.0.0.tar.gz && cd abhed-1.0.0 && sudo ./install.sh
 ```
 
 Verification checks the archive digest, the signature, and every file's digest
@@ -545,9 +545,9 @@ signature — which is why signing matters and hashing alone does not.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `doctor`: model did not emit a tool call | No tool-call parser | Enable one for your model in the serving stack |
-| `connection refused` | Endpoint unreachable | Check `TITAN_BASE_URL` |
+| `connection refused` | Endpoint unreachable | Check `ABHED_BASE_URL` |
 | `no sandbox backend meets...` | Configured tier unavailable | Install runsc/Docker, or lower `min_tier` |
-| Sessions vanish on exit | Memory store | Set `TITAN_DATABASE_URL` |
+| Sessions vanish on exit | Memory store | Set `ABHED_DATABASE_URL` |
 | `/sessions` says needs postgres | Same | Same |
 | Cache hit rate 0% | Prefix caching off | `--enable-prefix-caching` on vLLM |
 | Every request anonymous | `auth.mode: none` | Set `proxy` or `oidc` |
@@ -558,8 +558,8 @@ signature — which is why signing matters and hashing alone does not.
 Full diagnostics:
 
 ```bash
-titan doctor
-titan -p "..." -output-format json | jq 'select(.type=="observation")'
+abhed doctor
+abhed -p "..." -output-format json | jq 'select(.type=="observation")'
 ```
 
 ---

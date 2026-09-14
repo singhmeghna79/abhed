@@ -22,7 +22,7 @@ import (
 // completes the picture: redirect to the IdP, exchange the code, and hold the
 // resulting identity in a cookie-backed session.
 //
-// PKCE is used even though Titan has a client secret. A public redirect URL and
+// PKCE is used even though Abhed has a client secret. A public redirect URL and
 // an authorization code in a browser URL bar is exactly the shape PKCE exists
 // to protect, and the cost is one hash.
 
@@ -81,7 +81,7 @@ type LoginConfig struct {
 	Scopes        []string
 	// Endpoints overrides discovery.
 	Endpoints *Endpoints
-	// CookieName holds the browser session. Defaults to titan_session.
+	// CookieName holds the browser session. Defaults to abhed_session.
 	CookieName string
 	// SessionTTL bounds how long a browser session lives regardless of token
 	// expiry, so a closed laptop does not stay signed in indefinitely.
@@ -93,7 +93,7 @@ type LoginConfig struct {
 
 func (c *LoginConfig) applyDefaults() {
 	if c.CookieName == "" {
-		c.CookieName = "titan_session"
+		c.CookieName = "abhed_session"
 	}
 	if c.SessionTTL == 0 {
 		c.SessionTTL = 12 * time.Hour
@@ -375,7 +375,7 @@ func (l *Login) Logout(w http.ResponseWriter, r *http.Request) {
 // ForceReauth sends the user to the IdP with prompt=login, so they are asked
 // for credentials even if the provider still has them signed in.
 //
-// This is what "sign in as someone else" actually needs: logout clears Titan's
+// This is what "sign in as someone else" actually needs: logout clears Abhed's
 // session, but only prompt=login makes the IdP stop auto-approving.
 func (l *Login) ForceReauth(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()

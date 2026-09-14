@@ -27,7 +27,7 @@ EMBED = os.path.join(ROOT, "internal", "docsite", "site")
 # Which trees are published. docs/internal/ is competitive analysis and working
 # notes — it stays off the public site.
 SECTIONS = [
-    ("guide", "Guide", "Using Titan day to day."),
+    ("guide", "Guide", "Using Abhed day to day."),
     ("architecture", "Architecture", "How it is built, and why."),
     ("ops", "Operations", "Running it in a real environment."),
     ("trust", "Trust", "What a security review will ask, answered from the code."),
@@ -215,7 +215,7 @@ def main():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(title)} — Titan documentation</title>
+<title>{html.escape(title)} — Abhed documentation</title>
 <meta name="description" content="{html.escape(desc)}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22zt%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2250%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22zl%22%20cx=%2222%25%22%20cy=%2218%25%22%20r=%2280%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%22.26%22/%3E%20%3Cstop%20offset=%2260%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3Cmask%20id=%22zcut%22%3E%20%3Crect%20width=%22256%22%20height=%22256%22%20fill=%22%23fff%22/%3E%20%3Cg%20fill=%22%23000%22%3E%20%3Crect%20x=%2270%22%20y=%2262%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Crect%20x=%2260%22%20y=%22160%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Cpath%20d=%22M156%2096%20H200%20L100%20160%20H56%20Z%22/%3E%20%3C/g%3E%20%3C/mask%3E%20%3C/defs%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zt)%22%20mask=%22url(%23zcut)%22/%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zl)%22%20mask=%22url(%23zcut)%22/%3E%20%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -228,9 +228,9 @@ def main():
     {logo}
     <nav class="nav">
       <a href="https://zybuu.com/" class="hide-sm">Zybuu</a>
-      <a href="https://zybuu.com/titan/">Titan</a>
+      <a href="https://zybuu.com/abhed/">Abhed</a>
       <a href="/docs/">Docs</a>
-      <a class="btn" href="https://titan.zybuu.com">Open console</a>
+      <a class="btn" href="https://abhed.zybuu.com">Open console</a>
     </nav>
   </div>
 </header>
@@ -241,7 +241,7 @@ def main():
 </main>
 </div>
 <footer><div class="dwrap foot">
-  <span><a href="https://zybuu.com/">Zybuu</a></span><span><a href="https://zybuu.com/titan/">Titan</a></span>
+  <span><a href="https://zybuu.com/">Zybuu</a></span><span><a href="https://zybuu.com/abhed/">Abhed</a></span>
   <span>Documentation is generated from docs/ in the repository</span>
 </div></footer>
 </html>
@@ -257,8 +257,8 @@ def main():
             written += 1
 
     # Index
-    idx = ['<h1>Titan documentation</h1>',
-           '<p class="lede">Titan is a deep agent harness. It runs where your code is, '
+    idx = ['<h1>Abhed documentation</h1>',
+           '<p class="lede">Abhed is a deep agent harness. It runs where your code is, '
            'against whichever model you point it at, and records everything it does.</p>']
     for sec, label, blurb, pages in tree:
         idx.append('<h2 id="%s">%s</h2><p>%s</p><div class="cards">' % (sec, label, blurb))
@@ -273,19 +273,19 @@ def main():
                        % (slug(sec, name), html.escape(title), html.escape(first)))
         idx.append("</div>")
     open(os.path.join(OUT, "index.html"), "w").write(
-        shell("Titan documentation", "".join(idx), desc="Documentation for Titan, the Zybuu agent harness."))
+        shell("Abhed documentation", "".join(idx), desc="Documentation for Abhed, the Zybuu agent harness."))
     written += 1
 
     # Standalone pages outside /docs/. The console access policy is linked
-    # from the revocation email as zybuu.com/titan/access-policy, so it is
+    # from the revocation email as zybuu.com/abhed/access-policy, so it is
     # rendered there, in the docs shell, from the same markdown the admin
     # clauses cite. A link in an email that goes nowhere is worse than none.
     policy = os.path.join(SRC, "access-policy.md")
     if os.path.exists(policy):
         text = open(policy).read()
-        dst = os.path.join(os.path.dirname(OUT), "titan", "access-policy.html")
+        dst = os.path.join(os.path.dirname(OUT), "abhed", "access-policy.html")
         open(dst, "w").write(shell(title_of(text, "access-policy.md"), render(text, ""),
-                                   desc="What access to the hosted Titan console means, and how it ends."))
+                                   desc="What access to the hosted Abhed console means, and how it ends."))
         written += 1
 
     # Mirror into the binary's embed directory.

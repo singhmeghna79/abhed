@@ -1,15 +1,15 @@
-# Titan — Model providers and sampling parameters
+# Abhed — Model providers and sampling parameters
 
 Status: 2026-09-06
 
-Titan's value is the harness, and a harness is only as good as the models it can
+Abhed's value is the harness, and a harness is only as good as the models it can
 drive. The adapter seam is what keeps "swap the model" a config change rather
 than a port, so the provider list is a capability of the product, not a
 convenience.
 
 ## Providers
 
-`titan providers` lists what the binary in hand supports — which is the set that
+`abhed providers` lists what the binary in hand supports — which is the set that
 registered itself at init, so a build that omits the cloud adapters for an
 air-gapped install reports honestly.
 
@@ -31,7 +31,7 @@ honours; Anthropic and Gemini are genuinely different shapes and have their own.
 
 ### Cloud gateways and credentials
 
-Titan carries no cloud SDK, deliberately: a vendored AWS or Google SDK is a
+Abhed carries no cloud SDK, deliberately: a vendored AWS or Google SDK is a
 large dependency an air-gapped bundle has to justify. So Bedrock and Vertex take
 a token the operator supplies through `api_key` — from a sidecar, a short-lived
 credential, or a signing proxy named in `base_url`.
@@ -109,14 +109,14 @@ then refuses the request unless the first system block is Claude Code's own
 identity line; the refusal arrives as `429 rate_limit_error`, which reads as a
 limit that will clear and is not one.
 
-Titan still reads `CLAUDE_CODE_OAUTH_TOKEN` and `oauth_token`: the mechanism is
+Abhed still reads `CLAUDE_CODE_OAUTH_TOKEN` and `oauth_token`: the mechanism is
 correct, the restriction may not be permanent, and models outside the check do
 answer. It recognises the refusal by its shape — a 429 carrying none of the
 headers a real rate limit carries — reports what it actually is, and does not
 retry a decision that will not change.
 
 Working around it means sending Claude Code's identity string from something
-that is not Claude Code. Titan does not, and nothing built on Titan should:
+that is not Claude Code. Abhed does not, and nothing built on Abhed should:
 it circumvents an access control, misrepresents the product, and breaks the
 moment the check changes.
 

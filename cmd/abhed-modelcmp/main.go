@@ -1,10 +1,10 @@
-// Command titan-modelcmp compares candidate models on the two things Titan
+// Command abhed-modelcmp compares candidate models on the two things Abhed
 // actually needs from one, which are not the same thing and are not measured
 // by the same benchmark.
 //
 // The first is structured tool calling. This is a hard gate: a model that
 // describes a tool call in prose instead of emitting one cannot drive the
-// agent loop at all, however well it writes. `titan doctor` already checks
+// agent loop at all, however well it writes. `abhed doctor` already checks
 // this with a single trivial call; this runs a harder set, including a call
 // that must be chosen from several tools and one that must be declined.
 //
@@ -16,7 +16,7 @@
 // (did it use an analogy, did it define its jargon, how dense is it), leaving
 // the judgement to a person reading the transcript.
 //
-//	titan-modelcmp -models qwen3-coder:30b,gpt-oss:20b
+//	abhed-modelcmp -models qwen3-coder:30b,gpt-oss:20b
 package main
 
 import (
@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 // ---------------------------------------------------------------- tool tests
@@ -262,7 +262,7 @@ func main() {
 	flag.Parse()
 
 	if *models == "" {
-		fmt.Fprintln(os.Stderr, "usage: titan-modelcmp -models qwen3-coder:30b,gpt-oss:20b")
+		fmt.Fprintln(os.Stderr, "usage: abhed-modelcmp -models qwen3-coder:30b,gpt-oss:20b")
 		os.Exit(2)
 	}
 
@@ -335,14 +335,14 @@ func main() {
 	if *jsonOut != "" {
 		f, err := os.Create(*jsonOut)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan-modelcmp: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed-modelcmp: %v\n", err)
 			os.Exit(1)
 		}
 		defer f.Close()
 		enc := json.NewEncoder(f)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(reports); err != nil {
-			fmt.Fprintf(os.Stderr, "titan-modelcmp: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed-modelcmp: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("\nfull transcripts: %s\n", *jsonOut)

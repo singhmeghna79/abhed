@@ -1,7 +1,7 @@
 // Package jsonschema validates JSON against the subset of JSON Schema that
 // structured-output contracts actually use.
 //
-// It exists so a caller can hand Titan a schema and get back either a value
+// It exists so a caller can hand Abhed a schema and get back either a value
 // that matches it or a list of exactly what does not — path by path, in words
 // a model can act on. The full specification is large and mostly about
 // hypermedia; what an agent needs is types, required fields, enums, bounds,

@@ -5,7 +5,7 @@ and it is the source of truth. Observability is the same facts in the shape
 your tracing backend expects: one trace per session, a span per tool call and
 per subagent, with the numbers an operator asks for attached as attributes.
 
-Titan speaks OTLP/HTTP directly. There is no SDK to install and no vendor in
+Abhed speaks OTLP/HTTP directly. There is no SDK to install and no vendor in
 the path; anything that accepts OpenTelemetry traces — an OTel Collector,
 Jaeger, Tempo, Honeycomb, Datadog — works.
 
@@ -15,24 +15,24 @@ Jaeger, Tempo, Honeycomb, Datadog — works.
 "telemetry": {
   "enabled": true,
   "endpoint": "http://otel-collector:4318",
-  "service_name": "titan",
+  "service_name": "abhed",
   "headers": { "Authorization": "Bearer …" }
 }
 ```
 
-`titan serve` prints `telemetry <endpoint>` at startup when it is active. The
+`abhed serve` prints `telemetry <endpoint>` at startup when it is active. The
 exporter posts to `<endpoint>/v1/traces`.
 
 ## What a trace contains
 
 | Span | Parent | Attributes |
 |---|---|---|
-| `titan.session` | — | `titan.session.id`, `titan.model`, `titan.mode`, and at the end `titan.turns`, `titan.tokens.in`, `titan.tokens.out`, `titan.tokens.cached`, `titan.compactions`, `titan.reason` |
-| `tool.<name>` | the session | `titan.tool`, `titan.call.id`, `titan.tool.args` (when under 2 KB), `titan.tool.duration_ms`, `titan.tool.exit_code`, `titan.tool.truncated` |
-| `titan.subagent` | the parent session | as `titan.session`, plus `titan.session.parent` |
+| `abhed.session` | — | `abhed.session.id`, `abhed.model`, `abhed.mode`, and at the end `abhed.turns`, `abhed.tokens.in`, `abhed.tokens.out`, `abhed.tokens.cached`, `abhed.compactions`, `abhed.reason` |
+| `tool.<name>` | the session | `abhed.tool`, `abhed.call.id`, `abhed.tool.args` (when under 2 KB), `abhed.tool.duration_ms`, `abhed.tool.exit_code`, `abhed.tool.truncated` |
+| `abhed.subagent` | the parent session | as `abhed.session`, plus `abhed.session.parent` |
 
 A tool call the policy engine **refused** is still a span: error status, with
-`titan.denied = true` and the reason. That is deliberately the most visible
+`abhed.denied = true` and the reason. That is deliberately the most visible
 thing in a trace, because a refusal is the event a security review most wants
 to find.
 
@@ -57,7 +57,7 @@ wants, and something a generated ID cannot give you.
 run that delegated it rather than starting a trace of its own.
 
 **A session cut off by a restart is visible as exactly that.** Spans still
-open at shutdown are closed with `titan.unfinished = true` rather than
+open at shutdown are closed with `abhed.unfinished = true` rather than
 discarded.
 
 ## What it is not

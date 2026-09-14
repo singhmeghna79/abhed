@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 // downloadEntry is one file a session produced.
@@ -20,7 +20,7 @@ type downloadEntry struct {
 
 // Getting a file the agent produced back out of the workspace.
 //
-// Titan can write a .docx, an .xlsx, a PDF or a diagram, and until now it
+// Abhed can write a .docx, an .xlsx, a PDF or a diagram, and until now it
 // answered with a path like /workspace/report.docx — a location inside a
 // container that the person reading the message has no way to open. The work
 // was done and then stranded, which is worse than not doing it.

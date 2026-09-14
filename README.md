@@ -1,10 +1,10 @@
-# Titan
+# Abhed
 
 An on-prem, air-gap-capable deep agent platform. Model-agnostic by construction:
 the better the reasoning model you point it at, the better it performs.
 
 ```
-$ titan -p "fix the failing test" -mode auto -allow 'bash(go test*)'
+$ abhed -p "fix the failing test" -mode auto -allow 'bash(go test*)'
 ● grep "func Add"      └ 2 line(s)
 ● read math.go         └ 5 line(s)
 ● edit math.go         └ Edited math.go.
@@ -37,45 +37,45 @@ by 7.80×** on SWE-bench Verified, with ranking reversals in 6 of 9 model-pair
 comparisons. The scaffold around the model — context management, tool design,
 subagents, permissions — is a first-class engineering variable, not glue code.
 
-Titan is built on that: the harness is a separately engineered, separately
+Abhed is built on that: the harness is a separately engineered, separately
 evaluated layer behind a provider abstraction. Better model, better agent.
 Better harness, better agent. Both compound.
 
 ## Quick start
 
 ```bash
-go build -o titan ./cmd/titan
-./titan init                # write .titan/config.json
-./titan doctor              # verify endpoint, tool-calling, sandbox, auth, storage, index, MCP
-./titan                     # interactive
-./titan serve -addr :8080   # web console + API
-./titan eval                # run the evaluation corpus
-./titan index               # build the retrieval index
+go build -o abhed ./cmd/abhed
+./abhed init                # write .abhed/config.json
+./abhed doctor              # verify endpoint, tool-calling, sandbox, auth, storage, index, MCP
+./abhed                     # interactive
+./abhed serve -addr :8080   # web console + API
+./abhed eval                # run the evaluation corpus
+./abhed index               # build the retrieval index
 ```
 
 Air-gapped install:
 
 ```bash
 scripts/build-bundle.sh -v 1.0.0 -k signing-key.pem   # on the build side
-scripts/verify-bundle.sh titan-1.0.0.tar.gz pub.pem   # on the enclave side
-tar -xzf titan-1.0.0.tar.gz && cd titan-1.0.0 && sudo ./install.sh
+scripts/verify-bundle.sh abhed-1.0.0.tar.gz pub.pem   # on the enclave side
+tar -xzf abhed-1.0.0.tar.gz && cd abhed-1.0.0 && sudo ./install.sh
 ```
 
 Point it at anything OpenAI-compatible — vLLM, SGLang, TensorRT-LLM, llama.cpp,
 Ollama, or a hosted API:
 
 ```bash
-export TITAN_BASE_URL=http://your-gpu-host:8000/v1
-export TITAN_MODEL=Qwen/Qwen3-32B
-./titan doctor
+export ABHED_BASE_URL=http://your-gpu-host:8000/v1
+export ABHED_MODEL=Qwen/Qwen3-32B
+./abhed doctor
 ```
 
 Measure whether your serving stack actually caches prefixes — the assumption the
 whole capacity model rests on:
 
 ```bash
-go build -o titan-bench ./cmd/titan-bench
-./titan-bench -model Qwen/Qwen3-32B -turns 40
+go build -o abhed-bench ./cmd/abhed-bench
+./abhed-bench -model Qwen/Qwen3-32B -turns 40
 ```
 
 ## What's implemented
@@ -102,7 +102,7 @@ go build -o titan-bench ./cmd/titan-bench
 | **Adversarial suite** — 16 attacks | ✅ all blocked |
 
 `go test ./... -short` — 13 packages, 190+ tests. Drop `-short` for the slow
-network-exfiltration checks; set `TITAN_TEST_DSN` for the Postgres integration tests.
+network-exfiltration checks; set `ABHED_TEST_DSN` for the Postgres integration tests.
 
 ## Architecture
 
@@ -124,7 +124,7 @@ Egress    broker (optional, default OFF)
 | [04 Sizing](docs/architecture/04-sizing.md) | VRAM math, tiers, prefill economics, cost |
 | [05 Roadmap](docs/architecture/05-roadmap.md) | Build vs adopt, phasing, team, risks |
 | [06 Tool contracts](docs/architecture/06-tool-contracts.md) | Exact schemas, semantics, error messages |
-| [07 System prompt](docs/architecture/07-system-prompt.md) | Prompt layering, TITAN.md, anti-patterns |
+| [07 System prompt](docs/architecture/07-system-prompt.md) | Prompt layering, ABHED.md, anti-patterns |
 | [08 Eval](docs/architecture/08-eval.md) | 4-layer harness incl. behavioral inspection |
 | [09 UX](docs/architecture/09-ux.md) | CLI, approvals, modes, latency budget |
 | [10 Data model](docs/architecture/10-data-model.md) | Events, schema, protocol, adapter interface |
@@ -142,7 +142,7 @@ that "helpfully" applies produces a silent wrong edit — the worst outcome an
 editing tool can have.
 
 **The sandbox never silently downgrades.** If no backend meets the configured
-minimum tier, Titan fails with what it tried and how to fix it. A sandbox that
+minimum tier, Abhed fails with what it tried and how to fix it. A sandbox that
 quietly weakens itself is worse than none, because operators stop checking.
 
 **Deny is absolute.** It blocks even in bypass mode. Destructive commands confirm
@@ -167,7 +167,7 @@ zero surviving claims**. Those gaps are documented rather than papered over.
 
 **Measurement and adversarial testing have corrected the design five times.** The sizing doc claimed
 compaction "invalidates the prefix by construction" — benchmarking showed that is
-false for Titan, because the system prompt and `TITAN.md` sit outside the
+false for Abhed, because the system prompt and `ABHED.md` sit outside the
 compacted history, so the cached prefix survives. And an end-to-end run exposed a
 policy bug where `auto` mode rejected its own edits. Three more surfaced later:
 row-level security was silently inert because a table owner bypasses it without

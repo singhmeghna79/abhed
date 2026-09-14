@@ -15,8 +15,8 @@ func TestDefaultIsValid(t *testing.T) {
 
 func TestProjectConfigOverridesUser(t *testing.T) {
 	ws := t.TempDir()
-	os.MkdirAll(filepath.Join(ws, ".titan"), 0o755)
-	os.WriteFile(filepath.Join(ws, ".titan", "config.json"), []byte(`{
+	os.MkdirAll(filepath.Join(ws, ".abhed"), 0o755)
+	os.WriteFile(filepath.Join(ws, ".abhed", "config.json"), []byte(`{
       "model":{"default":"custom","providers":{"custom":{
         "type":"openai-compatible","base_url":"http://gpu:8000/v1",
         "model":"qwen3-32b","context_window":131072}}}}`), 0o644)
@@ -40,8 +40,8 @@ func TestProjectConfigOverridesUser(t *testing.T) {
 
 func TestEnvOverridesEndpoint(t *testing.T) {
 	ws := t.TempDir()
-	t.Setenv("TITAN_BASE_URL", "http://from-env:9000/v1")
-	t.Setenv("TITAN_MODEL", "env-model")
+	t.Setenv("ABHED_BASE_URL", "http://from-env:9000/v1")
+	t.Setenv("ABHED_MODEL", "env-model")
 
 	cfg, err := Load(ws)
 	if err != nil {
@@ -101,7 +101,7 @@ func TestCompactAtBounds(t *testing.T) {
 
 func TestWriteDefaultRoundTrips(t *testing.T) {
 	ws := t.TempDir()
-	path := filepath.Join(ws, ".titan", "config.json")
+	path := filepath.Join(ws, ".abhed", "config.json")
 	if err := WriteDefault(path); err != nil {
 		t.Fatal(err)
 	}

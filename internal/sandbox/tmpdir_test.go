@@ -29,11 +29,11 @@ func TestSandboxAllowsToolchainTempDir(t *testing.T) {
 	defer cancel()
 
 	out, _ := s.Command(ctx, dir,
-		`touch "$TMPDIR/titan-probe" && echo WRITE_OK || echo WRITE_BLOCKED`).CombinedOutput()
+		`touch "$TMPDIR/abhed-probe" && echo WRITE_OK || echo WRITE_BLOCKED`).CombinedOutput()
 	if !strings.Contains(string(out), "WRITE_OK") {
 		t.Fatalf("toolchains cannot use TMPDIR inside the sandbox:\n%s", out)
 	}
-	os.Remove(os.Getenv("TMPDIR") + "/titan-probe")
+	os.Remove(os.Getenv("TMPDIR") + "/abhed-probe")
 }
 
 // The real check: a Go build must actually work inside the sandbox.

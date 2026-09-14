@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/pipeline"
-	"github.com/yuvrajsingh/titan/internal/skills"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/pipeline"
+	"github.com/yuvrajsingh/abhed/internal/skills"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // pipelineRunner builds the function the skill tool calls to execute a

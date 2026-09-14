@@ -227,7 +227,7 @@ func TestLoginOverridesStaleKubeconfig(t *testing.T) {
 	if !res.IsError {
 		t.Fatal("a stale token was accepted")
 	}
-	if !strings.Contains(res.Content, "expired") || !strings.Contains(res.Content, "TITAN_K8S_TOKEN") {
+	if !strings.Contains(res.Content, "expired") || !strings.Contains(res.Content, "ABHED_K8S_TOKEN") {
 		t.Errorf("401 does not name the fix: %s", res.Content)
 	}
 

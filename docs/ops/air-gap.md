@@ -1,4 +1,4 @@
-# Titan — Air-Gapped Deployment & Egress Brokering
+# Abhed — Air-Gapped Deployment & Egress Brokering
 
 Status: Draft · 2026-09-02
 **Evidence status: [E] engineering judgment throughout.** The research pass produced
@@ -7,7 +7,7 @@ a design proposal to review with your security organization, not as established 
 
 ## 1. Three postures, one build
 
-Titan ships one artifact set supporting three deployment postures. The posture is
+Abhed ships one artifact set supporting three deployment postures. The posture is
 configuration, never a different build — a separate air-gap build inevitably rots.
 
 | Posture | Egress | Web search | Typical use |
@@ -18,10 +18,10 @@ configuration, never a different build — a separate air-gap build inevitably r
 
 ## 2. Offline install
 
-Everything Titan needs ships as one signed bundle, verified by digest at install:
+Everything Abhed needs ships as one signed bundle, verified by digest at install:
 
 ```
-titan-release-<version>.tar          (detached signature + SBOM)
+abhed-release-<version>.tar          (detached signature + SBOM)
 ├── images/         OCI archives, digest-pinned (no :latest, ever)
 ├── charts/         Helm charts / Operator bundle
 ├── models/         weights + tokenizer + chat template + capability profile
@@ -75,7 +75,7 @@ tool contract is unchanged, so no agent logic differs across postures.
 
 ## 4. Identity, tenancy, audit
 
-- **SSO** via OIDC/SAML to the existing enterprise IdP. Titan issues short-lived,
+- **SSO** via OIDC/SAML to the existing enterprise IdP. Abhed issues short-lived,
   tenant-scoped session tokens; it is never a credential store.
 - **Tenancy** is enforced at the control plane and re-enforced at the data plane. A tenant
   boundary that exists only in the query layer is not a boundary.
@@ -84,7 +84,7 @@ tool contract is unchanged, so no agent logic differs across postures.
 - **Audit** derives from the event store (P6). Because state is event-sourced with
   deterministic replay, any session can be reconstructed exactly — which is what incident
   response and regulators both actually ask for. Ship the audit log to the enterprise SIEM;
-  never let Titan be the sole custodian of its own audit trail.
+  never let Abhed be the sole custodian of its own audit trail.
 
 ## 5. Observability
 
@@ -106,7 +106,7 @@ distinguish correct abstention from harmful action.
 
 ## 6. Compliance mapping [E — unverified; confirm with your compliance function]
 
-| Framework | Where Titan touches it |
+| Framework | Where Abhed touches it |
 |---|---|
 | NIST AI RMF | Govern/Map/Measure/Manage → eval harness + audit + policy engine |
 | SOC 2 | Access control, audit trail, change management on model registry |

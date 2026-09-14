@@ -282,7 +282,7 @@ func TestAtomicWriteLeavesNoTempFiles(t *testing.T) {
 
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".titan-") {
+		if strings.HasPrefix(e.Name(), ".abhed-") {
 			t.Fatalf("temp file left behind: %s", e.Name())
 		}
 	}

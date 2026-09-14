@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Local accounts: username and password held by Titan itself.
+// Local accounts: username and password held by Abhed itself.
 //
 // OIDC is the right answer for an organisation that already has an identity
 // provider, and it stays the recommended mode. But it delegates, and a
@@ -121,7 +121,7 @@ func NewLocalAuth(store UserStore, ttl time.Duration, secure bool) *LocalAuth {
 		ttl = 12 * time.Hour
 	}
 	l := &LocalAuth{
-		Store: store, CookieName: "titan_session",
+		Store: store, CookieName: "abhed_session",
 		SessionTTL: ttl, Secure: secure,
 		sessions: map[string]*browserSession{},
 	}

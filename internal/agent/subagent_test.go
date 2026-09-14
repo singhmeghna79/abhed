@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 func subFactory(t *testing.T, turns []scriptedTurn, budget *Budget) *SubagentFactory {

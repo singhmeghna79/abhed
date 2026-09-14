@@ -14,14 +14,14 @@ import (
 // FileUserStore keeps accounts in a JSON file next to the workspace config.
 //
 // This exists because the alternative was worse in a specific, discoverable
-// way: with an in-memory store, `titan user add` created an account inside a
+// way: with an in-memory store, `abhed user add` created an account inside a
 // CLI process that then exited, and the server started with none. The command
 // reported success and the user could not sign in. A pilot deployment with no
 // Postgres is a legitimate configuration, and it needs somewhere real to put
 // accounts.
 //
 // Postgres remains the right answer for anything multi-node — a file cannot be
-// shared across replicas — and `titan doctor` says so.
+// shared across replicas — and `abhed doctor` says so.
 type FileUserStore struct {
 	path string
 	mu   sync.RWMutex

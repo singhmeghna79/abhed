@@ -70,7 +70,7 @@ func TestToolNamesAreNamespaced(t *testing.T) {
 	}
 }
 
-// Titan cannot know what a third-party tool does, so it must route through
+// Abhed cannot know what a third-party tool does, so it must route through
 // policy rather than being treated as read-only.
 func TestRemoteToolsAlwaysRequireApproval(t *testing.T) {
 	rt := &remoteTool{server: "s", remoteName: "innocuous_lookup"}

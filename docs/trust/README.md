@@ -2,8 +2,8 @@
 
 This folder exists to answer the questions a security or procurement
 questionnaire actually asks, in one place, with claims traceable to the
-files that make them true. It is written for a reviewer evaluating Titan or
-the hosted console at `titan.zybuu.com`, not for a Titan operator configuring
+files that make them true. It is written for a reviewer evaluating Abhed or
+the hosted console at `abhed.zybuu.com`, not for a Abhed operator configuring
 their own deployment — that audience is `docs/access-policy.md` and
 `docs/ops/`.
 
@@ -18,7 +18,7 @@ honest answer is more useful than that.
 | Document | Answers |
 |---|---|
 | [security-posture.md](security-posture.md) | Architecture summary for a security reviewer: trust boundaries, data flow, storage, authentication, container hardening, telemetry, and what is not yet in place |
-| [data-handling.md](data-handling.md) | What data Titan stores, where, for how long, what an operator can export or delete, and subprocessors for the hosted console |
+| [data-handling.md](data-handling.md) | What data Abhed stores, where, for how long, what an operator can export or delete, and subprocessors for the hosted console |
 | [vulnerability-disclosure.md](vulnerability-disclosure.md) | The disclosure policy from `SECURITY.md`, in questionnaire form |
 | [incident-response.md](incident-response.md) | Detection, severity, first-hour response, and notification commitments for a one-person company |
 | [backup-restore.md](backup-restore.md) | How the Postgres store and its volumes are backed up and restored, and the recovery point that gives you today |
@@ -26,7 +26,7 @@ honest answer is more useful than that.
 ## Related, outside this folder
 
 - [`docs/access-policy.md`](../access-policy.md) — the terms that govern the
-  hosted console at `titan.zybuu.com`: what an invited account can do, what
+  hosted console at `abhed.zybuu.com`: what an invited account can do, what
   ends access, and what Zybuu does and does not owe a trial user.
 - [`docs/ops/enabling-auth.md`](../ops/enabling-auth.md) — authentication
   modes, session handling, and OIDC verification for a self-hosted

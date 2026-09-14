@@ -54,12 +54,12 @@ FIRST="${NAME%% *}"
 read -r -d '' TEXT <<EOF || true
 Hi ${FIRST},
 
-Here is the recorded Titan demo and the deck you asked for:
+Here is the recorded Abhed demo and the deck you asked for:
 
   ${LINK}
 
 The link is personal to you and works until ${UNTIL}. It opens a short
-narrated walk through zybuu.com, the Titan harness, the console and the
+narrated walk through zybuu.com, the Abhed harness, the console and the
 documentation; the deck is a download on the same page.
 
 If anything in it raises a question, reply to this email — it reaches a
@@ -73,7 +73,7 @@ PAYLOAD="$(python3 - "$FROM" "$TO" "$TEXT" <<'PY'
 import json, sys
 frm, to, text = sys.argv[1], sys.argv[2], sys.argv[3]
 print(json.dumps({"from": frm, "to": [to], "reply_to": "support@zybuu.com",
-                  "subject": "Titan — the recorded demo and deck", "text": text}))
+                  "subject": "Abhed — the recorded demo and deck", "text": text}))
 PY
 )"
 

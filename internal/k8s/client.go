@@ -3,7 +3,7 @@
 //
 // It speaks the API directly over HTTPS rather than importing client-go.
 // That is a deliberate trade: client-go pulls roughly a hundred transitive
-// dependencies, and Titan ships as a verified air-gapped bundle where every
+// dependencies, and Abhed ships as a verified air-gapped bundle where every
 // one of those is something an operator has to accept. The Kubernetes API is
 // REST and JSON; what client-go adds beyond that is typed structs, which an
 // agent that renders results as text does not need.
@@ -59,7 +59,7 @@ type Config struct {
 	// Cluster tokens expire, and a stale one in a kubeconfig produces a 401
 	// that reads like a permissions problem. Rather than requiring the file to
 	// be edited mid-session, an operator can supply a fresh token — typically
-	// via TITAN_K8S_TOKEN, so it never lands in a config file the agent can
+	// via ABHED_K8S_TOKEN, so it never lands in a config file the agent can
 	// read.
 	Token   string
 	Timeout time.Duration
@@ -67,7 +67,7 @@ type Config struct {
 
 // ---------------------------------------------------------------- kubeconfig
 
-// kubeconfig is the subset of the file Titan needs. Named types rather than
+// kubeconfig is the subset of the file Abhed needs. Named types rather than
 // anonymous structs because the reader in kubeconfig.go builds them by hand;
 // there are no struct tags, since nothing unmarshals into these.
 type kubeconfig struct {
@@ -414,8 +414,8 @@ func (c *Cluster) Do(ctx context.Context, method, path string, body []byte) ([]b
 		// fail with no idea that a token in their kubeconfig had expired.
 		return nil, fmt.Errorf("the cluster rejected the credentials (401): the token " +
 			"for this context has expired. Re-authenticate (oc login / gcloud / az) to " +
-			"refresh the kubeconfig, or set TITAN_K8S_TOKEN to a fresh token and restart " +
-			"Titan. Do not retry — it will fail identically")
+			"refresh the kubeconfig, or set ABHED_K8S_TOKEN to a fresh token and restart " +
+			"Abhed. Do not retry — it will fail identically")
 	case resp.StatusCode == http.StatusForbidden:
 		// RBAC denials carry a precise message; surfacing it saves the agent
 		// guessing at which verb or resource it lacks.

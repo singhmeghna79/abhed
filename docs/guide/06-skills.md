@@ -1,6 +1,6 @@
 # Skills
 
-A skill is a procedure Titan should follow when a request matches it: how your
+A skill is a procedure Abhed should follow when a request matches it: how your
 team cuts a release, the checklist for a schema migration, the house format for
 an incident report. It is knowledge that does not belong in code.
 
@@ -28,12 +28,12 @@ This is the Agent Skills format. A skill written for another harness that uses
 it will load here unchanged.
 
 ```json
-"skills": { "dirs": ["~/.titan/skills", ".titan/skills"] }
+"skills": { "dirs": ["~/.abhed/skills", ".abhed/skills"] }
 ```
 
 ## Why only the description is in the prompt
 
-Titan puts each skill's **name and description** in the system prompt, about
+Abhed puts each skill's **name and description** in the system prompt, about
 fifteen tokens each, and loads the body only when the agent calls the `skill`
 tool. Twenty skills of a thousand tokens each would otherwise cost 20,000 tokens
 on every request of every session, whether or not any of them was relevant.

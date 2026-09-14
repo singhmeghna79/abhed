@@ -278,3 +278,30 @@ const maxJSONBody = 1 << 20 // 1 MiB
 func capBody(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
 }
+
+// canonicalHost redirects any request that names a host other than the
+// configured one. It runs outermost, before origin checks and cookies, so a
+// visitor who still types the old name lands on the new one without ever
+// having a cookie set for the old host. Only GET and HEAD are redirected: a
+// browser would replay a POST against the new host as a GET, silently
+// dropping its body, and a script sending state to the wrong name should
+// learn that from a refusal rather than a quiet detour.
+func canonicalHost(host string, next http.Handler) http.Handler {
+	if host == "" {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.EqualFold(r.Host, host) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "this deployment is served at https://"+host, http.StatusMisdirectedRequest)
+			return
+		}
+		u := *r.URL
+		u.Scheme = "https"
+		u.Host = host
+		http.Redirect(w, r, u.String(), http.StatusMovedPermanently)
+	})
+}

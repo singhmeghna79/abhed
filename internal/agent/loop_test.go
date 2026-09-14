@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // scriptedAdapter replays canned turns so the loop can be tested without a
@@ -334,7 +334,7 @@ func mustJSON(v any) json.RawMessage {
 }
 
 // A model that ignores an error and retries the identical call must not be
-// allowed to consume the entire turn budget. Found by running Titan against a
+// allowed to consume the entire turn budget. Found by running Abhed against a
 // mock that never called read() before editing: the same refusal repeated 11
 // times, wasting every turn and, on a paid endpoint, real money.
 func TestRepeatedIdenticalFailureIsEscalatedThenAborted(t *testing.T) {

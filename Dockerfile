@@ -1,6 +1,6 @@
-# Titan as a contained service.
+# Abhed as a contained service.
 #
-# The point of this image is not packaging convenience. Titan's file tools —
+# The point of this image is not packaging convenience. Abhed's file tools —
 # read, write, edit, grep — call os.ReadFile and os.Rename directly in the host
 # process; only bash has a sandbox hook (internal/tools/bash.go). So the
 # in-process path check in tools.Session.Resolve is the ONLY thing standing
@@ -36,7 +36,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -ldflags='-s -w' \
-      -o /out/titan ./cmd/titan
+      -o /out/abhed ./cmd/abhed
 
 # -------------------------------------------------------------- runtime stage
 # Debian slim rather than distroless or scratch: the agent's whole purpose is to
@@ -63,14 +63,14 @@ RUN apt-get update \
       `# bubblewrap gives the agent's shell a second boundary INSIDE this` \
       `# container. The container itself is the first — read-only rootfs, all` \
       `# capabilities dropped, no host paths — but a console strangers can` \
-      `# sign in to is worth two. Without it Titan can only offer tier "none",` \
+      `# sign in to is worth two. Without it Abhed can only offer tier "none",` \
       `# which runs commands as the container's own process.` \
       bubblewrap \
  && rm -rf /var/lib/apt/lists/*
 
 # Document generation.
 #
-# Titan can READ pdf/docx/xlsx/pptx — internal/tools/document.go parses them in
+# Abhed can READ pdf/docx/xlsx/pptx — internal/tools/document.go parses them in
 # pure Go, deliberately, so an air-gapped bundle needs no external binary. There
 # is no writer, though: the write tool produces bytes, and a .docx is a zip of
 # XML parts, so asking the model to emit one directly cannot work.
@@ -120,20 +120,20 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 # compromise of the process cannot modify the image's own contents — combined
 # with a read-only rootfs at run time, the only writable surface is the
 # workspace volume and the tmpfs.
-RUN groupadd --gid 10001 titan \
- && useradd --uid 10001 --gid 10001 --create-home --shell /bin/bash titan
+RUN groupadd --gid 10001 abhed \
+ && useradd --uid 10001 --gid 10001 --create-home --shell /bin/bash abhed
 
-COPY --from=build /out/titan /usr/local/bin/titan
+COPY --from=build /out/abhed /usr/local/bin/abhed
 
 # The workspace is a mounted volume, not a path baked into the image: the whole
 # design depends on no host directory being visible here.
-RUN mkdir -p /workspace /home/titan/.titan \
- && chown -R titan:titan /workspace /home/titan
+RUN mkdir -p /workspace /home/abhed/.abhed \
+ && chown -R abhed:abhed /workspace /home/abhed
 
-USER titan
+USER abhed
 WORKDIR /workspace
 
-ENV TITAN_IN_CONTAINER=1
+ENV ABHED_IN_CONTAINER=1
 
 EXPOSE 8080
 
@@ -142,5 +142,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8080/v1/health || exit 1
 
-ENTRYPOINT ["titan"]
+ENTRYPOINT ["abhed"]
 CMD ["serve", "-addr", "0.0.0.0:8080"]

@@ -101,7 +101,7 @@
           "required": true,
           "timeout_ms": 60000,
           "args": {
-            "command": "bash ~/.titan/skills-active/zrag/scripts/run.sh retrieve --query {{item}} --profile-json '{}'",
+            "command": "bash ~/.abhed/skills-active/zrag/scripts/run.sh retrieve --query {{item}} --profile-json '{}'",
             "description": "Retrieving from the knowledge base."
           }
         },

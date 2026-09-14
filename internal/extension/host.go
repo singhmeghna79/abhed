@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/policy"
 )
 
 // Host runs the configured extensions and combines their answers.
@@ -44,7 +44,7 @@ func (h *Host) Load(ctx context.Context, cfgs []Config) []error {
 
 func (h *Host) Len() int { return len(h.exts) }
 
-// Names lists the loaded extensions, for `titan doctor`.
+// Names lists the loaded extensions, for `abhed doctor`.
 func (h *Host) Names() []string {
 	out := make([]string, 0, len(h.exts))
 	for _, e := range h.exts {
@@ -127,7 +127,7 @@ func (h *Host) OnToolResult(ctx context.Context, sessionID, tool, content string
 
 // OnContext lets extensions drop messages before a model call.
 //
-// Only removal is possible: an extension chooses which of the messages Titan
+// Only removal is possible: an extension chooses which of the messages Abhed
 // built may be sent, and cannot add or alter one. Redaction and context
 // trimming are expressible; smuggling an instruction into history is not.
 func (h *Host) OnContext(ctx context.Context, sessionID string, msgs []Message) []int {

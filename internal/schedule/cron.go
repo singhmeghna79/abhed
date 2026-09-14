@@ -2,7 +2,7 @@
 //
 // A recurring run is the shape of a lot of real work — "every weekday at nine,
 // summarise what changed overnight", "hourly, check the staging pods" — and
-// until now the only way to get it was an external cron calling `titan -p`.
+// until now the only way to get it was an external cron calling `abhed -p`.
 // That works, but the run then lives outside the console: no session in the
 // list, no audit trail beside the interactive ones, no admin view of what is
 // due. This puts the timetable inside the server, so a scheduled run is an

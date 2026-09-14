@@ -23,9 +23,9 @@ import (
 // binary. That refusal was correct (the raw bytes are noise to a model) but it
 // made the whole class of file unusable.
 //
-// Extraction here is deliberately dependency-free. Titan ships into air-gapped
+// Extraction here is deliberately dependency-free. Abhed ships into air-gapped
 // environments, so pulling a CGo PDF library or shelling out to pdftotext would
-// mean either a build toolchain on the target or a binary Titan cannot vouch
+// mean either a build toolchain on the target or a binary Abhed cannot vouch
 // for. The tradeoff is honest: this handles the common cases — uncompressed and
 // Flate-compressed PDF text, and the OOXML formats, which are just zipped XML —
 // and says plainly when it cannot, rather than returning plausible garbage.
@@ -245,7 +245,7 @@ func extractPDF(data []byte) (string, error) {
 			return collapseBlankLines(viaPy), nil
 		}
 		// The fallback's own failure is reported rather than swallowed. A
-		// message saying only "Titan cannot decode this" when the real cause
+		// message saying only "Abhed cannot decode this" when the real cause
 		// is a missing interpreter sends the reader to fix the wrong thing.
 		detail := ""
 		if pyErr != nil {
@@ -253,10 +253,10 @@ func extractPDF(data []byte) (string, error) {
 		}
 		if strings.TrimSpace(text) == "" {
 			return "", fmt.Errorf("no extractable text — this PDF is probably scanned "+
-				"images, which need OCR, or uses an encoding Titan cannot decode%s", detail)
+				"images, which need OCR, or uses an encoding Abhed cannot decode%s", detail)
 		}
 		return "", fmt.Errorf("extracted text looks like binary noise — this PDF "+
-			"uses an embedded encoding Titan cannot decode%s", detail)
+			"uses an embedded encoding Abhed cannot decode%s", detail)
 	}
 	return text, nil
 }

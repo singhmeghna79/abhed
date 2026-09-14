@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Uploading a document into a session.
@@ -109,7 +109,7 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := safeUploadName(header.Filename)
-	dir := filepath.Join(s.opts.Workspace, ".titan", "uploads", sessionID)
+	dir := filepath.Join(s.opts.Workspace, ".abhed", "uploads", sessionID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		writeError(w, http.StatusInternalServerError, "create upload directory: "+err.Error())
 		return

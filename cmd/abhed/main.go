@@ -1,11 +1,11 @@
-// Command titan is an on-prem deep agent harness: it runs where the data is,
+// Command abhed is an on-prem deep agent harness: it runs where the data is,
 //
 // Usage:
 //
-//	titan                      interactive session in the current directory
-//	titan -p "fix the tests"   headless; exit code reflects the terminal event
-//	titan init                 write a starter config
-//	titan doctor               check that the configured endpoint works
+//	abhed                      interactive session in the current directory
+//	abhed -p "fix the tests"   headless; exit code reflects the terminal event
+//	abhed init                 write a starter config
+//	abhed doctor               check that the configured endpoint works
 package main
 
 import (
@@ -25,27 +25,27 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	"github.com/yuvrajsingh/titan/internal/auth"
-	"github.com/yuvrajsingh/titan/internal/config"
-	"github.com/yuvrajsingh/titan/internal/eval"
-	"github.com/yuvrajsingh/titan/internal/extension"
-	"github.com/yuvrajsingh/titan/internal/index"
-	"github.com/yuvrajsingh/titan/internal/k8s"
-	"github.com/yuvrajsingh/titan/internal/mcp"
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/rag"
-	"github.com/yuvrajsingh/titan/internal/remote"
-	"github.com/yuvrajsingh/titan/internal/sandbox"
-	"github.com/yuvrajsingh/titan/internal/schedule"
-	"github.com/yuvrajsingh/titan/internal/server"
-	"github.com/yuvrajsingh/titan/internal/skills"
-	"github.com/yuvrajsingh/titan/internal/store"
-	"github.com/yuvrajsingh/titan/internal/telemetry"
-	"github.com/yuvrajsingh/titan/internal/tools"
-	"github.com/yuvrajsingh/titan/internal/ui"
-	"github.com/yuvrajsingh/titan/internal/websearch"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/yuvrajsingh/abhed/internal/config"
+	"github.com/yuvrajsingh/abhed/internal/eval"
+	"github.com/yuvrajsingh/abhed/internal/extension"
+	"github.com/yuvrajsingh/abhed/internal/index"
+	"github.com/yuvrajsingh/abhed/internal/k8s"
+	"github.com/yuvrajsingh/abhed/internal/mcp"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/rag"
+	"github.com/yuvrajsingh/abhed/internal/remote"
+	"github.com/yuvrajsingh/abhed/internal/sandbox"
+	"github.com/yuvrajsingh/abhed/internal/schedule"
+	"github.com/yuvrajsingh/abhed/internal/server"
+	"github.com/yuvrajsingh/abhed/internal/skills"
+	"github.com/yuvrajsingh/abhed/internal/store"
+	"github.com/yuvrajsingh/abhed/internal/telemetry"
+	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/ui"
+	"github.com/yuvrajsingh/abhed/internal/websearch"
 )
 
 var version = "0.1.0-dev"
@@ -62,12 +62,12 @@ func main() {
 		allow      = flag.String("allow", "", "comma-separated allow rules, e.g. 'bash(go test*)'")
 		deny       = flag.String("deny", "", "comma-separated deny rules")
 		showVer    = flag.Bool("version", false, "print version and exit")
-		listenAddr = flag.String("addr", ":8080", "listen address for `titan serve`")
+		listenAddr = flag.String("addr", ":8080", "listen address for `abhed serve`")
 	)
 	flag.Parse()
 
 	if *showVer {
-		fmt.Println("titan", version)
+		fmt.Println("abhed", version)
 		return
 	}
 
@@ -78,11 +78,11 @@ func main() {
 
 	switch flag.Arg(0) {
 	case "init":
-		path := filepath.Join(workspace, ".titan", "config.json")
+		path := filepath.Join(workspace, ".abhed", "config.json")
 		if err := config.WriteDefault(path); err != nil {
 			fail(err)
 		}
-		fmt.Printf("Wrote %s\nEdit it to point at your model endpoint, then run `titan doctor`.\n", path)
+		fmt.Printf("Wrote %s\nEdit it to point at your model endpoint, then run `abhed doctor`.\n", path)
 		return
 	case "doctor":
 		os.Exit(doctor(workspace))
@@ -90,7 +90,7 @@ func main() {
 		os.Exit(providersCmd())
 	case "rpc":
 		// Line-delimited JSON on stdin and stdout, so a caller in any language
-		// can drive Titan as a subprocess without running a server.
+		// can drive Abhed as a subprocess without running a server.
 		os.Exit(rpcCmd(workspace))
 	case "user":
 		os.Exit(userCmd(workspace, flag.Args()[1:]))
@@ -103,7 +103,7 @@ func main() {
 		_ = evalFlags.Parse(flag.Args()[1:])
 		os.Exit(evalCmd(workspace, *corpus, *jsonOut))
 	case "serve":
-		// Re-parse the remaining args so `titan serve -addr :9000` works: Go's
+		// Re-parse the remaining args so `abhed serve -addr :9000` works: Go's
 		// flag package stops at the first non-flag argument.
 		serveFlags := flag.NewFlagSet("serve", flag.ExitOnError)
 		serveAddr := serveFlags.String("addr", *listenAddr, "listen address")
@@ -156,24 +156,24 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		fail(err)
 	}
 	if sb.Tier() == sandbox.TierNone {
-		fmt.Fprintf(os.Stderr, "titan: warning: %s\n", sb.Describe())
+		fmt.Fprintf(os.Stderr, "abhed: warning: %s\n", sb.Describe())
 	}
 
 	// Custom providers are registered before any provider is resolved, so a
 	// name from configuration is usable as model.default.
 	for _, err := range cfg.RegisterCustomProviders() {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 	}
 
 	// Extensions can veto a tool call, never permit one. The hook they install
 	// runs first in the policy chain so it can refuse, and is structurally
 	// incapable of returning Allow.
 	extHost := extension.NewHost(func(format string, args ...any) {
-		fmt.Fprintf(os.Stderr, "titan: "+format+"\n", args...)
+		fmt.Fprintf(os.Stderr, "abhed: "+format+"\n", args...)
 	})
 	defer extHost.Close()
 	for _, err := range extHost.Load(context.Background(), cfg.ExtensionSpecs()) {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 	}
 	if extHost.Len() > 0 {
 		pol.Hooks = append(pol.Hooks, extHost.PolicyHook(context.Background(), "session"))
@@ -200,12 +200,12 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	)
 
 	// MCP servers extend the tool surface. Every remote tool is namespaced and
-	// routes through the policy engine, since Titan cannot know what it does.
+	// routes through the policy engine, since Abhed cannot know what it does.
 	gateway := mcp.NewGateway()
 	defer gateway.Close()
 	if mcpErrs := gateway.Connect(context.Background(), mcpConfigs(cfg)); len(mcpErrs) > 0 {
 		for _, e := range mcpErrs {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", e)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", e)
 		}
 	}
 	for _, t := range gateway.Tools() {
@@ -216,7 +216,7 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	// recorded. Providing one adds a capability, never a way around the rules.
 	if extTools, toolErrs := extHost.Tools(context.Background()); true {
 		for _, err := range toolErrs {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		}
 		for _, t := range extTools {
 			registry.Add(t)
@@ -243,7 +243,7 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 		})
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: web search disabled: %v\n", err)
 	} else if t != nil {
 		registry.Add(t)
 	}
@@ -251,7 +251,7 @@ func run(workspace, prompt, modeFlag, modelFlag string, maxTurns int, format, al
 	// Retrieval is tier 2: an accelerator over grep, not a replacement.
 	if cfg.Retrieval.Enabled {
 		if ix, err := openIndex(context.Background(), cfg, workspace); err != nil {
-			fmt.Fprintf(os.Stderr, "titan: index unavailable, falling back to grep: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: index unavailable, falling back to grep: %v\n", err)
 		} else {
 			registry.Add(&index.SearchTool{Index: ix})
 		}
@@ -587,7 +587,7 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
   /cost             tokens, cache hit rate, compactions this session
   /compact [hint]   compact the context now
   /clear            clear the context, keep the workspace
-  /memory           show the TITAN.md files in effect
+  /memory           show the ABHED.md files in effect
   /model [name]     show or switch the model, keeping the conversation
   /sessions         list recent sessions (durable store)
   /resume <id>      replay a past session's transcript
@@ -728,7 +728,7 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 	case "/memory":
 		files := agent.DiscoverMemoryFiles(sess.Root)
 		if len(files) == 0 {
-			path := filepath.Join(sess.Root, "TITAN.md")
+			path := filepath.Join(sess.Root, "ABHED.md")
 			fmt.Printf("  %s\n", s.Dim("no memory file yet; create "+path))
 			fmt.Printf("  %s\n", s.Dim("it is re-injected on every request, so keep it short"))
 			return false
@@ -823,7 +823,7 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 		// HTML by default, because a transcript that needs a parser before a
 		// colleague can read it usually does not get read. `/export x.json`
 		// still writes the raw events for a program.
-		path := filepath.Join(sess.Root, fmt.Sprintf("titan-session-%s.html", st.sessionID))
+		path := filepath.Join(sess.Root, fmt.Sprintf("abhed-session-%s.html", st.sessionID))
 		if len(fields) > 1 {
 			path = fields[1]
 		}
@@ -876,18 +876,18 @@ func printUsage(r *ui.Renderer, u agent.Usage) {
 func serveCmd(workspace, addr string) int {
 	cfg, err := config.Load(workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	provider, err := cfg.Provider()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 
 	sb, err := buildSandbox(cfg, workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	registry := tools.NewRegistry(
@@ -920,7 +920,7 @@ func serveCmd(workspace, addr string) int {
 		// startup finding, not a surprise mid-task.
 		if c, err := k8s.Open(k8s.Config{Kubeconfig: cfg.K8s.Kubeconfig,
 			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace,
-			Token: os.Getenv("TITAN_K8S_TOKEN")}); err != nil {
+			Token: os.Getenv("ABHED_K8S_TOKEN")}); err != nil {
 			fmt.Printf("            UNAVAILABLE — %v\n", err)
 		} else {
 			fmt.Printf("            context %s · namespace %s\n", c.Name, c.Namespace)
@@ -981,7 +981,7 @@ func serveCmd(workspace, addr string) int {
 		registry.Add(skills.Tool{R: skillReg})
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "titan: web search disabled: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: web search disabled: %v\n", err)
 	} else if t != nil {
 		registry.Add(t)
 	}
@@ -997,14 +997,14 @@ func serveCmd(workspace, addr string) int {
 
 	eventStore, closeStore, err := openStore(context.Background(), cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	defer closeStore()
 
 	authMW, err := buildAuth(cfg, workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 
@@ -1036,7 +1036,7 @@ func serveCmd(workspace, addr string) int {
 		var err error
 		sched, err = schedule.New(jobs, nil, nil)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 2
 		}
 	}
@@ -1079,13 +1079,13 @@ func serveCmd(workspace, addr string) int {
 
 	bs := ui.NewStyle(os.Stdout)
 	fmt.Printf("%s %s %s  %s\n", bs.Cyan(ui.Glyph),
-		bs.Bold("TITAN"), bs.Dim(version), browsableURL(addr))
+		bs.Bold("ABHED"), bs.Dim(version), browsableURL(addr))
 	fmt.Printf("  workspace %s\n  model     %s\n  sandbox   %s\n  storage   %s\n",
 		workspace, provider.Model, sb.Tier(), storageLabel(cfg))
 	fmt.Printf("  auth      %s\n", authLabel(cfg))
 
 	if err := srv.ListenAndServe(ctx); err != nil && err.Error() != "http: Server closed" {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	return 0
@@ -1099,27 +1099,27 @@ func serveCmd(workspace, addr string) int {
 func evalCmd(workspace, corpusDir, jsonPath string) int {
 	cfg, err := config.Load(workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	provider, err := cfg.Provider()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 
 	tasks, err := eval.LoadTasks(corpusDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	fmt.Printf("running %d tasks against %s\n\n", len(tasks), provider.Model)
 
 	adapter := buildAdapter(provider)
 	evalSkills, evalSkillListing := buildSkills(cfg)
-	workRoot, err := os.MkdirTemp("", "titan-eval-*")
+	workRoot, err := os.MkdirTemp("", "abhed-eval-*")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	defer os.RemoveAll(workRoot)
@@ -1191,7 +1191,7 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 
 	results, err := eval.Run(context.Background(), tasks, workRoot, runner)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 
@@ -1237,7 +1237,7 @@ func splitPositional(args []string) (flags []string, positional string) {
 		a := args[i]
 		if positional == "" && !strings.HasPrefix(a, "-") {
 			// Not a flag value: the preceding token, if a flag, used "=" or
-			// is boolean. Titan's user flags all take values, so a bare word
+			// is boolean. Abhed's user flags all take values, so a bare word
 			// following "-email" belongs to it.
 			if i > 0 && strings.HasPrefix(args[i-1], "-") &&
 				!strings.Contains(args[i-1], "=") {
@@ -1252,16 +1252,16 @@ func splitPositional(args []string) (flags []string, positional string) {
 	return flags, positional
 }
 
-// userCmd manages local accounts: titan user add | list | passwd | remove.
+// userCmd manages local accounts: abhed user add | list | passwd | remove.
 func userCmd(workspace string, args []string) int {
 	cfg, err := config.Load(workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	if cfg.Auth.Mode != "local" {
 		fmt.Fprintf(os.Stderr,
-			"titan: auth.mode is %q, so Titan does not hold accounts.\n"+
+			"abhed: auth.mode is %q, so Abhed does not hold accounts.\n"+
 				"Set \"auth\": {\"mode\": \"local\"} to manage users here.\n",
 			orDefault(cfg.Auth.Mode, "none"))
 		return 1
@@ -1269,11 +1269,11 @@ func userCmd(workspace string, args []string) int {
 
 	us, err := userStore(cfg, workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	if fs, isFile := us.(*auth.FileUserStore); isFile {
-		fmt.Fprintf(os.Stderr, "titan: accounts in %s "+
+		fmt.Fprintf(os.Stderr, "abhed: accounts in %s "+
 			"(set storage.driver to postgres for a multi-node deployment)\n", fs.Path())
 	}
 	la := auth.NewLocalAuth(us, 0, cfg.Auth.CookieSecure)
@@ -1299,7 +1299,7 @@ func userCmd(workspace string, args []string) int {
 		// username. Lift the positional out first, then parse the rest.
 		rest, username := splitPositional(args[1:])
 		if username == "" {
-			fmt.Fprintln(os.Stderr, "usage: titan user add <username> [-email ...] [-name ...]")
+			fmt.Fprintln(os.Stderr, "usage: abhed user add <username> [-email ...] [-name ...]")
 			return 2
 		}
 		fs.Parse(rest)
@@ -1332,7 +1332,7 @@ func userCmd(workspace string, args []string) int {
 			}
 		}
 		if err := la.CreateUser(ctx, u, password); err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 1
 		}
 		fmt.Printf("created %s (tenant %s)\n", username, u.Tenant)
@@ -1343,11 +1343,11 @@ func userCmd(workspace string, args []string) int {
 	case "list":
 		users, err := us.List(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 1
 		}
 		if len(users) == 0 {
-			fmt.Println("no accounts yet — create one with: titan user add <username>")
+			fmt.Println("no accounts yet — create one with: abhed user add <username>")
 			return 0
 		}
 		sort.Slice(users, func(i, j int) bool { return users[i].Username < users[j].Username })
@@ -1359,28 +1359,28 @@ func userCmd(workspace string, args []string) int {
 
 	case "passwd":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: titan user passwd <username>")
+			fmt.Fprintln(os.Stderr, "usage: abhed user passwd <username>")
 			return 2
 		}
 		u, err := us.Get(ctx, args[1])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 1
 		}
 		password := generatePassword()
 		if err := la.CreateUserOrReset(ctx, u, password); err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 1
 		}
 		fmt.Printf("new password for %s: %s\n", u.Username, password)
 
 	case "remove", "rm":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: titan user remove <username>")
+			fmt.Fprintln(os.Stderr, "usage: abhed user remove <username>")
 			return 2
 		}
 		if err := us.Delete(ctx, args[1]); err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 1
 		}
 		fmt.Printf("removed %s\n", args[1])
@@ -1391,17 +1391,17 @@ func userCmd(workspace string, args []string) int {
 		// the accounts simply are not there any more. This moves them.
 		if cfg.Storage.Driver != "postgres" {
 			fmt.Fprintln(os.Stderr,
-				"titan: import copies accounts INTO postgres; set storage.driver first")
+				"abhed: import copies accounts INTO postgres; set storage.driver first")
 			return 1
 		}
-		src, err := auth.NewFileUserStore(filepath.Join(workspace, ".titan", "users.json"))
+		src, err := auth.NewFileUserStore(filepath.Join(workspace, ".abhed", "users.json"))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 			return 1
 		}
 		accounts, err := src.List(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan: read %s: %v\n", src.Path(), err)
+			fmt.Fprintf(os.Stderr, "abhed: read %s: %v\n", src.Path(), err)
 			return 1
 		}
 		if len(accounts) == 0 {
@@ -1418,7 +1418,7 @@ func userCmd(workspace string, args []string) int {
 				continue
 			}
 			if err := us.Put(ctx, u); err != nil {
-				fmt.Fprintf(os.Stderr, "titan: import %s: %v\n", u.Username, err)
+				fmt.Fprintf(os.Stderr, "abhed: import %s: %v\n", u.Username, err)
 				return 1
 			}
 			fmt.Printf("  import %s\n", u.Username)
@@ -1432,7 +1432,7 @@ func userCmd(workspace string, args []string) int {
 		}
 
 	default:
-		fmt.Fprintln(os.Stderr, "usage: titan user [add|list|passwd|remove|import]")
+		fmt.Fprintln(os.Stderr, "usage: abhed user [add|list|passwd|remove|import]")
 		return 2
 	}
 	return 0
@@ -1444,7 +1444,7 @@ func generatePassword() string {
 	const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	b := make([]byte, 16)
 	if _, err := crand.Read(b); err != nil {
-		panic("titan: system random source unavailable: " + err.Error())
+		panic("abhed: system random source unavailable: " + err.Error())
 	}
 	out := make([]byte, len(b))
 	for i, v := range b {
@@ -1619,7 +1619,7 @@ func recordSession(ctx context.Context, st server.EventStore, id string, cfg con
 		Mode:      orDefault(cfg.Permissions.Mode, "default"),
 		StartedAt: time.Now().UTC(),
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "titan: could not persist session: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: could not persist session: %v\n", err)
 	}
 }
 
@@ -1705,12 +1705,12 @@ func openIndex(ctx context.Context, cfg config.Config, workspace string) (*index
 	return ix, nil
 }
 
-// buildIndexCmd implements `titan index`, so a large repo can be indexed once
+// buildIndexCmd implements `abhed index`, so a large repo can be indexed once
 // rather than on every session start.
 func buildIndexCmd(workspace string) int {
 	cfg, err := config.Load(workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	fmt.Printf("indexing %s...\n", workspace)
@@ -1718,7 +1718,7 @@ func buildIndexCmd(workspace string) int {
 
 	ix, err := openIndex(context.Background(), cfg, workspace)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
 	docs, terms, vectors, _ := ix.Stats()
@@ -1754,9 +1754,9 @@ func userStore(cfg config.Config, workspace string) (auth.UserStore, error) {
 		return pg, nil
 	}
 	// No Postgres: keep accounts in a file beside the workspace config, so
-	// `titan user add` and `titan serve` see the same accounts. An in-memory
+	// `abhed user add` and `abhed serve` see the same accounts. An in-memory
 	// store here silently discarded every account the CLI created.
-	path := filepath.Join(workspace, ".titan", "users.json")
+	path := filepath.Join(workspace, ".abhed", "users.json")
 	return auth.NewFileUserStore(path)
 }
 
@@ -1874,7 +1874,7 @@ func skillRoots(cfg config.Config) []string {
 	if dirs := cfg.Skills.Dirs; len(dirs) > 0 {
 		return dirs
 	}
-	return []string{"~/.titan/skills"}
+	return []string{"~/.abhed/skills"}
 }
 
 func buildSkills(cfg config.Config) (*skills.Registry, string) {
@@ -1884,7 +1884,7 @@ func buildSkills(cfg config.Config) (*skills.Registry, string) {
 	dirs := skillRoots(cfg)
 	reg, errs := skills.Load(dirs)
 	for _, err := range errs {
-		fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 	}
 	return reg, reg.Listing()
 }
@@ -1902,7 +1902,7 @@ func buildInfra(cfg config.Config) []tools.Tool {
 			Namespace:  cfg.K8s.Namespace,
 			// From the environment only: a token in a config file sits in a
 			// directory the agent itself can read.
-			Token: os.Getenv("TITAN_K8S_TOKEN"),
+			Token: os.Getenv("ABHED_K8S_TOKEN"),
 		})
 		out = append(out, k8s.GetTool{M: mgr}, k8s.LoginTool{M: mgr})
 		if cfg.K8s.AllowWrites {
@@ -1923,13 +1923,13 @@ func buildInfra(cfg config.Config) []tools.Tool {
 				InsecureSkipHostKeyCheck: h.InsecureSkipHostKeyCheck,
 			})
 			if h.InsecureSkipHostKeyCheck {
-				fmt.Fprintf(os.Stderr, "titan: ssh host %q skips host key "+
+				fmt.Fprintf(os.Stderr, "abhed: ssh host %q skips host key "+
 					"verification — it cannot detect a machine-in-the-middle\n", h.Name)
 			}
 		}
 		reg, errs := remote.NewRegistry(hosts)
 		for _, err := range errs {
-			fmt.Fprintf(os.Stderr, "titan: ssh: %v\n", err)
+			fmt.Fprintf(os.Stderr, "abhed: ssh: %v\n", err)
 		}
 		out = append(out, remote.Tool{R: reg}, remote.ConnectTool{R: reg})
 	}
@@ -1954,7 +1954,7 @@ func buildRAG(cfg config.Config) []tools.Tool {
 				headers[k] = v
 			} else {
 				fmt.Fprintf(os.Stderr,
-					"titan: rag corpus %q needs %s in the environment; skipping\n",
+					"abhed: rag corpus %q needs %s in the environment; skipping\n",
 					c.Name, envVar)
 				headers = nil
 				break
@@ -1971,7 +1971,7 @@ func buildRAG(cfg config.Config) []tools.Tool {
 			SourceField: c.SourceField, TitleField: c.TitleField, ScoreField: c.ScoreField,
 		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "titan: rag corpus %q: %v\n", c.Name, err)
+			fmt.Fprintf(os.Stderr, "abhed: rag corpus %q: %v\n", c.Name, err)
 			continue
 		}
 		out = append(out, &rag.Tool{R: r})
@@ -2018,7 +2018,7 @@ func doctor(workspace string) int {
 	}
 
 	fmt.Printf("%s %s\n\n", ui.NewStyle(os.Stdout).Cyan(ui.Glyph),
-		ui.NewStyle(os.Stdout).Bold("titan doctor"))
+		ui.NewStyle(os.Stdout).Bold("abhed doctor"))
 	fmt.Printf("workspace   %s\n", workspace)
 	fmt.Printf("provider    %s (%s)\n", cfg.Model.Default, provider.Type)
 	fmt.Printf("endpoint    %s\n", provider.BaseURL)
@@ -2057,7 +2057,7 @@ func doctor(workspace string) int {
 		fmt.Printf("kubernetes  %s\n", writes)
 		if c, err := k8s.Open(k8s.Config{Kubeconfig: cfg.K8s.Kubeconfig,
 			Context: cfg.K8s.Context, Namespace: cfg.K8s.Namespace,
-			Token: os.Getenv("TITAN_K8S_TOKEN")}); err != nil {
+			Token: os.Getenv("ABHED_K8S_TOKEN")}); err != nil {
 			fmt.Printf("            UNAVAILABLE — %v\n", err)
 		} else {
 			fmt.Printf("            context %s\n            namespace %s · server %s\n",
@@ -2176,7 +2176,7 @@ func doctor(workspace string) int {
 	}
 	if calls == 0 {
 		fmt.Println("FAILED")
-		fmt.Println("  The model did not emit a tool call. Titan requires tool-calling support.")
+		fmt.Println("  The model did not emit a tool call. Abhed requires tool-calling support.")
 		fmt.Println("  Check that the serving stack has a tool-call parser enabled for this model.")
 		return 1
 	}
@@ -2190,9 +2190,9 @@ func doctor(workspace string) int {
 		fmt.Printf("SKIPPED\n  %v\n", err)
 	} else {
 		sctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		out, err := sb.Command(sctx, workspace, "echo titan-sandbox-ok").CombinedOutput()
+		out, err := sb.Command(sctx, workspace, "echo abhed-sandbox-ok").CombinedOutput()
 		cancel()
-		if err != nil || !strings.Contains(string(out), "titan-sandbox-ok") {
+		if err != nil || !strings.Contains(string(out), "abhed-sandbox-ok") {
 			fmt.Println("FAILED")
 			fmt.Printf("  tier %s could not run a command: %v\n", sb.Tier(), err)
 			if msg := strings.TrimSpace(string(out)); msg != "" {
@@ -2254,7 +2254,7 @@ func must(err error) {
 }
 
 func fail(err error) {
-	fmt.Fprintf(os.Stderr, "titan: %v\n", err)
+	fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 	os.Exit(1)
 }
 
@@ -2270,7 +2270,7 @@ func providersCmd() int {
 		fmt.Println("  " + d)
 	}
 	fmt.Println()
-	fmt.Println("Set one as \"type\" in .titan/config.json under model.providers.")
+	fmt.Println("Set one as \"type\" in .abhed/config.json under model.providers.")
 	fmt.Println("Sampling parameters go in that provider's \"params\" object;")
 	fmt.Println("a parameter the provider cannot honour is reported at startup")
 	fmt.Println("rather than silently ignored.")

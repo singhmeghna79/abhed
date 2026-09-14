@@ -40,7 +40,7 @@ case "$got" in
     echo "  What it still does not prove is arrival. Open the destination"
     echo "  mailbox and look for:"
     echo
-    echo "      Titan access request - Deployment check (Zybuu)"
+    echo "      Abhed access request - Deployment check (Zybuu)"
     echo
     echo "  If it is not there within a minute or two, check the Resend"
     echo "  dashboard's Emails tab — it shows delivered, bounced or blocked"

@@ -213,7 +213,7 @@ func (s *Process) env() []string {
 		"GOPATH", "GOROOT", "GOCACHE", "GOMODCACHE",
 		"NODE_PATH", "npm_config_cache", "CARGO_HOME", "RUSTUP_HOME",
 		"JAVA_HOME", "PYTHONPATH", "VIRTUAL_ENV"}
-	out := []string{"TITAN_SANDBOX=" + string(s.Tier())}
+	out := []string{"ABHED_SANDBOX=" + string(s.Tier())}
 	for _, k := range keep {
 		if v := os.Getenv(k); v != "" {
 			out = append(out, k+"="+v)
@@ -242,6 +242,6 @@ func (n *None) Describe() string {
 func (n *None) Command(ctx context.Context, cwd, command string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 	cmd.Dir = cwd
-	cmd.Env = append(os.Environ(), "TITAN_SANDBOX=none")
+	cmd.Env = append(os.Environ(), "ABHED_SANDBOX=none")
 	return cmd
 }

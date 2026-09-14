@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Titan — the agent harness for work that cannot leave the building</title>
-<meta name="description" content="Titan is a deep agent harness: five run surfaces, twenty model providers behind one abstraction, a tiered execution sandbox and a replayable audit trail. It runs on your own hardware against a model you host.">
-<meta property="og:title" content="Titan — an agent harness that runs where your data cannot leave">
+<title>Abhed — the agent harness for work that cannot leave the building</title>
+<meta name="description" content="Abhed is a deep agent harness: five run surfaces, twenty model providers behind one abstraction, a tiered execution sandbox and a replayable audit trail. It runs on your own hardware against a model you host.">
+<meta property="og:title" content="Abhed — an agent harness that runs where your data cannot leave">
 <meta property="og:description" content="Five run surfaces, twenty providers, policy and audit that hold when embedded.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://zybuu.com/titan/">
+<meta property="og:url" content="https://zybuu.com/abhed/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20256%20256%22%3E%20%3Cdefs%3E%20%3ClinearGradient%20id=%22zt%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%235CC4FF%22/%3E%20%3Cstop%20offset=%2250%25%22%20stop-color=%22%232A8CF0%22/%3E%20%3Cstop%20offset=%22100%25%22%20stop-color=%22%230B3C8C%22/%3E%20%3C/linearGradient%3E%20%3CradialGradient%20id=%22zl%22%20cx=%2222%25%22%20cy=%2218%25%22%20r=%2280%25%22%3E%20%3Cstop%20offset=%220%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%22.26%22/%3E%20%3Cstop%20offset=%2260%25%22%20stop-color=%22%23FFFFFF%22%20stop-opacity=%220%22/%3E%20%3C/radialGradient%3E%20%3Cmask%20id=%22zcut%22%3E%20%3Crect%20width=%22256%22%20height=%22256%22%20fill=%22%23fff%22/%3E%20%3Cg%20fill=%22%23000%22%3E%20%3Crect%20x=%2270%22%20y=%2262%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Crect%20x=%2260%22%20y=%22160%22%20width=%22126%22%20height=%2234%22%20rx=%229%22/%3E%20%3Cpath%20d=%22M156%2096%20H200%20L100%20160%20H56%20Z%22/%3E%20%3C/g%3E%20%3C/mask%3E%20%3C/defs%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zt)%22%20mask=%22url(%23zcut)%22/%3E%20%3Crect%20x=%2214%22%20y=%2214%22%20width=%22228%22%20height=%22228%22%20rx=%2258%22%20fill=%22url(%23zl)%22%20mask=%22url(%23zcut)%22/%3E%20%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style data-shared>
-/* Zybuu site stylesheet — shared by zybuu.com and zybuu.com/titan.
+/* Zybuu site stylesheet — shared by zybuu.com and zybuu.com/abhed.
  *
  * Source of truth: deploy/sitegen/site.css. It is inlined into the first
  * <style> block of each page by deploy/sitegen/inline-css.py, which the publish
@@ -372,7 +372,7 @@ td:first-child { color: var(--ink); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 </style>
 <style>
-/* ---- titan page ------------------------------------------------------ */
+/* ---- abhed page ------------------------------------------------------ */
 .pillars .card{gap:6px}
 .pillars .card h3{font-size:15.5px}
 .pillars .card p{font-size:13.8px}
@@ -439,16 +439,16 @@ pre.code .g{color:#6FD0FF}
 <header id="hdr">
   <div class="wrap bar">
     <a class="logo" href="https://zybuu.com/"> <svg class="" viewBox="0 0 256 256" aria-hidden="true"> <defs> <linearGradient id="zb-zt" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%"   stop-color="#5CC4FF"/> <stop offset="50%"  stop-color="#2A8CF0"/> <stop offset="100%" stop-color="#0B3C8C"/> </linearGradient> <radialGradient id="zb-zl" cx="22%" cy="18%" r="80%"> <stop offset="0%"   stop-color="#FFFFFF" stop-opacity=".26"/> <stop offset="60%"  stop-color="#FFFFFF" stop-opacity="0"/> </radialGradient> <mask id="zb-zcut"> <rect width="256" height="256" fill="#fff"/> <g fill="#000"> <rect x="70" y="62" width="126" height="34" rx="9"/> <rect x="60" y="160" width="126" height="34" rx="9"/> <path d="M156 96 H200 L100 160 H56 Z"/> </g> </mask> </defs> <rect x="14" y="14" width="228" height="228" rx="58" fill="url(#zb-zt)" mask="url(#zb-zcut)"/> <rect x="14" y="14" width="228" height="228" rx="58" fill="url(#zb-zl)" mask="url(#zb-zcut)"/> </svg>
-      Zybuu<span class="prod">Titan</span>
+      Zybuu<span class="prod">Abhed</span>
     </a>
     <nav class="nav">
       <a href="/" class="hide-sm">Zybuu</a>
       <a href="#install">Install</a>
-      <a href="#why" class="hide-sm">Why Titan</a>
+      <a href="#why" class="hide-sm">Why Abhed</a>
       <a href="#harness" class="hide-sm">Harness</a>
       <a href="#pricing" class="hide-sm">Pricing</a>
-      <a href="https://titan.zybuu.com/docs/">Docs</a>
-      <a class="btn" href="https://titan.zybuu.com">Open console</a>
+      <a href="https://abhed.zybuu.com/docs/">Docs</a>
+      <a class="btn" href="https://abhed.zybuu.com">Open console</a>
     </nav>
   </div>
 </header>
@@ -457,10 +457,10 @@ pre.code .g{color:#6FD0FF}
 <section class="hero">
   <div class="wrap inner">
     <div>
-      <span class="eyebrow"><i></i>Titan · a Zybuu product · invite-only</span>
+      <span class="eyebrow"><i></i>Abhed · a Zybuu product · invite-only</span>
       <h1>The agent harness for work that <span class="hl">cannot leave the building.</span></h1>
       <p class="lede">
-        Titan is a deep agent harness: the loop, the tool contracts, the
+        Abhed is a deep agent harness: the loop, the tool contracts, the
         permission engine and the sandbox. It runs on your own hardware, against
         a model you host. Policy, audit and deny rules hold when you embed it in
         something else.
@@ -469,7 +469,7 @@ pre.code .g{color:#6FD0FF}
         <a class="btn lg" href="#install">Install it
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg></a>
         <a class="btn ghost lg" href="#replay">Watch a real run</a>
-        <a class="btn ghost lg" href="https://titan.zybuu.com">Open console</a>
+        <a class="btn ghost lg" href="https://abhed.zybuu.com">Open console</a>
       </div>
       <div class="chips">
         <span class="chip"><b>one</b> static binary</span>
@@ -484,10 +484,10 @@ pre.code .g{color:#6FD0FF}
           <span class="dot" style="background:#FF5F57"></span>
           <span class="dot" style="background:#FEBC2E"></span>
           <span class="dot" style="background:#28C840"></span>
-          <span class="t">~/demo — titan</span>
+          <span class="t">~/demo — abhed</span>
           <span class="live"><i></i>recorded session</span>
         </div>
-        <div class="term-body" id="ht" style="height:21em" role="img" aria-label="A real Titan session, replayed"></div>
+        <div class="term-body" id="ht" style="height:21em" role="img" aria-label="A real Abhed session, replayed"></div>
         <div class="term-foot">
           <span>sandbox <b>process</b></span>
           <span>egress <b>none</b></span>
@@ -501,7 +501,7 @@ pre.code .g{color:#6FD0FF}
 
 <section id="why">
   <div class="wrap">
-    <p class="kicker">Why Titan</p>
+    <p class="kicker">Why Abhed</p>
     <h2>Five things "under your control" actually means.</h2>
     <p class="sub">Each one is a property this repository tests, not a line of copy.</p>
     <div class="grid g5 pillars">
@@ -553,15 +553,15 @@ pre.code .g{color:#6FD0FF}
           <span class="dot" style="background:#FF5F57"></span>
           <span class="dot" style="background:#FEBC2E"></span>
           <span class="dot" style="background:#28C840"></span>
-          <span class="t">~/demo — titan</span>
+          <span class="t">~/demo — abhed</span>
           <span class="live"><i></i>recorded session</span>
         </div>
-        <div class="term-body" id="tb" role="img" aria-label="Terminal replay of a real Titan session"></div>
+        <div class="term-body" id="tb" role="img" aria-label="Terminal replay of a real Abhed session"></div>
       </div>
 
       <div>
         <div class="steps" id="steps">
-      <button class="step" type="button" data-i="0" aria-current="true" data-done="false"><h4><span class="n">1</span>Check the model before you trust it</h4><p>A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back — ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open.</p><span class="bar"></span></button>
+      <button class="step" type="button" data-i="0" aria-current="true" data-done="false"><h4><span class="n">1</span>Check the model before you trust it</h4><p>A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>abhed doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back — ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open.</p><span class="bar"></span></button>
       <button class="step" type="button" data-i="1" aria-current="false" data-done="false"><h4><span class="n">2</span>One prompt, no terminal to sit in front of</h4><p><code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace.</p><span class="bar"></span></button>
       <button class="step" type="button" data-i="2" aria-current="false" data-done="false"><h4><span class="n">3</span>It recovers, then it reads</h4><p>The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate — and that you can replay afterwards from the event log, in order, with their arguments.</p><span class="bar"></span></button>
       <button class="step" type="button" data-i="3" aria-current="false" data-done="false"><h4><span class="n">4</span>Writes are a permission, not a default</h4><p>Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse — never assume yes.</p><span class="bar"></span></button>
@@ -588,12 +588,12 @@ pre.code .g{color:#6FD0FF}
     </div>
 
     <div id="pane-src">
-      <pre class="code"><span class="c"># Go 1.26 or newer. Titan is a single binary with no runtime dependencies.</span>
-git clone https://github.com/yuvrajsingh/titan
-cd titan
-go build -o ~/.local/bin/titan ./cmd/titan
+      <pre class="code"><span class="c"># Go 1.26 or newer. Abhed is a single binary with no runtime dependencies.</span>
+git clone https://github.com/yuvrajsingh/abhed
+cd abhed
+go build -o ~/.local/bin/abhed ./cmd/abhed
 
-titan -version</pre>
+abhed -version</pre>
       <div class="callout">
         <strong>The repository is not public yet.</strong> There is no
         <code>go install</code> path and no piped-shell installer,
@@ -604,11 +604,11 @@ titan -version</pre>
 
     <div id="pane-air" hidden>
       <pre class="code"><span class="c"># Build a signed bundle on a connected machine:</span>
-./scripts/build-bundle.sh          <span class="c"># -&gt; titan-bundle.tar.gz + .sha256 + .sig</span>
+./scripts/build-bundle.sh          <span class="c"># -&gt; abhed-bundle.tar.gz + .sha256 + .sig</span>
 
 <span class="c"># Carry it in. On the target, with no internet route:</span>
-./scripts/verify-bundle.sh titan-bundle.tar.gz
-tar xzf titan-bundle.tar.gz &amp;&amp; ./install.sh</pre>
+./scripts/verify-bundle.sh abhed-bundle.tar.gz
+tar xzf abhed-bundle.tar.gz &amp;&amp; ./install.sh</pre>
       <div class="callout">
         Verification is separate from install on purpose: a bundle that fails
         its signature check should never reach the installer. This is the path
@@ -617,17 +617,17 @@ tar xzf titan-bundle.tar.gz &amp;&amp; ./install.sh</pre>
     </div>
 
     <div id="pane-run" hidden>
-      <pre class="code"><span class="c"># Titan does not ship a model. Point it at one you host:</span>
+      <pre class="code"><span class="c"># Abhed does not ship a model. Point it at one you host:</span>
 ollama serve
 ollama pull qwen3-coder:30b
 
 <span class="c"># Then, in the directory you want the agent to work in:</span>
-titan init      <span class="c"># writes .titan/config.json, detects a local endpoint</span>
-titan doctor    <span class="c"># check the endpoint before you rely on it</span>
+abhed init      <span class="c"># writes .abhed/config.json, detects a local endpoint</span>
+abhed doctor    <span class="c"># check the endpoint before you rely on it</span>
 
 <span class="g">Ready.</span></pre>
       <div class="callout">
-        <code>titan doctor</code> is worth the ten seconds. It checks the
+        <code>abhed doctor</code> is worth the ten seconds. It checks the
         endpoint answers <strong>and</strong> that the model can emit a
         structured tool call — a model that describes one in prose cannot drive
         an agent, and finding that out mid-task wastes the run.
@@ -636,7 +636,7 @@ titan doctor    <span class="c"># check the endpoint before you rely on it</span
 
     <p class="body" style="margin-top:20px">
       Full instructions, configuration and every tool contract are in the
-      <a href="https://titan.zybuu.com/docs/">documentation</a>.
+      <a href="https://abhed.zybuu.com/docs/">documentation</a>.
     </p>
   </div>
 </section>
@@ -656,15 +656,15 @@ titan doctor    <span class="c"># check the endpoint before you rely on it</span
       <table class="lim">
         <thead><tr><th>Surface</th><th>What it is for</th></tr></thead>
         <tbody>
-          <tr><td><code>titan</code></td>
+          <tr><td><code>abhed</code></td>
               <td>Interactive. Line editor, slash commands, steer a run mid-flight.</td></tr>
-          <tr><td><code>titan -p "…"</code></td>
+          <tr><td><code>abhed -p "…"</code></td>
               <td>Headless. One prompt, typed exit code, for CI and scripts.</td></tr>
           <tr><td><code>-output-format json</code></td>
               <td>One JSON event per line on stdout, streamed as it happens.</td></tr>
-          <tr><td><code>titan rpc</code></td>
+          <tr><td><code>abhed rpc</code></td>
               <td>JSONL over stdio. Drive it as a subprocess from any language.</td></tr>
-          <tr><td><code>titan serve</code></td>
+          <tr><td><code>abhed serve</code></td>
               <td>REST, SSE and a web console. Multi-user, tenant-scoped.</td></tr>
         </tbody>
       </table>
@@ -691,20 +691,20 @@ titan doctor    <span class="c"># check the endpoint before you rely on it</span
     </p>
 
     <div class="scroll">
-      <pre class="code"><code>a, err := titan.New(ctx, titan.Options{
+      <pre class="code"><code>a, err := abhed.New(ctx, abhed.Options{
     Workspace: "/srv/work",
-    Provider:  &amp;titan.Provider{Type: "anthropic", Model: "claude-opus-4-5"},
+    Provider:  &amp;abhed.Provider{Type: "anthropic", Model: "claude-opus-4-5"},
     Mode:      "auto",
     Deny:      []string{"bash(rm -rf *)"},
 
     // Your app decides. No approver means refuse — never assume yes.
     Approve: func(ctx context.Context, tool string,
-        args json.RawMessage, d titan.Decision) (bool, error) {
+        args json.RawMessage, d abhed.Decision) (bool, error) {
         return askYourUser(tool, args, d.Reason)
     },
 
     // Every action, as it happens.
-    OnEvent: func(ev titan.Event) { log.Println(ev.Type) },
+    OnEvent: func(ev abhed.Event) { log.Println(ev.Type) },
 })
 defer a.Close()
 
@@ -714,7 +714,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <div class="api"><code>Run</code><code>RunJSON</code><code>Continue</code><code>Steer</code><code>Fork</code><code>Events</code><code>Usage</code><code>ExportHTML</code><code>SetModel</code></div>
     <p class="body" style="margin-top:14px">
       <code>Steer</code> works from another goroutine, mid-run. For anything
-      not written in Go, <code>titan rpc</code> is the same agent over JSONL.
+      not written in Go, <code>abhed rpc</code> is the same agent over JSONL.
     </p>
   </div>
 </section>
@@ -764,7 +764,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
       database enforces. Both have to be in the core, which is where these are.
     </p>
     <p class="body" style="margin-bottom:24px">
-      <strong>They are not on by default.</strong> Titan ships with an
+      <strong>They are not on by default.</strong> Abhed ships with an
       in-memory store, which keeps a single-machine trial simple and gives you
       none of what follows. The triggers and the row-level security are
       properties of the Postgres store — one config line — and a deployment
@@ -851,7 +851,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 <section id="chat">
   <div class="wrap">
     <p class="kicker">Reference application</p>
-    <h2>Titan Chat is one thing built on it.</h2>
+    <h2>Abhed Chat is one thing built on it.</h2>
     <p class="body">
       A multi-user console — documents in and out, diagrams, live Kubernetes
       debugging, SSH to declared hosts, every write behind a human approval
@@ -860,21 +860,21 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     </p>
     <p class="body">
       It is running now at
-      <a href="https://titan.zybuu.com">titan.zybuu.com</a> — the sign-in page
+      <a href="https://abhed.zybuu.com">abhed.zybuu.com</a> — the sign-in page
       is public, and access is by invitation while it runs on our own
       infrastructure. <a href="#access">Request one</a> and we will get back to
       you.
     </p>
   </div>
 </section>
-<section id="titan-evidence">
+<section id="abhed-evidence">
   <div class="wrap">
     <p class="kicker">Evidence</p>
     <h2>Numbers that survive a technical diligence call.</h2>
 
     <div class="ev">
       <div><b>24 / 24</b><span>adversarial attacks blocked in the red-team suite</span></div>
-      <div><b>587</b><span>test functions across the engine</span></div>
+      <div><b>588</b><span>test functions across the engine</span></div>
       <div><b>20</b><span>model providers behind one abstraction</span></div>
       <div><b>0</b><span>bytes leaving the network by default</span></div>
     </div>
@@ -894,7 +894,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 <section id="limitations">
   <div class="wrap">
     <p class="kicker">Limitations</p>
-    <h2>What Titan does not do.</h2>
+    <h2>What Abhed does not do.</h2>
     <p class="body" style="margin-bottom:22px">
       Every row below is a constraint we would rather you knew before a trial
       than after one. Where there is a path forward it is stated; where the
@@ -909,7 +909,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
         <tbody>
           <tr>
             <td>Vision needs a vision model</td>
-            <td>Titan reads images, but only on a model that can see. A local
+            <td>Abhed reads images, but only on a model that can see. A local
               text-only model refuses the attachment by name rather than
               guessing at it.</td>
           </tr>
@@ -984,11 +984,11 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <div class="partner">
       <div>
         <h3>Design partner · ninety days</h3>
-        <p>Deployment done with you on your infrastructure, a direct line to the founder, roadmap influence, and conversion to Enterprise at a locked price. Three to five partners, in the segments Titan is built for. <b>$25k.</b></p>
+        <p>Deployment done with you on your infrastructure, a direct line to the founder, roadmap influence, and conversion to Enterprise at a locked price. Three to five partners, in the segments Abhed is built for. <b>$25k.</b></p>
       </div>
       <a class="btn lg" href="#access">Apply</a>
     </div>
-    <p class="fine">Prices are launch pricing as of September 2026 and may change before general availability; a signed agreement fixes yours. What Titan does not yet have — certifications, an SLA, high availability — is stated in the limitations above, not hidden in a contract.</p>
+    <p class="fine">Prices are launch pricing as of September 2026 and may change before general availability; a signed agreement fixes yours. What Abhed does not yet have — certifications, an SLA, high availability — is stated in the limitations above, not hidden in a contract.</p>
   </div>
 </section>
 
@@ -997,7 +997,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
     <div class="cta-band">
       <h2>Request access.</h2>
       <p class="body">
-        Titan is not publicly downloadable yet. Tell us what you would point it
+        Abhed is not publicly downloadable yet. Tell us what you would point it
         at and we will get back to you — with an invite to the hosted console,
         or a conversation about running it on your own infrastructure.
       </p>
@@ -1037,8 +1037,8 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 <footer>
   <div class="wrap foot">
     <span><a href="/">Zybuu</a></span>
-    <span><a href="https://titan.zybuu.com/docs/">Documentation</a></span>
-    <span><a href="https://titan.zybuu.com/docs/vision">Vision</a></span>
+    <span><a href="https://abhed.zybuu.com/docs/">Documentation</a></span>
+    <span><a href="https://abhed.zybuu.com/docs/vision">Vision</a></span>
     <span class="sp"></span>
     <span>On-prem by default · Tool output is data, never instructions</span>
   </div>
@@ -1051,7 +1051,7 @@ answer, err := a.Run(ctx, "fix the failing tests")</code></pre>
 // clicked before it shows anything is a demo most readers never see. Clicking
 // a step takes over: auto-advance stops and stays stopped, so a reader who is
 // steering is never fought by the page.
-var STEPS = [{"cmd": "titan doctor", "out": [["dim", "workspace   ~/demo"], ["dim", "provider    local (openai-compatible)"], ["dim", "endpoint    http://localhost:11434/v1"], ["dim", "model       gemma4:26b"], ["dim", "sandbox     process \u2014 workspace-scoped writes \u00b7 no network"], ["dim", "storage     memory (sessions do not survive restart)"], ["", ""], ["ok", "checking endpoint... ok"], ["ok", "checking tool calling... ok"], ["dim", "  called glob with {\"pattern\":\"*.go\"}"], ["", ""], ["ok", "Ready."]], "title": "Check the model before you trust it", "body": "A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>titan doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back \u2014 ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open."}, {"cmd": "titan -p \"Add a FToC function converting Fahrenheit to Celsius to tempconv.go, and a table-driven test for both in tempconv_test.go. Then run go test.\"", "out": [["tool", "\u25cf glob tempconv*"], ["res", "  \u2514 1 line(s)"], ["tool", "\u25cf read tempconv.go"], ["warn", "  \u2502 path must be absolute. Did you mean ~/demo/tempconv.go?"]], "title": "One prompt, no terminal to sit in front of", "body": "<code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace."}, {"cmd": null, "out": [["tool", "\u25cf bash Check current working directory"], ["res", "  \u2514 exit 0"], ["tool", "\u25cf read ~/demo/tempconv.go"], ["res", "  \u2514 12 line(s)"], ["tool", "\u25cf glob tempconv_test.go"], ["res", "  \u2514 no results"]], "title": "It recovers, then it reads", "body": "The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate \u2014 and that you can replay afterwards from the event log, in order, with their arguments."}, {"cmd": null, "out": [["tool", "\u25cf edit ~/demo/tempconv.go"], ["res", "  \u2514 Edited tempconv.go."], ["tool", "\u25cf write ~/demo/tempconv_test.go"], ["res", "  \u2514 Created tempconv_test.go (629 bytes, 39 lines)."]], "title": "Writes are a permission, not a default", "body": "Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse \u2014 never assume yes."}, {"cmd": null, "out": [["tool", "\u25cf bash Run tests"], ["ok", "  \u2514 exit 0"], ["", ""], ["dim", "9 turns \u00b7 30,193 in / 1,825 out tokens"]], "title": "And it checks its own work", "body": "<code>go test</code> passes. The whole task \u2014 read, edit, write, verify \u2014 took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost."}];
+var STEPS = [{"cmd": "abhed doctor", "out": [["dim", "workspace   ~/demo"], ["dim", "provider    local (openai-compatible)"], ["dim", "endpoint    http://localhost:11434/v1"], ["dim", "model       gemma4:26b"], ["dim", "sandbox     process \u2014 workspace-scoped writes \u00b7 no network"], ["dim", "storage     memory (sessions do not survive restart)"], ["", ""], ["ok", "checking endpoint... ok"], ["ok", "checking tool calling... ok"], ["dim", "  called glob with {\"pattern\":\"*.go\"}"], ["", ""], ["ok", "Ready."]], "title": "Check the model before you trust it", "body": "A model that describes a tool call in prose instead of emitting one cannot drive an agent at all, however well it writes. <code>abhed doctor</code> proves the endpoint answers <em>and</em> that a structured call comes back \u2014 ten seconds now instead of a wasted run later. It also prints what is actually in force: which sandbox tier, which store, whether the network is open."}, {"cmd": "abhed -p \"Add a FToC function converting Fahrenheit to Celsius to tempconv.go, and a table-driven test for both in tempconv_test.go. Then run go test.\"", "out": [["tool", "\u25cf glob tempconv*"], ["res", "  \u2514 1 line(s)"], ["tool", "\u25cf read tempconv.go"], ["warn", "  \u2502 path must be absolute. Did you mean ~/demo/tempconv.go?"]], "title": "One prompt, no terminal to sit in front of", "body": "<code>-p</code> is headless: one prompt, the agent runs to completion, you get the result. The same binary, the same policy engine, the same audit trail as the interactive session.<br><br>Note the second line. The agent guessed a relative path, the tool contract refused it and <em>said what would have worked</em>. Tool errors are written for the model to recover from, not for a human to read a stack trace."}, {"cmd": null, "out": [["tool", "\u25cf bash Check current working directory"], ["res", "  \u2514 exit 0"], ["tool", "\u25cf read ~/demo/tempconv.go"], ["res", "  \u2514 12 line(s)"], ["tool", "\u25cf glob tempconv_test.go"], ["res", "  \u2514 no results"]], "title": "It recovers, then it reads", "body": "The agent takes the correction, checks where it is, re-reads with an absolute path, and confirms no test file exists yet. Four tool calls that a human would not narrate \u2014 and that you can replay afterwards from the event log, in order, with their arguments."}, {"cmd": null, "out": [["tool", "\u25cf edit ~/demo/tempconv.go"], ["res", "  \u2514 Edited tempconv.go."], ["tool", "\u25cf write ~/demo/tempconv_test.go"], ["res", "  \u2514 Created tempconv_test.go (629 bytes, 39 lines)."]], "title": "Writes are a permission, not a default", "body": "Both of these were <strong>refused</strong> on the first capture of this run: headless mode has nobody to ask, so the policy engine rejected every mutating tool and the agent said so rather than pretending. They run here because the workspace config allows <code>edit</code> and <code>write</code>. No approver means refuse \u2014 never assume yes."}, {"cmd": null, "out": [["tool", "\u25cf bash Run tests"], ["ok", "  \u2514 exit 0"], ["", ""], ["dim", "9 turns \u00b7 30,193 in / 1,825 out tokens"]], "title": "And it checks its own work", "body": "<code>go test</code> passes. The whole task \u2014 read, edit, write, verify \u2014 took 9 turns against a 26B model running on the same laptop, with nothing leaving the machine.<br><br>Every line above is a real capture, not a mock-up. The token count is what it cost."}];
 (function () {
   var tb = document.getElementById('tb'),
       steps = [].slice.call(document.querySelectorAll('.step')),

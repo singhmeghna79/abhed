@@ -6,15 +6,15 @@
   const { el, svg, fx, ease, clamp } = window.Motion;
 
   const ZYBUU = `<svg viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="zg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="50%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><mask id="zc"><rect width="256" height="256" fill="#fff"/><g fill="#000"><rect x="70" y="62" width="126" height="34" rx="9"/><rect x="60" y="160" width="126" height="34" rx="9"/><path d="M156 96 H200 L100 160 H56 Z"/></g></mask></defs><rect x="14" y="14" width="228" height="228" rx="58" fill="url(#zg)" mask="url(#zc)"/></svg>`;
-  const TITAN = `<svg viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="55%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><radialGradient id="tc" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="70%" stop-color="#DDEFFF"/><stop offset="100%" stop-color="#9ED2FF"/></radialGradient><radialGradient id="tw" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#5CC4FF" stop-opacity=".5"/><stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/></radialGradient></defs><g fill="none" stroke="url(#tg)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"><path d="M104 34 H64 a20 20 0 0 0 -20 20 V202 a20 20 0 0 0 20 20 H104"/><path d="M152 34 H192 a20 20 0 0 1 20 20 V202 a20 20 0 0 1 -20 20 H152"/></g><circle cx="128" cy="128" r="60" fill="url(#tw)"/><circle cx="128" cy="128" r="31" fill="url(#tc)"/></svg>`;
+  const ABHED = `<svg viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5CC4FF"/><stop offset="55%" stop-color="#2A8CF0"/><stop offset="100%" stop-color="#0B3C8C"/></linearGradient><radialGradient id="core" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="70%" stop-color="#DDEFFF"/><stop offset="100%" stop-color="#9ED2FF"/></radialGradient><radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#5CC4FF" stop-opacity=".55"/><stop offset="100%" stop-color="#5CC4FF" stop-opacity="0"/></radialGradient></defs><path d="M218.6 90.5 L165.5 37.4 L90.5 37.4 L37.4 90.5 L37.4 165.5 L90.5 218.6 L165.5 218.6 L218.6 165.5 Z" fill="none" stroke="url(#wall)" stroke-width="24" stroke-linejoin="round"/><circle cx="128" cy="128" r="62" fill="none" stroke="url(#wall)" stroke-width="6" opacity=".45"/><circle cx="128" cy="128" r="50" fill="url(#glow)"/><circle cx="128" cy="128" r="23" fill="url(#core)"/></svg>`;
 
   const pos = (n, x, y, w, h) => { n.style.left = x + 'px'; n.style.top = y + 'px'; if (w) n.style.width = w + 'px'; if (h) n.style.height = h + 'px'; return n; };
 
   const Parts = {
-    marks: { zybuu: ZYBUU, titan: TITAN },
+    marks: { zybuu: ZYBUU, abhed: ABHED },
 
     logo(s, { x, y, text, prod, mark = 'zybuu', at = 0, size = 120 }) {
-      const n = el('div', 'logo', (mark === 'titan' ? TITAN : ZYBUU) + `<b>${text}${prod ? `<span class="prod"> / ${prod}</span>` : ''}</b>`);
+      const n = el('div', 'logo', (mark === 'abhed' ? ABHED : ZYBUU) + `<b>${text}${prod ? `<span class="prod"> / ${prod}</span>` : ''}</b>`);
       n.querySelector('svg').style.width = n.querySelector('svg').style.height = size + 'px';
       n.querySelector('b').style.fontSize = Math.round(size * 0.8) + 'px';
       pos(n, x, y); s.el.appendChild(n);
@@ -81,7 +81,7 @@
     callout(s, html, { x, y, at, w }) { const n = pos(el('div', 'callout', html), x, y, w); s.el.appendChild(n); s.at(at, 0.45, fx.scaleIn(n, 0.9), ease.outBack); return n; },
 
     // A terminal whose lines appear on their own schedule. lines: [cls, text, at, typed?]
-    terminal(s, { x, y, w, h, title = '~/work — titan', at = 0, lines = [], size }) {
+    terminal(s, { x, y, w, h, title = '~/work — abhed', at = 0, lines = [], size }) {
       const n = pos(el('div', 'term'), x, y, w, h);
       n.innerHTML = `<div class="bar"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><span class="t">${title}</span></div><div class="body"></div>`;
       if (size) n.querySelector('.body').style.fontSize = size + 'px';

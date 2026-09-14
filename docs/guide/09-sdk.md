@@ -1,24 +1,24 @@
 # The SDK
 
-Titan's internals live under `internal/`, which Go refuses to let another module
+Abhed's internals live under `internal/`, which Go refuses to let another module
 import. The `sdk` package is the supported surface across that wall, kept small
 so the internals stay free to change.
 
 ```go
-import titan "github.com/yuvrajsingh/titan/sdk"
+import abhed "github.com/yuvrajsingh/abhed/sdk"
 
-a, err := titan.New(ctx, titan.Options{
+a, err := abhed.New(ctx, abhed.Options{
     Workspace: "/srv/work",
-    Provider: &titan.Provider{
+    Provider: &abhed.Provider{
         Type: "anthropic", Model: "claude-opus-5",
         APIKey: os.Getenv("ANTHROPIC_API_KEY"),
     },
     Mode: "auto",
     Deny: []string{"bash(rm -rf *)"},
-    Approve: func(ctx context.Context, tool string, args json.RawMessage, d titan.Decision) (bool, error) {
+    Approve: func(ctx context.Context, tool string, args json.RawMessage, d abhed.Decision) (bool, error) {
         return askTheUser(tool, args, d.Reason)
     },
-    OnEvent: func(ev titan.Event) { log.Println(ev.Type) },
+    OnEvent: func(ev abhed.Event) { log.Println(ev.Type) },
 })
 if err != nil {
     return err

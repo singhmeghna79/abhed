@@ -1,4 +1,4 @@
-// Package store provides durable persistence for Titan's event stream.
+// Package store provides durable persistence for Abhed's event stream.
 //
 // The in-memory store is fine for a CLI session; it is not fine for audit. This
 // package makes sessions survive restart and gives compliance a substrate it can
@@ -19,7 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/agent"
 )
 
 //go:embed schema.sql
@@ -425,7 +425,7 @@ func (p *Postgres) publish(ev agent.Event) {
 	}
 }
 
-// Stats reports counts for `titan doctor`.
+// Stats reports counts for `abhed doctor`.
 func (p *Postgres) Stats(ctx context.Context) (sessions, events int64, err error) {
 	err = p.pool.QueryRow(ctx,
 		`SELECT (SELECT count(*) FROM sessions), (SELECT count(*) FROM events)`).

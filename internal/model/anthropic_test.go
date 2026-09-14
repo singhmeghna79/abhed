@@ -8,7 +8,7 @@ import (
 func TestAnthropicRequestShape(t *testing.T) {
 	a := NewAnthropic("", "k", "claude-opus-5", Profile{})
 	req := Request{
-		System: "you are titan",
+		System: "you are abhed",
 		Messages: []Message{
 			{Role: RoleUser, Content: "read the file"},
 			{Role: RoleAssistant, Content: "sure", ToolCalls: []ToolCall{
@@ -23,7 +23,7 @@ func TestAnthropicRequestShape(t *testing.T) {
 
 	// The system prompt is a top-level field, not a message, and it carries the
 	// cache marker that makes the stable prefix a cache read.
-	if len(got.System) != 1 || got.System[0].Text != "you are titan" {
+	if len(got.System) != 1 || got.System[0].Text != "you are abhed" {
 		t.Fatalf("system = %+v", got.System)
 	}
 	if got.System[0].CacheControl == nil || got.System[0].CacheControl.Type != "ephemeral" {

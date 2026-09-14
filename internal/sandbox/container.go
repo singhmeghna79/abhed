@@ -13,7 +13,7 @@ import (
 // Image is the default execution image. In an air-gapped install this is
 // digest-pinned and ships inside the signed bundle (docs/ops/air-gap.md);
 // a tag is mutable and therefore unreproducible.
-var Image = envOr("TITAN_SANDBOX_IMAGE", "docker.io/library/debian:bookworm-slim")
+var Image = envOr("ABHED_SANDBOX_IMAGE", "docker.io/library/debian:bookworm-slim")
 
 // Container runs commands in an OCI container.
 //
@@ -189,7 +189,7 @@ func (c *Container) Command(ctx context.Context, cwd, command string) *exec.Cmd 
 		args = append(args, "--user", fmt.Sprintf("%d:%d", uid, gid))
 	}
 
-	args = append(args, "-e", "TITAN_SANDBOX="+string(c.Tier()))
+	args = append(args, "-e", "ABHED_SANDBOX="+string(c.Tier()))
 	args = append(args, Image, "/bin/sh", "-c", command)
 
 	return exec.CommandContext(ctx, c.runtime, args...)

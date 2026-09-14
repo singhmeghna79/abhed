@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare a public mirror of Titan: clone the working repo into a scratch
+# Prepare a public mirror of Abhed: clone the working repo into a scratch
 # directory, strip deploy/.db-password from all of history in that clone, and
 # print the instructions to push it to a new public remote.
 #
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SOURCE_REPO="${SOURCE_REPO:-/Users/yuvrajsingh/titan}"
-SCRATCH_DIR="${SCRATCH_DIR:-$(mktemp -d /tmp/titan-public-mirror.XXXXXX)}"
+SCRATCH_DIR="${SCRATCH_DIR:-$(mktemp -d /tmp/abhed-public-mirror.XXXXXX)}"
 SECRET_PATH="deploy/.db-password"
 
 echo "==> Source (read-only):   $SOURCE_REPO"
@@ -111,11 +111,11 @@ cat <<EOF
     Next steps to publish it:
 
         1. Create a new, empty public repository (e.g. on GitHub):
-               gh repo create yuvrajsingh/titan --public --source="$SCRATCH_DIR" --remote=public-origin
+               gh repo create yuvrajsingh/abhed --public --source="$SCRATCH_DIR" --remote=public-origin
 
            or manually add the remote once the empty repo exists:
                cd "$SCRATCH_DIR"
-               git remote add public-origin git@github.com:yuvrajsingh/titan.git
+               git remote add public-origin git@github.com:yuvrajsingh/abhed.git
 
         2. Push every branch and tag:
                cd "$SCRATCH_DIR"

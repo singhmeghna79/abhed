@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/yuvrajsingh/titan/internal/extension"
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/extension"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 // Spec converts a provider config into the model package's neutral form.

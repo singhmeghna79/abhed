@@ -1,4 +1,4 @@
-# Titan — Build Plan, Team & Sequencing
+# Abhed — Build Plan, Team & Sequencing
 
 Status: Draft · 2026-09-02
 **Evidence status: [E].** Research produced no verified claims on build cost, team, or
@@ -12,12 +12,12 @@ costs. Everything below it is undifferentiated infrastructure.
 
 | Layer | Decision | Choice | License |
 |---|---|---|---|
-| Agent harness / control plane | **BUILD** | Titan core | — |
+| Agent harness / control plane | **BUILD** | Abhed core | — |
 | Event store & replay | **BUILD** | On Postgres | — |
 | Policy engine | **BUILD** | 6-step ordered eval (P7) | — |
 | Context manager / compaction | **BUILD** | P3/P4 mechanisms | — |
 | Model adapters | **BUILD** thin | Over OpenAI-compatible API | — |
-| Cross-model conformance suite | **BUILD** | Titan's differentiator (P12) | — |
+| Cross-model conformance suite | **BUILD** | Abhed's differentiator (P12) | — |
 | Inference serving | ADOPT | vLLM (primary), SGLang (alt) | Apache-2.0 |
 | Sandboxing | ADOPT | Firecracker + gVisor | Apache-2.0 |
 | Vector/hybrid search | ADOPT | OpenSearch or Qdrant | Apache-2.0 |
@@ -38,7 +38,7 @@ abstraction, don't inherit the dependency.**
 
 **License discipline:** prefer Apache-2.0/MIT throughout. Avoid AGPL in anything linked into
 the product, and avoid source-available licenses with field-of-use restrictions entirely —
-they are incompatible with shipping Titan to customers.
+they are incompatible with shipping Abhed to customers.
 
 ## 2. Phasing
 
@@ -58,7 +58,7 @@ exercised; prefix-cache hit rate measured and > 70%.
 ### Phase 1 — Harness depth (weeks 7–16)
 This is where agent quality is actually won.
 
-- Compaction with PreCompact hook + `TITAN.md` re-injection (P4)
+- Compaction with PreCompact hook + `ABHED.md` re-injection (P4)
 - Subagent supervisor with hierarchical budget enforcement (P3)
 - JIT retrieval tier 0/1 (grep/glob + tree-sitter repo map)
 - Eval harness: task suite **plus automated log inspection** (P10)
@@ -147,13 +147,13 @@ answering them on your own hardware is genuine contribution:
    The factorial used frontier models. If harness variance is *larger* for weaker on-prem
    models, harness investment pays off more on-prem. If it's driven by frontier models'
    ability to exploit rich scaffolds, the conclusion inverts and thin-harness/strong-model
-   becomes correct. **This determines Titan's entire engineering budget split.** Testable.
+   becomes correct. **This determines Abhed's entire engineering budget split.** Testable.
 2. **What are the GPU-second economics of subagent fan-out?** Nobody has published
    tokens-per-solved-task mapped onto GPU-seconds, nor the crossover where a subagent's
    1–2k summary stops repaying its own prefill.
 3. **How does prefix caching behave under compaction and subagent fan-out** in a real
    serving engine? Phase 0 answers this.
 4. **Does declarative rule-constraining actually reduce cross-model variance, and by how
-   much?** Zero independent validation exists. Measuring it is Titan's differentiator.
+   much?** Zero independent validation exists. Measuring it is Abhed's differentiator.
 5. **Is there any sandboxing/injection-defense evidence that survives scrutiny?** Next
    research target; currently a blind spot.

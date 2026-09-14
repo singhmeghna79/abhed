@@ -1,6 +1,6 @@
-// Package docsite serves the Titan documentation from inside the binary.
+// Package docsite serves the Abhed documentation from inside the binary.
 //
-// The public copy lives at titan.zybuu.com/docs, served from Cloudflare so it
+// The public copy lives at abhed.zybuu.com/docs, served from Cloudflare so it
 // survives the machine being asleep. That is the right default and the wrong
 // one for the deployment this product is actually built for: an air-gapped
 // install has no route to Cloudflare, and telling an operator in an enclave to

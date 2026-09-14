@@ -215,8 +215,8 @@ func (s *Session) lexicalRoots() []string {
 // what to actually do.
 func (s *Session) denied(path string, roots []string) error {
 	return fmt.Errorf("%s is outside this session's workspace. Reachable: %s. "+
-		"Do not retry; ask the user to restart Titan in that directory "+
-		"(titan -C <dir>) or grant it with --add-dir <dir>",
+		"Do not retry; ask the user to restart Abhed in that directory "+
+		"(abhed -C <dir>) or grant it with --add-dir <dir>",
 		path, strings.Join(roots, ", "))
 }
 

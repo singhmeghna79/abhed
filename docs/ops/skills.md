@@ -1,4 +1,4 @@
-# Titan — Skills
+# Abhed — Skills
 
 A skill is a folder with a `SKILL.md`: frontmatter naming it and saying when to
 use it, then instructions. It captures procedural knowledge that does not belong
@@ -6,7 +6,7 @@ in code — how this team cuts a release, the checklist for a schema migration,
 the house format for an incident report.
 
 ```
-~/.titan/skills/
+~/.abhed/skills/
   incident-report/
     SKILL.md
   go-release/
@@ -49,12 +49,12 @@ A skill without a description is rejected at load rather than silently ignored.
 
 ## Configuring
 
-Defaults to `~/.titan/skills`. To use other directories:
+Defaults to `~/.abhed/skills`. To use other directories:
 
 ```json
 {
   "skills": {
-    "dirs": ["/srv/titan/skills", "~/.titan/skills"]
+    "dirs": ["/srv/abhed/skills", "~/.abhed/skills"]
   }
 }
 ```
@@ -94,12 +94,12 @@ To enable a subset without moving anything, point `dirs` at a directory of
 symlinks:
 
 ```bash
-mkdir -p ~/.titan/skills-active
-ln -s /path/to/skills/corpus-search ~/.titan/skills-active/corpus-search
+mkdir -p ~/.abhed/skills-active
+ln -s /path/to/skills/corpus-search ~/.abhed/skills-active/corpus-search
 ```
 
 ```json
-{ "skills": { "dirs": ["~/.titan/skills-active"] } }
+{ "skills": { "dirs": ["~/.abhed/skills-active"] } }
 ```
 
 Symlinks are followed, so the skill stays where it lives and nothing drifts out
@@ -118,7 +118,7 @@ Loading them from the workspace would mean any cloned repository could carry its
 own orders to the agent reading it, which is prompt injection with a config file
 instead of a clever paragraph. Skills come from where the operator put them.
 
-For instructions that *should* travel with a repository, use `TITAN.md`: it is
+For instructions that *should* travel with a repository, use `ABHED.md`: it is
 project memory, is treated as such, and does not get a tool that loads it as
 authoritative procedure.
 
@@ -133,7 +133,7 @@ Run the verification script in `scripts/check.sh` from the skill directory.
 
 ## Verifying
 
-`titan doctor` lists what loaded:
+`abhed doctor` lists what loaded:
 
 ```
 skills      2 loaded: go-release, incident-report

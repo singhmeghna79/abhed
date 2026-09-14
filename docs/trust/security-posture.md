@@ -3,12 +3,12 @@
 A summary for a security reviewer. Every claim below names the file that
 makes it true — read the file if you need more than the summary.
 
-Titan is pre-release (0.1.x), built by a one-person company. No claim here
+Abhed is pre-release (0.1.x), built by a one-person company. No claim here
 should be read as a certification; see "What is not in place" at the end.
 
 ## Trust boundaries
 
-**Sandbox tiers.** Titan executes agent-issued commands inside a sandbox
+**Sandbox tiers.** Abhed executes agent-issued commands inside a sandbox
 whose strength is explicit and self-reporting (`internal/sandbox/sandbox.go`):
 
 | Tier | Mechanism | Notes |
@@ -42,12 +42,12 @@ Hooks → Deny rules → Ask rules → Permission mode → Allow rules → Callb
 ```
 
 **Deny rules are absolute.** A matching deny rule blocks the call even in
-`bypass` mode — the most permissive mode Titan has (`internal/policy/policy.go`,
+`bypass` mode — the most permissive mode Abhed has (`internal/policy/policy.go`,
 `ModeBypass` comment: "dangerous; refusable by org policy"). Rules are
 scoped per-command, not per-tool: allowing `bash(npm test)` never allows
 `bash(rm -rf /)`. `internal/deploycheck/config_test.go` asserts the deployed
 deny list actually blocks SSH keys, cloud credentials, `.env` files, and the
-Titan config itself, and that no allow rule pre-approves an interpreter or
+Abhed config itself, and that no allow rule pre-approves an interpreter or
 file-reading command that could be used to exfiltrate one of those files
 under the cover of an approved rule.
 
@@ -70,7 +70,7 @@ never on the untrusted text that motivated it (`docs/architecture/03-security.md
 
 ## Data flow — what leaves the deployment
 
-**Nothing, by default.** The container Titan runs in has no route to the
+**Nothing, by default.** The container Abhed runs in has no route to the
 host filesystem and, per `deploy/run.sh`'s sandbox flags, the shell tool
 itself gets no network access (`sandbox.allow_network: false` in
 `deploy/config.json`; verified by
@@ -94,10 +94,10 @@ whatever model endpoint is set in `model.providers` — for the hosted console
 today that is a model running on the same machine (`docs/access-policy.md`:
 "On this deployment that is a model running on the same machine, so prompts
 do not leave it. That is a property of this deployment, not a promise about
-every deployment."). Titan is model-agnostic by construction
+every deployment."). Abhed is model-agnostic by construction
 (`docs/vision.md`); a self-hosted operator who points it at a third-party API
 is sending data to that API, and that is their configuration choice, not
-Titan's.
+Abhed's.
 
 ## Storage
 
@@ -106,7 +106,7 @@ the schema comment states directly: events are append-only (no `UPDATE`, no
 `DELETE`), and tenant isolation is enforced by row-level security, not only
 by query construction.
 
-**Append-only by trigger, not convention.** `titan_events_immutable()` and
+**Append-only by trigger, not convention.** `abhed_events_immutable()` and
 `access_events_immutable()` are triggers that raise an exception on any
 `UPDATE` or `DELETE` against `events` and `access_events` — the database
 itself refuses the operation, regardless of what the application code does
@@ -123,19 +123,19 @@ same story). `sessions`, `events`, `checkpoints`, `access_grants`, and
 `current_setting('app.tenant_id', true)` policy on each.
 
 **Two database roles, and the app refuses to run as the wrong one.**
-`deploy/run.sh` provisions `titan_admin` (cluster superuser, used only by the
-script to provision) and `titan_app` (`NOSUPERUSER NOBYPASSRLS NOCREATEROLE
+`deploy/run.sh` provisions `abhed_admin` (cluster superuser, used only by the
+script to provision) and `abhed_app` (`NOSUPERUSER NOBYPASSRLS NOCREATEROLE
 NOCREATEDB`, owns the application's tables). The reason is in the script's
 comment: "Postgres does not apply row-level security to a superuser, so a
-Titan connected as one has every isolation policy in the schema and none of
+Abhed connected as one has every isolation policy in the schema and none of
 the isolation." After provisioning, `run.sh` checks
-`rolsuper OR rolbypassrls` on `titan_app` and **exits with an error rather
-than starting Titan** if that role is privileged.
+`rolsuper OR rolbypassrls` on `abhed_app` and **exits with an error rather
+than starting Abhed** if that role is privileged.
 
 ## Authentication
 
 Four modes (`docs/ops/enabling-auth.md`): `none` (local dev only), `local`
-(username/password Titan holds), `proxy` (identity from a trusted reverse
+(username/password Abhed holds), `proxy` (identity from a trusted reverse
 proxy's headers), and `oidc` (verified token or browser sign-in against an
 IdP). `local` and `oidc` can run side by side.
 
@@ -176,11 +176,11 @@ Summary:
 | Ephemeral scratch space | `--tmpfs /tmp:rw,noexec,nosuid,size=512m` | Gone on restart, `noexec` so a dropped payload can't run |
 | Resource caps | `--memory 2g --memory-swap 2g --pids-limit 512 --cpus 2` | "A runaway or hostile agent should exhaust its own limits, not the host's" |
 | Loopback-only bind | `--publish 127.0.0.1:8080:8080` | The reverse proxy is the sole route in |
-| Config mounted read-only at the managed path | `--volume $CONFIG:/etc/titan/config.json:ro` | Loading config at the managed path sets `Managed`, making `bypass` mode refusable and policy non-escalatable from inside the container |
-| Skills mounted read-only | `--volume $SKILLS:/workspace/.titan/skills:ro` | Skills are instructions; the agent must not be able to rewrite its own operating rules |
+| Config mounted read-only at the managed path | `--volume $CONFIG:/etc/abhed/config.json:ro` | Loading config at the managed path sets `Managed`, making `bypass` mode refusable and policy non-escalatable from inside the container |
+| Skills mounted read-only | `--volume $SKILLS:/workspace/.abhed/skills:ro` | Skills are instructions; the agent must not be able to rewrite its own operating rules |
 
 `deploy/GO-LIVE.md`'s "What is protecting you" table restates this same set
-for the live `titan.zybuu.com` deployment, plus the transport and browser
+for the live `abhed.zybuu.com` deployment, plus the transport and browser
 layers (TLS/HSTS, CSP, `frame-ancestors 'none'`) and auth/authorization
 (`bypass` refused even when signed in, rate limits on sign-in).
 
@@ -189,7 +189,7 @@ layers (TLS/HSTS, CSP, `frame-ancestors 'none'`) and auth/authorization
 **Off by default.** `internal/config/config.go`'s `TelemetryConfig.Enabled`
 is a bare `bool` with no default set, so it is `false` unless explicitly
 turned on — and `deploy/config.json`, the config actually deployed to
-`titan.zybuu.com`, does not set a `telemetry` block at all, so the hosted
+`abhed.zybuu.com`, does not set a `telemetry` block at all, so the hosted
 console runs with it off.
 
 **When enabled, it goes to the operator's own collector**, not to Zybuu.

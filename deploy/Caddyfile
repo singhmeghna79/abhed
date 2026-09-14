@@ -15,8 +15,8 @@
 # Behind Cloudflare Tunnel the edge terminates TLS, so Caddy is not used in
 # that path. Kept for a future deployment on a host with a real public IP
 # (a VPS), where HTTP-01 works and this file is correct as written.
-titan.zybuu.com {
-	# Titan listens on loopback only, so this proxy is the single route in.
+abhed.zybuu.com {
+	# Abhed listens on loopback only, so this proxy is the single route in.
 	reverse_proxy 127.0.0.1:8080 {
 		# Server-sent events are the console's transport. Without this Caddy
 		# buffers the response and the transcript arrives in one lump when the
@@ -24,9 +24,9 @@ titan.zybuu.com {
 		# immediately.
 		flush_interval -1
 
-		# Titan rate-limits by client address, so it needs the real one rather
+		# Abhed rate-limits by client address, so it needs the real one rather
 		# than the proxy's. This is the header its trust_proxy setting reads;
-		# the pairing only stays safe because Titan is not reachable except
+		# the pairing only stays safe because Abhed is not reachable except
 		# through here.
 		header_up X-Real-IP {remote_host}
 	}

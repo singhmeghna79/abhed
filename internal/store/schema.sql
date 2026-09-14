@@ -1,4 +1,4 @@
--- Titan event store schema.
+-- Abhed event store schema.
 --
 -- Implements docs/architecture/10-data-model.md. Two properties matter above
 -- all: events are append-only (no UPDATE, no DELETE), and tenant isolation is
@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS events_payload_idx     ON events USING GIN (payload);
 
 -- Append-only enforcement. Retention is handled by dropping partitions or by a
 -- privileged archival role, never by mutating rows in place.
-CREATE OR REPLACE FUNCTION titan_events_immutable() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION abhed_events_immutable() RETURNS trigger AS $$
 BEGIN
   RAISE EXCEPTION 'events are append-only: % on events is not permitted', TG_OP
     USING HINT = 'Audit integrity depends on immutability. Use retention policy to expire old partitions.';
@@ -69,11 +69,11 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS events_no_update ON events;
 CREATE TRIGGER events_no_update BEFORE UPDATE ON events
-  FOR EACH ROW EXECUTE FUNCTION titan_events_immutable();
+  FOR EACH ROW EXECUTE FUNCTION abhed_events_immutable();
 
 DROP TRIGGER IF EXISTS events_no_delete ON events;
 CREATE TRIGGER events_no_delete BEFORE DELETE ON events
-  FOR EACH ROW EXECUTE FUNCTION titan_events_immutable();
+  FOR EACH ROW EXECUTE FUNCTION abhed_events_immutable();
 
 -- Checkpoints back /undo: the content of a file immediately before the agent
 -- changed it. NULL `before` means the file did not previously exist.

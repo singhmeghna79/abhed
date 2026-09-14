@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Convert a SWE-bench Verified subset into Titan task JSON.
+"""Convert a SWE-bench Verified subset into Abhed task JSON.
 
-SWE-bench cannot ship inside Titan: it is an external dataset with its own
+SWE-bench cannot ship inside Abhed: it is an external dataset with its own
 licensing, and an air-gapped bundle cannot download it. This script is the
 bridge — run it once on a connected machine, commit the output, and the tasks
 travel with your corpus like any other.
@@ -11,7 +11,7 @@ Usage:
     python3 from_swebench.py --limit 100 > 06-swebench.json
 
 SCOPE, stated plainly: SWE-bench instances are repository-level tasks that need
-the real repo checked out at a specific commit and its test suite run. Titan's
+the real repo checked out at a specific commit and its test suite run. Abhed's
 corpus format seeds a small workspace and checks file assertions. This converter
 therefore produces tasks that check the PATCH SHAPE (the right files touched,
 the right symbols present), not full test-suite equivalence.
@@ -19,7 +19,7 @@ the right symbols present), not full test-suite equivalence.
 That is weaker than SWE-bench's own harness and should not be reported as a
 SWE-bench score. It is useful for regression detection against a fixed
 reference, not for comparability with published numbers. To get real
-comparability, run SWE-bench's harness with Titan as the agent.
+comparability, run SWE-bench's harness with Abhed as the agent.
 """
 import argparse
 import json

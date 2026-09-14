@@ -1,4 +1,4 @@
-module github.com/yuvrajsingh/titan
+module github.com/yuvrajsingh/abhed
 
 go 1.26.8
 

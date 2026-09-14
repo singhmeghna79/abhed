@@ -66,7 +66,7 @@ func TestSignupCannotCreateAnAdmin(t *testing.T) {
 	if sig == "" {
 		t.Fatal("cannot find the signup handler")
 	}
-	for _, forbidden := range []string{"AdminGroup", "adminGroup()", "titan-admin"} {
+	for _, forbidden := range []string{"AdminGroup", "adminGroup()", "abhed-admin"} {
 		if strings.Contains(sig, forbidden) {
 			t.Errorf("signup references %q — the public signup path must have "+
 				"no way to reach the admin group", forbidden)

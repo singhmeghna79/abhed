@@ -1,4 +1,4 @@
-package titan_test
+package abhed_test
 
 import (
 	"context"
@@ -8,25 +8,25 @@ import (
 	"strings"
 	"testing"
 
-	titan "github.com/yuvrajsingh/titan/sdk"
+	abhed "github.com/yuvrajsingh/abhed/sdk"
 )
 
 // The SDK is the wall between another program and internal/. If this file
 // stops compiling, the supported surface has changed under someone.
 func TestSurfaceIsUsableFromOutside(t *testing.T) {
 	dir := t.TempDir()
-	var seen []titan.Event
+	var seen []abhed.Event
 
-	a, err := titan.New(context.Background(), titan.Options{
+	a, err := abhed.New(context.Background(), abhed.Options{
 		Workspace: dir,
-		Provider: &titan.Provider{
+		Provider: &abhed.Provider{
 			Type: "ollama", BaseURL: "http://127.0.0.1:1", // never reached
 			Model: "test", ContextWindow: 8192,
 		},
 		Mode:    "auto",
 		Deny:    []string{"bash(rm -rf *)"},
-		OnEvent: func(ev titan.Event) { seen = append(seen, ev) },
-		Approve: func(ctx context.Context, tool string, args json.RawMessage, d titan.Decision) (bool, error) {
+		OnEvent: func(ev abhed.Event) { seen = append(seen, ev) },
+		Approve: func(ctx context.Context, tool string, args json.RawMessage, d abhed.Decision) (bool, error) {
 			return false, nil
 		},
 	})
@@ -44,9 +44,9 @@ func TestSurfaceIsUsableFromOutside(t *testing.T) {
 }
 
 func TestProvidersIsExported(t *testing.T) {
-	if len(titan.Providers()) < 10 {
+	if len(abhed.Providers()) < 10 {
 		t.Fatalf("Providers() returned %d; the registry should be visible to a caller",
-			len(titan.Providers()))
+			len(abhed.Providers()))
 	}
 }
 
@@ -55,9 +55,9 @@ func TestProvidersIsExported(t *testing.T) {
 // the same policy on the command line.
 func TestNoApproverMeansRefuse(t *testing.T) {
 	dir := t.TempDir()
-	a, err := titan.New(context.Background(), titan.Options{
+	a, err := abhed.New(context.Background(), abhed.Options{
 		Workspace: dir,
-		Provider:  &titan.Provider{Type: "ollama", BaseURL: "http://127.0.0.1:1", Model: "m"},
+		Provider:  &abhed.Provider{Type: "ollama", BaseURL: "http://127.0.0.1:1", Model: "m"},
 		Mode:      "default", // every mutation asks
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestNoApproverMeansRefuse(t *testing.T) {
 }
 
 func TestWorkspaceIsRequired(t *testing.T) {
-	_, err := titan.New(context.Background(), titan.Options{})
+	_, err := abhed.New(context.Background(), abhed.Options{})
 	if err == nil {
 		t.Fatal("an agent with no workspace must be refused")
 	}
@@ -81,15 +81,15 @@ func TestWorkspaceIsRequired(t *testing.T) {
 
 func TestConfigDirIsHonoured(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".titan"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".abhed"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cfg := `{"model":{"default":"local","providers":{"local":{
 		"type":"ollama","base_url":"http://127.0.0.1:1","model":"from-config"}}}}`
-	if err := os.WriteFile(filepath.Join(dir, ".titan", "config.json"), []byte(cfg), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".abhed", "config.json"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a, err := titan.New(context.Background(), titan.Options{
+	a, err := abhed.New(context.Background(), abhed.Options{
 		Workspace: dir, ConfigDir: dir,
 	})
 	if err != nil {
@@ -100,9 +100,9 @@ func TestConfigDirIsHonoured(t *testing.T) {
 
 // A bad deny rule must fail at construction, not on the first tool call.
 func TestBadRuleFailsEarly(t *testing.T) {
-	_, err := titan.New(context.Background(), titan.Options{
+	_, err := abhed.New(context.Background(), abhed.Options{
 		Workspace: t.TempDir(),
-		Provider:  &titan.Provider{Type: "ollama", BaseURL: "http://127.0.0.1:1", Model: "m"},
+		Provider:  &abhed.Provider{Type: "ollama", BaseURL: "http://127.0.0.1:1", Model: "m"},
 		Deny:      []string{"bash("},
 	})
 	if err == nil {

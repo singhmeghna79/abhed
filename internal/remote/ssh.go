@@ -1,6 +1,6 @@
 // Package remote gives the agent access to machines over SSH.
 //
-// Titan already runs commands locally through a sandbox. A deep agent working
+// Abhed already runs commands locally through a sandbox. A deep agent working
 // on real infrastructure also needs to reach the machines that infrastructure
 // runs on — read a log on a VM, check a service, inspect a config.
 //
@@ -47,7 +47,7 @@ type HostConfig struct {
 	KnownHostsFile string `json:"known_hosts_file,omitempty"`
 	// InsecureSkipHostKeyCheck disables host key verification. It exists
 	// because ephemeral lab VMs genuinely have no stable key, and refusing
-	// would push people to run ssh through bash where Titan sees nothing —
+	// would push people to run ssh through bash where Abhed sees nothing —
 	// but it is off by default and reported at startup.
 	InsecureSkipHostKeyCheck bool `json:"insecure_skip_host_key_check,omitempty"`
 
@@ -90,7 +90,7 @@ func (h *Host) User() string { return h.cfg.User }
 func (h *Host) authMethods() ([]ssh.AuthMethod, error) {
 	var methods []ssh.AuthMethod
 
-	// The agent first: the key stays in the agent and Titan never holds it.
+	// The agent first: the key stays in the agent and Abhed never holds it.
 	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" && h.cfg.IdentityFile == "" {
 		if conn, err := net.Dial("unix", sock); err == nil {
 			methods = append(methods, ssh.PublicKeysCallback(agent.NewClient(conn).Signers))
@@ -167,7 +167,7 @@ func (h *Host) connect(ctx context.Context) (*ssh.Client, error) {
 	if h.client != nil {
 		// Cheap liveness check: a dead connection otherwise surfaces as a
 		// confusing error on the next command.
-		if _, _, err := h.client.SendRequest("keepalive@titan", true, nil); err == nil {
+		if _, _, err := h.client.SendRequest("keepalive@abhed", true, nil); err == nil {
 			return h.client, nil
 		}
 		h.client.Close()
@@ -199,7 +199,7 @@ func (h *Host) connect(ctx context.Context) (*ssh.Client, error) {
 		conn.Close()
 		if strings.Contains(err.Error(), "knownhosts") ||
 			strings.Contains(err.Error(), "key is unknown") {
-			return nil, fmt.Errorf("the host key for %s is not in known_hosts, so Titan "+
+			return nil, fmt.Errorf("the host key for %s is not in known_hosts, so Abhed "+
 				"cannot confirm this is the machine you meant. If the user has said this "+
 				"host is new or ephemeral, retry with accept_host_key: true. Otherwise ask "+
 				"them to run `ssh %s@%s` once to record the key: %w",

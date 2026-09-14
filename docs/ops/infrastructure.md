@@ -1,6 +1,6 @@
-# Titan — Clusters, Machines, and External Retrieval
+# Abhed — Clusters, Machines, and External Retrieval
 
-Four capabilities that let Titan work on infrastructure rather than only on
+Four capabilities that let Abhed work on infrastructure rather than only on
 files. All are **off by default**: reaching a cluster, a VM, or a corpus is an
 authorization decision, and credentials already sitting on the machine are not
 a reason to hand them to an agent unasked.
@@ -25,7 +25,7 @@ Two tools, deliberately not one:
 | `k8s_get` | never prompts | list, describe, pod logs |
 | `k8s_apply` | **always prompts** | apply, delete, scale, restart |
 
-Splitting them is what makes the safety real. Titan's permission engine decides
+Splitting them is what makes the safety real. Abhed's permission engine decides
 by tool name; a single tool with a `verb` argument would force it to parse an
 opaque string to tell `list pods` from `delete namespace`. As separate tools the
 read path is genuinely non-mutating, and every write goes through approval by
@@ -45,7 +45,7 @@ oc login --token=sha256~... --server=https://api.cluster.example.com:6443
 ```
 
 The agent calls `k8s_login`, which asks for approval once and then holds the
-credential **in memory for that Titan process only**. It is never written to
+credential **in memory for that Abhed process only**. It is never written to
 your kubeconfig, the event store, or a log — a token pasted into a chat should
 not become a durable artifact of that chat.
 
@@ -63,7 +63,7 @@ it, and the combination produced a confusing failure in practice:
 the tool to use instead, rather than leaving the agent to conclude the file is
 simply unreadable.
 
-For a non-interactive deployment, `TITAN_K8S_TOKEN` overrides the kubeconfig
+For a non-interactive deployment, `ABHED_K8S_TOKEN` overrides the kubeconfig
 credential at startup.
 
 **Credentials come from your kubeconfig, never from the model.** The agent picks
@@ -73,7 +73,7 @@ credential helpers (the cloud CLIs) all work; exec tokens are refreshed before
 they expire, because an expired token returns a 401 that reads like a
 permissions problem.
 
-Titan talks to the API directly rather than importing `client-go`, which would
+Abhed talks to the API directly rather than importing `client-go`, which would
 add roughly a hundred transitive dependencies to a bundle where each one is
 something an operator has to accept.
 
@@ -137,8 +137,8 @@ tells you to `ssh-add` it, rather than failing with a parse error.
 
 Host keys are verified against `known_hosts`. `insecure_skip_host_key_check`
 exists because ephemeral lab VMs have no stable key and refusing would push
-people to run `ssh` through bash where Titan sees nothing — but it is off by
-default, and `titan doctor` marks any host using it.
+people to run `ssh` through bash where Abhed sees nothing — but it is off by
+default, and `abhed doctor` marks any host using it.
 
 ## External retrieval (RAG)
 
@@ -197,12 +197,12 @@ Both wire shapes are supported, because a deployment does not get to choose
 which one its vendor implemented: **Streamable HTTP** (one endpoint, POST, reply
 as JSON or SSE by content type) and the older **HTTP+SSE** (a long-lived GET
 carrying replies, with a separate POST endpoint announced by an `endpoint`
-event). Titan probes for the legacy shape and falls back, rather than making you
+event). Abhed probes for the legacy shape and falls back, rather than making you
 declare it.
 
 ## Verifying
 
-`titan doctor` reports every one of these, resolves the kubeconfig context, and
+`abhed doctor` reports every one of these, resolves the kubeconfig context, and
 names any SSH host with host key checking disabled:
 
 ```

@@ -254,7 +254,7 @@ func (Grep) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 		msg := err.Error()
 		switch {
 		case strings.Contains(msg, "invalid or unsupported Perl syntax"):
-			hint = " Titan uses RE2: lookahead (?=), lookbehind (?<=) and backreferences (\\1) are unsupported. Rewrite the pattern without them, or use two greps."
+			hint = " Abhed uses RE2: lookahead (?=), lookbehind (?<=) and backreferences (\\1) are unsupported. Rewrite the pattern without them, or use two greps."
 		case strings.Contains(msg, "missing closing"):
 			hint = " Check for an unbalanced bracket or parenthesis."
 		}

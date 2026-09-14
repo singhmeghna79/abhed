@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// WatsonX adapts IBM watsonx.ai to Titan's Adapter interface.
+// WatsonX adapts IBM watsonx.ai to Abhed's Adapter interface.
 //
 // It is close to the OpenAI shape but differs in three ways that each matter:
 //

@@ -1,4 +1,4 @@
-// Package ui renders Titan's terminal surface.
+// Package ui renders Abhed's terminal surface.
 package ui
 
 import (
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Titan's mark is an open frame around a single point.
+// Abhed's mark is an open frame around a single point.
 //
 // The frame is the harness; the point is the model it carries. The research
 // this project rests on found the scaffold around the model, not the model, to
@@ -17,21 +17,21 @@ import (
 // Rendered in three sizes because a mark has to survive both places it lives:
 // a single terminal cell and a 128px browser header.
 
-// MarkLarge is the startup banner: the frame with the point inside it, the
-// same construction as brand/titan-mark.svg. Eight lines, because Banner lays
+// MarkLarge is the startup banner: the unbroken wall with the point inside
+// it, the same construction as brand/abhed-mark.svg. Eight lines, because Banner lays
 // the run facts beside it and both columns have to end together.
-const MarkLarge = `▛▀▀▀▀▀▀▀▀▀▜ 
-▌         ▐ 
+const MarkLarge = ` ▗▄▄▄▄▄▄▄▄▖ 
+▗▛        ▜▖
 ▌   ▄██▄   ▐
-▌  ██████   
-▌  ██████   
+▌  ██████  ▐
+▌  ██████  ▐
 ▌   ▀██▀   ▐
-▌         ▐ 
-▙▄▄▄▄▄▄▄▄▄▟ `
+▝▙        ▟▘
+ ▝▀▀▀▀▀▀▀▀▘ `
 
 // MarkSmall is the two-line form for a compact header.
-const MarkSmall = `▛▀●▀▜
-▙▄▄▄▟`
+const MarkSmall = `▗▛●▜▖
+▝▙▄▟▘`
 
 // Glyph is the single-character form for prompts and log lines: a point inside
 // a ring, which is the one form of the mark that survives one terminal cell.
@@ -50,7 +50,7 @@ func Banner(s Style, version, model, workspace, sandbox, storage string) string 
 	// Facts sit beside the mark rather than beneath it, so the block stays
 	// seven lines instead of twelve.
 	rows := []string{
-		s.Bold("TITAN") + "  " + s.Dim(version),
+		s.Bold("ABHED") + "  " + s.Dim(version),
 		s.Dim("deep agent harness · on-prem"),
 		"",
 		s.Dim("model    ") + model,

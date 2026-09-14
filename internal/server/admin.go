@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"github.com/yuvrajsingh/titan/internal/store"
+	"github.com/yuvrajsingh/abhed/internal/store"
 	"os"
 
 	"crypto/rand"
@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/auth"
+	"github.com/yuvrajsingh/abhed/internal/auth"
 )
 
 // Administration: the routes that change what the deployment is, rather than
@@ -32,7 +32,7 @@ import (
 // that checked it per-route.
 
 // DefaultAdminGroup is used when the operator names none.
-const DefaultAdminGroup = "titan-admin"
+const DefaultAdminGroup = "abhed-admin"
 
 func (s *Server) adminGroup() string {
 	if g := s.opts.Config.Auth.AdminGroup; g != "" {
@@ -72,7 +72,7 @@ func (s *Server) isAdmin(r *http.Request) bool {
 
 // ---------------------------------------------------------------- invites
 
-// Signup was disabled outright because Titan runs shell commands, and open
+// Signup was disabled outright because Abhed runs shell commands, and open
 // registration on a public URL hands a stranger an agent with a shell. That is
 // still true — but "no signup at all" was blocking adoption, and the answer is
 // not to open the door, it is to decide who gets a key.
@@ -457,7 +457,7 @@ func (s *Server) mailRevocation(g store.Grant) {
 	body := strings.Join([]string{
 		"Hi " + first + ",",
 		"",
-		"Your access to the Titan console has ended.",
+		"Your access to the Abhed console has ended.",
 		"",
 		"Reason (" + g.RevokedCode + "): " + why + ".",
 		"",
@@ -465,13 +465,13 @@ func (s *Server) mailRevocation(g store.Grant) {
 		"happened stays intact. Your transcripts are no longer reachable by you;",
 		"they are not destroyed, and you can ask for an export.",
 		"",
-		"The policy is at https://zybuu.com/titan/access-policy — the clause",
+		"The policy is at https://zybuu.com/abhed/access-policy — the clause",
 		"above is quoted from the version in force today.",
 		"",
 		"If you think this is wrong, reply. It reaches a person, and we would",
 		"rather be wrong briefly than unfair permanently.",
 		"",
-		"Titan itself is not affected by this. It runs on your own hardware",
+		"Abhed itself is not affected by this. It runs on your own hardware",
 		"under your own rules, and that conversation is still open.",
 		"",
 		"— Zybuu",
@@ -479,7 +479,7 @@ func (s *Server) mailRevocation(g store.Grant) {
 
 	payload, err := json.Marshal(map[string]any{
 		"from": from, "to": []string{g.Email}, "reply_to": reply,
-		"subject": "Your Titan console access has ended",
+		"subject": "Your Abhed console access has ended",
 		"text":    body,
 	})
 	if err != nil {

@@ -104,14 +104,14 @@ window.VIDEOS['01-zybuu'] = () => {
       Parts.para(s, 'As a <b>product</b>, not a project.', { x: 96, y: 820, w: 1200, at: 7.4, size: 40 });
     } },
 
-    // ---- b8: Titan -------------------------------------------------------
+    // ---- b8: Abhed -------------------------------------------------------
     { beat: 'b8', build(s) {
       Parts.kicker(s, 'Our first product', 96, 120, 0.1);
-      const logo = Parts.logo(s, { x: 96, y: 200, text: 'Titan', mark: 'titan', at: 1.0, size: 150 });
+      const logo = Parts.logo(s, { x: 96, y: 200, text: 'Abhed', mark: 'abhed', at: 1.0, size: 150 });
       Parts.heading(s, 'The agent harness for work that <span class="hl">cannot leave the building.</span>', { x: 96, y: 420, w: 1400, cls: 'm', at: 2.4 });
       Parts.pill(s, '<b>●</b> Live today', { x: 96, y: 760, at: 6.2, cls: 'ok' });
       Parts.pill(s, 'invite-only', { x: 340, y: 760, at: 6.5 });
-      Parts.pill(s, 'titan.zybuu.com', { x: 570, y: 760, at: 6.8 });
+      Parts.pill(s, 'abhed.zybuu.com', { x: 570, y: 760, at: 6.8 });
       Parts.para(s, 'And only the beginning.', { x: 96, y: 880, w: 900, at: 8.0, size: 34 });
     } },
 
@@ -123,7 +123,7 @@ window.VIDEOS['01-zybuu'] = () => {
       items.forEach(([t, ic, at], i) => {
         const c = Parts.card(s, { x: 96 + (i % 3) * 590, y: 400 + Math.floor(i / 3) * 250, w: 560, h: 210, icon: ic, title: t, text: '<span class="mono muted" style="font-size:20px;letter-spacing:.08em">PLANNED</span>', at });
       });
-      Parts.card(s, { x: 1276, y: 650, w: 560, h: 210, icon: ICONS.layers, title: 'Titan', text: '<span class="mono" style="font-size:20px;letter-spacing:.08em;color:var(--ok)">LIVE</span>', at: 1.2, glow: true });
+      Parts.card(s, { x: 1276, y: 650, w: 560, h: 210, icon: ICONS.layers, title: 'Abhed', text: '<span class="mono" style="font-size:20px;letter-spacing:.08em;color:var(--ok)">LIVE</span>', at: 1.2, glow: true });
     } },
 
     // ---- b10: close ---------------------------------------------------------

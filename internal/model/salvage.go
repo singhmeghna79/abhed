@@ -13,7 +13,7 @@ import (
 // structured tool_calls field — most often under a long system prompt, where
 // the in-context examples outweigh the API contract.
 //
-// Observed with qwen3-coder:30b under Titan's full prompt: it produced
+// Observed with qwen3-coder:30b under Abhed's full prompt: it produced
 //
 //	<function=glob>
 //	<parameter=pattern>

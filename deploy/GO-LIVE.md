@@ -1,4 +1,4 @@
-# Going live on titan.zybuu.com
+# Going live on abhed.zybuu.com
 
 Everything that can be done from this machine is done. Four steps remain, and
 they are all in a browser or on your router.
@@ -19,7 +19,7 @@ GoDaddy → Domain → DNS → **Add New Record**:
 | Field | Value |
 |---|---|
 | Type | `A` |
-| Name | `titan` |
+| Name | `abhed` |
 | Data | `171.76.80.224` |
 | TTL | 600 seconds |
 
@@ -59,9 +59,9 @@ forwards. Certificate issuance fails while everything else looks fine.
 ## Step 4 — Start it
 
 ```bash
-cd ~/titan
+cd ~/abhed
 ./deploy/preflight.sh                    # should now say "ready"
-podman build -t titan:local -f Dockerfile .
+podman build -t abhed:local -f Dockerfile .
 ./deploy/run.sh serve -addr 0.0.0.0:8080
 sudo caddy run --config deploy/Caddyfile  # sudo: binding 80/443
 ```
@@ -69,12 +69,12 @@ sudo caddy run --config deploy/Caddyfile  # sudo: binding 80/443
 Create your account — there is no public signup:
 
 ```bash
-podman exec -it titan titan user add yuvraj
+podman exec -it abhed abhed user add yuvraj
 ```
 
 ## Publishing the homepage
 
-`zybuu.com` is a Cloudflare Pages site, separate from Titan: Titan is up only
+`zybuu.com` is a Cloudflare Pages site, separate from Abhed: Abhed is up only
 while this Mac is awake, and the homepage must not be. To publish a change:
 
 ```bash
@@ -87,7 +87,7 @@ It renders the documentation, checks the access Function, then uploads
 | Path | What it is |
 |---|---|
 | `/` | the company homepage — thesis, product verticals |
-| `/titan/` | Titan's product page — install, the session replay, limitations |
+| `/abhed/` | Abhed's product page — install, the session replay, limitations |
 | `/docs/` | 32 pages generated from `docs/` at publish time |
 | `functions/api/access.js` | the access-request endpoint |
 | `_headers` | CSP and the rest of the security headers |
@@ -101,9 +101,9 @@ live site disagree, and the live site is what a reader sees.
 
 ### Documentation lives under the product
 
-Canonically `titan.zybuu.com/docs`, because documentation belongs with the
+Canonically `abhed.zybuu.com/docs`, because documentation belongs with the
 thing it documents — and the same will hold for the next product. But
-`titan.zybuu.com` is the tunnel to this Mac, so the hostname is split at the
+`abhed.zybuu.com` is the tunnel to this Mac, so the hostname is split at the
 edge: a Worker answers `/docs*` from Pages, everything else goes down the
 tunnel to the console. Docs survive the lid closing; the console does not.
 
@@ -120,7 +120,7 @@ makes it fetch a redirect to its own route and loop. There is no `/docs` rule
 in `_redirects` for exactly that reason.
 
 The same generated HTML is embedded in the binary, so an air-gapped install
-serves its own docs at `/docs` with no route to Cloudflare. `titan serve`
+serves its own docs at `/docs` with no route to Cloudflare. `abhed serve`
 registers that route only when docs were generated before the build.
 
 ## The homepage form
@@ -209,7 +209,7 @@ stranger cannot use the form to mail arbitrary addresses over our domain.
 Read it, decide, then:
 
 ```bash
-export TITAN_ADMIN_USER=yuvraj TITAN_ADMIN_PASS=...   # or TITAN_SESSION=<cookie>
+export ABHED_ADMIN_USER=yuvraj ABHED_ADMIN_PASS=...   # or ABHED_SESSION=<cookie>
 export RESEND_API_KEY=...
 
 ./deploy/grant-access.sh priya@siemens.com "Priya Raman"        # 7 days
@@ -226,7 +226,7 @@ decides who is worth reading; it cannot decide who is worth trusting, and a
 convincing lookalike domain costs a few dollars. The decision stays yours —
 what the script removes is the tedium, not the judgement.
 
-The account the code creates lands with no groups. It can use Titan Chat and
+The account the code creates lands with no groups. It can use Abhed Chat and
 read its own sessions; it cannot administer the console, change policy, or
 invite anyone else. The agent's shell runs in a container with no network and
 no host access, so what an invited user can reach is bounded by
@@ -238,8 +238,8 @@ An invite expires on its own and is single use, so an unsent or unused code
 lapses without action. To cut off an account that already exists:
 
 ```bash
-titan user list                 # who exists
-titan user remove <username>    # the account is gone; their sessions are not
+abhed user list                 # who exists
+abhed user remove <username>    # the account is gone; their sessions are not
 ```
 
 There is no `disable` — the subcommands are `add`, `list`, `passwd` and
@@ -249,16 +249,16 @@ did stays, which is the point of keeping it.
 ## Verify
 
 ```bash
-curl -I https://titan.zybuu.com                    # 200, valid cert
-curl -I http://titan.zybuu.com                     # 308 → https
-curl -s https://titan.zybuu.com/v1/health          # {"status":"ok"}
+curl -I https://abhed.zybuu.com                    # 200, valid cert
+curl -I http://abhed.zybuu.com                     # 308 → https
+curl -s https://abhed.zybuu.com/v1/health          # {"status":"ok"}
 ```
 
-From your phone on mobile data (not wifi), open `https://titan.zybuu.com` —
+From your phone on mobile data (not wifi), open `https://abhed.zybuu.com` —
 that is the only real proof inbound works.
 
 Then confirm the LAN is not exposed: from another device on your network,
-`curl http://192.168.1.7:8080` must **fail**. Titan binds loopback only; the
+`curl http://192.168.1.7:8080` must **fail**. Abhed binds loopback only; the
 proxy is the sole route in.
 
 ## What is protecting you
@@ -278,7 +278,7 @@ proxy is the sole route in.
 ## If it does not work
 
 **Certificate fails.** Almost always port 80. Check the forward, check the VPN,
-and confirm `dig +short titan.zybuu.com` returns your current public IP. Let's
+and confirm `dig +short abhed.zybuu.com` returns your current public IP. Let's
 Encrypt rate-limits failures, so fix the cause before retrying.
 
 **Site loads but the console will not sign in.** Check `allowed_origins` in
@@ -317,4 +317,32 @@ To rebuild the recording after a UI change:
 ```bash
 UXUSER=<a throwaway console account> UXPASS=… ./deploy/demo/build.sh
 ./deploy/publish-site.sh
+```
+
+## The rename: finishing the move to abhed.zybuu.com
+
+The product was Titan until September 2026. The code, the image, the
+containers, the volumes, the database roles and the tunnel configuration all
+carry the new name already; `deploy/run.sh` migrated the running deployment
+by copying the old volumes and renaming the roles and database in place, and
+left the `titan-*` volumes untouched so nothing was lost.
+
+What is left needs the Cloudflare account, so it is one script, run once:
+
+```bash
+./deploy/cutover-abhed.sh
+```
+
+It adds the DNS record for `abhed.zybuu.com`, replaces the `titan-docs`
+worker with `abhed-docs` on both `/docs` routes, sets
+`server.canonical_host` so `titan.zybuu.com` answers every page with a 301 to
+the new name, restarts the server, and publishes the site. Until it has run,
+`titan.zybuu.com` keeps serving as before and the site is not republished
+under the new name, because a page that links to a hostname with no record
+is worse than a page with the old one.
+
+Once the checks it prints read 200 / 301 / 200 / 301, remove the old volumes:
+
+```bash
+podman volume rm titan-workspace titan-state titan-db-data
 ```

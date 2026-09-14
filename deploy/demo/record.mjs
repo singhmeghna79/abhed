@@ -1,4 +1,4 @@
-// Records the Titan demo, scene by scene, with Playwright driving the system
+// Records the Abhed demo, scene by scene, with Playwright driving the system
 // Chrome. Each scene is one browser context with video recording on, held
 // open for at least as long as its narration (durations.json, written by
 // build.sh from the TTS files), and saved as scenes/<id>.webm. build.sh then
@@ -79,9 +79,9 @@ await scene('s2', async (page) => {
   await glide(page, (await top(page, '#compare')) + 260, 1200);
 });
 
-// 3 — the Titan page and the real run.
+// 3 — the Abhed page and the real run.
 await scene('s3', async (page) => {
-  await page.goto(SITE + '/titan/index.html', { waitUntil: 'networkidle' });
+  await page.goto(SITE + '/abhed/index.html', { waitUntil: 'networkidle' });
   await sleep(2600);
   await glide(page, await top(page, '#replay'), 1600);
   await sleep(12000);
@@ -90,7 +90,7 @@ await scene('s3', async (page) => {
 
 // 4 — the five guarantees, governance, limitations.
 await scene('s4', async (page) => {
-  await page.goto(SITE + '/titan/index.html', { waitUntil: 'networkidle' });
+  await page.goto(SITE + '/abhed/index.html', { waitUntil: 'networkidle' });
   await sleep(400);
   await glide(page, await top(page, '#why'), 1400); await sleep(6500);
   await glide(page, await top(page, '#governance'), 1600); await sleep(6500);
@@ -154,7 +154,7 @@ await scene('s7', async (page, ctx) => {
 // The dashboard itself is the operator's, and the recording is made with a
 // throwaway account that is deliberately not an administrator.
 await scene('s8', async (page) => {
-  await page.goto(SITE + '/titan/access-policy.html', { waitUntil: 'networkidle' }).catch(() => {});
+  await page.goto(SITE + '/abhed/access-policy.html', { waitUntil: 'networkidle' }).catch(() => {});
   await sleep(4500);
   await glide(page, 520, 1600); await sleep(5000);
   await glide(page, 1100, 1600); await sleep(4000);

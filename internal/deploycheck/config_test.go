@@ -1,7 +1,7 @@
 package deploycheck
 
 // Package deploycheck asserts that the configuration actually deployed to
-// titan.zybuu.com is safe for people who are not the operator.
+// abhed.zybuu.com is safe for people who are not the operator.
 //
 // The console issues invites to strangers, so its config is not a preference
 // file any more: it is the boundary. These tests read the shipped config and
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/titan/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/policy"
 )
 
 func TestDeployedDenyRulesMatchRealPaths(t *testing.T) {
@@ -89,7 +89,7 @@ func TestDeployedDenyRulesMatchRealPaths(t *testing.T) {
 		"/Users/yuvrajsingh/.git-credentials",
 		"/Users/yuvrajsingh/.netrc",
 		"/Users/yuvrajsingh/Library/Keychains/login.keychain-db",
-		"/Users/yuvrajsingh/titan/.titan/config.json",
+		"/Users/yuvrajsingh/titan/.abhed/config.json",
 	} {
 		if !blocked(p) {
 			t.Errorf("NOT BLOCKED: %s", p)

@@ -94,7 +94,7 @@ t('network throw reported', frag(await onRequestPost({ request: req({ name: 'A',
 
 // --- where the visitor lands -------------------------------------------
 // The bug these cover: back() hardcoded "/", so after the form moved to
-// /titan/ every submission returned the visitor to the homepage — which has
+// /abhed/ every submission returned the visitor to the homepage — which has
 // no form and no status handler. The email arrived, the redirect fired, and
 // the person was told nothing. Every earlier test asserted the fragment and
 // none asserted the PATH, which is why it shipped.
@@ -110,13 +110,13 @@ const landing = async (referer) => {
 };
 
 t('returns to the page that submitted',
-  await landing('https://zybuu.com/titan/'), '/titan/');
+  await landing('https://zybuu.com/abhed/'), '/abhed/');
 t('returns to the homepage if that is where the form was',
   await landing('https://zybuu.com/'), '/');
-t('defaults to /titan/ with no referer',
-  await landing(null), '/titan/');
+t('defaults to /abhed/ with no referer',
+  await landing(null), '/abhed/');
 t('ignores an off-origin referer',
-  await landing('https://evil.example/titan/'), '/titan/');
+  await landing('https://evil.example/abhed/'), '/abhed/');
 
 // --- the acknowledgement -----------------------------------------------
 // Two emails leave per accepted request: the notification to support, and a
@@ -135,7 +135,7 @@ t('  second goes to the requester', allSent[1].to[0], 'priya@siemens.com');
 t('  ack replies back to support', allSent[1].reply_to, 'support@zybuu.com');
 t('  ack greets by first name', allSent[1].text.includes('Hi Priya,'), true);
 t('  ack repeats the no-certification line', allSent[1].text.includes('no SOC 2'), true);
-t('  ack links the docs', allSent[1].text.includes('titan.zybuu.com/docs'), true);
+t('  ack links the docs', allSent[1].text.includes('abhed.zybuu.com/docs'), true);
 
 resetSent();
 await onRequestPost({ request: req({

@@ -46,9 +46,9 @@ func has(markers ...string) func(string) bool {
 // the page moved: every test reported ok with nothing checked, and
 // green-when-absent is the worst failure a guard can have. The page is in the
 // repository; its absence is the bug.
-// The site is three surfaces: the company homepage, Titan's product page, and
+// The site is three surfaces: the company homepage, Abhed's product page, and
 // generated documentation. The product claims these guards exist for live on
-// the Titan page; the company page carries the same evidence numbers and the
+// the Abhed page; the company page carries the same evidence numbers and the
 // same honest disclosure. Both are checked, concatenated, because a claim is
 // no less published for being on the second page.
 //
@@ -58,7 +58,7 @@ func has(markers ...string) func(string) bool {
 func pagePaths() []string {
 	return []string{
 		filepath.Join("..", "..", "web", "zybuu", "index.html"),
-		filepath.Join("..", "..", "web", "zybuu", "titan", "index.html"),
+		filepath.Join("..", "..", "web", "zybuu", "abhed", "index.html"),
 	}
 }
 
@@ -222,8 +222,8 @@ func TestPageClaimsNoCertification(t *testing.T) {
 	// visible in the diff rather than made by moving a paragraph.
 	allowed := map[string]bool{
 		"evidence":       true, // the company homepage's honest-disclosure block
-		"titan-evidence": true, // the same block on Titan's product page
-		"limitations":    true, // "What Titan does not do"
+		"abhed-evidence": true, // the same block on Abhed's product page
+		"limitations":    true, // "What Abhed does not do"
 	}
 
 	src := raw(t)
@@ -518,7 +518,7 @@ func TestPageDoesNotClaimUnenforcedControls(t *testing.T) {
 	}
 
 	// The SDK's own tool registry decides this one.
-	sdk, err := os.ReadFile(filepath.Join("..", "..", "sdk", "titan.go"))
+	sdk, err := os.ReadFile(filepath.Join("..", "..", "sdk", "abhed.go"))
 	if err == nil && strings.Contains(string(sdk), "tools.Bash{}") {
 		// Anchored on the SUBJECT, not on the sentence. Two earlier versions
 		// of this test listed the phrasings that were wrong at the time, and
@@ -597,14 +597,14 @@ func TestProviderCountOnPageMatchesRegistry(t *testing.T) {
 // weaken when embedded" for a week after the page retracted that exact
 // sentence, which is a worse place to be wrong than the page.
 func TestSDKDocDoesNotOverclaim(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("..", "..", "sdk", "titan.go"))
+	b, err := os.ReadFile(filepath.Join("..", "..", "sdk", "abhed.go"))
 	if err != nil {
 		t.Skipf("sdk not present: %v", err)
 	}
 	src := string(b)
 	if strings.Contains(src, "tools.Bash{}") &&
 		strings.Contains(src, "guarantees do not weaken when embedded") {
-		t.Error("sdk/titan.go claims the guarantees do not weaken when " +
+		t.Error("sdk/abhed.go claims the guarantees do not weaken when " +
 			"embedded while building tools.Bash{} with no sandbox")
 	}
 }
@@ -614,7 +614,7 @@ func TestSDKDocDoesNotOverclaim(t *testing.T) {
 //
 // This has now shipped twice: once in the governance section, and once in the
 // limitations table, which said "transcripts and accounts survive it" when
-// only accounts do. Titan's own status string is the authority — main.go
+// only accounts do. Abhed's own status string is the authority — main.go
 // reports "memory (sessions do not survive restart)" — and the default driver
 // is memory, so any unqualified survives-a-restart claim about transcripts,
 // sessions or history is false for most readers.

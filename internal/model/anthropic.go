@@ -21,7 +21,7 @@ import (
 // tool_use blocks whose arguments stream as JSON fragments, and the streaming
 // protocol is a set of named events rather than one delta shape.
 //
-// Two of those differences carry real weight for Titan. Caching is explicit —
+// Two of those differences carry real weight for Abhed. Caching is explicit —
 // a cache_control marker on the last system block is what makes the stable
 // prefix cheap, which is exactly the economics docs P8 is about, and it has to
 // be asked for rather than inferred. And thinking is a first-class request
@@ -43,11 +43,11 @@ type Anthropic struct {
 	// A Claude Pro or Max subscription is not an API key: it is an OAuth
 	// credential, sent as Authorization: Bearer, and the two headers are not
 	// interchangeable. Supporting it means a developer who already pays for a
-	// subscription can drive Titan with it instead of buying API credit
+	// subscription can drive Abhed with it instead of buying API credit
 	// separately, which for an evaluation is often the difference between
 	// trying the thing and not.
 	//
-	// Titan does not run the browser flow that mints these tokens: that is
+	// Abhed does not run the browser flow that mints these tokens: that is
 	// Anthropic's, it changes, and reimplementing someone else's login is a
 	// standing liability. `claude setup-token` prints a long-lived one, and
 	// this reads it.
@@ -544,7 +544,7 @@ func betaHeader(configured []string, required string) string {
 // A Claude Pro or Max subscription token is accepted by the API and then
 // refused for anything that is not Claude Code. The refusal comes back as 429
 // with a rate_limit_error, so without this the user is told to wait for a limit
-// that will never clear — and Titan dutifully retries four times against a wall.
+// that will never clear — and Abhed dutifully retries four times against a wall.
 //
 // Saying so plainly costs one paragraph and saves an afternoon. The condition
 // is deliberately narrow: only a bearer token, only a 429 that carries none of

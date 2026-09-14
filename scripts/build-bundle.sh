@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build a signed, self-contained Titan release bundle for air-gapped install.
+# Build a signed, self-contained Abhed release bundle for air-gapped install.
 #
 # The enclave never builds and never fetches: it verifies and unpacks. Anything
 # that would need the network at install time is a defect in this script, not
@@ -10,9 +10,9 @@
 #   scripts/build-bundle.sh [-v VERSION] [-o OUTDIR] [-k SIGNING_KEY]
 #
 # Produces:
-#   titan-<version>.tar.gz          the bundle
-#   titan-<version>.tar.gz.sha256   digest
-#   titan-<version>.tar.gz.sig      detached signature (when a key is given)
+#   abhed-<version>.tar.gz          the bundle
+#   abhed-<version>.tar.gz.sha256   digest
+#   abhed-<version>.tar.gz.sig      detached signature (when a key is given)
 
 set -euo pipefail
 
@@ -34,28 +34,28 @@ done
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE="$(mktemp -d)"
-BUNDLE="titan-${VERSION}"
+BUNDLE="abhed-${VERSION}"
 trap 'rm -rf "$STAGE"' EXIT
 
 say() { printf '  %s\n' "$*"; }
 
-echo "Building Titan bundle ${VERSION}"
+echo "Building Abhed bundle ${VERSION}"
 
 # ---------------------------------------------------------------- binaries
 say "compiling static binaries"
 mkdir -p "$STAGE/$BUNDLE/bin"
 for platform in $PLATFORMS; do
   os="${platform%/*}"; arch="${platform#*/}"
-  out="$STAGE/$BUNDLE/bin/titan-${os}-${arch}"
+  out="$STAGE/$BUNDLE/bin/abhed-${os}-${arch}"
   # CGO off is what makes these genuinely static, so the enclave needs no
   # matching libc.
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
     -trimpath \
     -ldflags "-s -w -X main.version=${VERSION}" \
-    -o "$out" "$ROOT/cmd/titan"
+    -o "$out" "$ROOT/cmd/abhed"
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
     -trimpath -ldflags "-s -w" \
-    -o "$STAGE/$BUNDLE/bin/titan-bench-${os}-${arch}" "$ROOT/cmd/titan-bench"
+    -o "$STAGE/$BUNDLE/bin/abhed-bench-${os}-${arch}" "$ROOT/cmd/abhed-bench"
   say "  $(basename "$out") ($(du -h "$out" | cut -f1))"
 done
 
@@ -82,7 +82,7 @@ cat > "$STAGE/$BUNDLE/config/config.example.json" <<'JSON'
         "type": "openai-compatible",
         "base_url": "http://vllm.internal:8000/v1",
         "model": "Qwen/Qwen3-32B",
-        "api_key_env": "TITAN_API_KEY",
+        "api_key_env": "ABHED_API_KEY",
         "context_window": 131072
       }
     }
@@ -90,7 +90,7 @@ cat > "$STAGE/$BUNDLE/config/config.example.json" <<'JSON'
   "auth": {
     "mode": "oidc",
     "issuer": "https://idp.internal/realms/engineering",
-    "audience": "titan",
+    "audience": "abhed",
     "tenant_claim": "org_id",
     "groups_claim": "groups"
   },
@@ -118,10 +118,10 @@ JSON
 # ---------------------------------------------------------------- installer
 cat > "$STAGE/$BUNDLE/install.sh" <<'INSTALL'
 #!/usr/bin/env bash
-# Install Titan from this bundle. Requires no network access.
+# Install Abhed from this bundle. Requires no network access.
 set -euo pipefail
 
-PREFIX="${PREFIX:-/opt/titan}"
+PREFIX="${PREFIX:-/opt/abhed}"
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"
 case "$arch" in
@@ -130,26 +130,26 @@ case "$arch" in
   *) echo "unsupported architecture: $arch" >&2; exit 1 ;;
 esac
 
-binary="bin/titan-${os}-${arch}"
+binary="bin/abhed-${os}-${arch}"
 if [ ! -f "$binary" ]; then
   echo "no binary for ${os}/${arch} in this bundle" >&2
   echo "available:" >&2; ls bin/ >&2
   exit 1
 fi
 
-echo "Installing Titan to ${PREFIX}"
+echo "Installing Abhed to ${PREFIX}"
 mkdir -p "$PREFIX/bin" "$PREFIX/docs" "$PREFIX/schema" "$PREFIX/config"
-install -m 0755 "$binary" "$PREFIX/bin/titan"
-install -m 0755 "bin/titan-bench-${os}-${arch}" "$PREFIX/bin/titan-bench" 2>/dev/null || true
+install -m 0755 "$binary" "$PREFIX/bin/abhed"
+install -m 0755 "bin/abhed-bench-${os}-${arch}" "$PREFIX/bin/abhed-bench" 2>/dev/null || true
 cp -R docs/. "$PREFIX/docs/"
 cp schema/schema.sql "$PREFIX/schema/"
 cp config/config.example.json "$PREFIX/config/"
 
 echo
 echo "Installed. Next steps:"
-echo "  1. cp ${PREFIX}/config/config.example.json /etc/titan/config.json"
+echo "  1. cp ${PREFIX}/config/config.example.json /etc/abhed/config.json"
 echo "  2. edit it to point at your model endpoint and database"
-echo "  3. ${PREFIX}/bin/titan doctor"
+echo "  3. ${PREFIX}/bin/abhed doctor"
 echo
 echo "The schema in ${PREFIX}/schema/schema.sql is applied automatically on"
 echo "first start; apply it manually if your database role cannot create tables."
@@ -166,7 +166,7 @@ go version > "$STAGE/$BUNDLE/BUILDINFO"
   echo "platforms=${PLATFORMS}"
 } >> "$STAGE/$BUNDLE/BUILDINFO"
 
-# A minimal SPDX-style SBOM. Titan's dependency surface is deliberately small,
+# A minimal SPDX-style SBOM. Abhed's dependency surface is deliberately small,
 # which is itself an air-gap property worth recording.
 {
   echo "{"
@@ -176,7 +176,7 @@ go version > "$STAGE/$BUNDLE/BUILDINFO"
   echo "  \"go_version\": \"$(go version | awk '{print $3}')\","
   echo "  \"dependencies\": ["
   ( cd "$ROOT" && go list -m -f '    {"module": "{{.Path}}", "version": "{{.Version}}"}' all 2>/dev/null |
-      grep -v '^    {"module": "github.com/yuvrajsingh/titan"' | paste -sd, - )
+      grep -v '^    {"module": "github.com/yuvrajsingh/abhed"' | paste -sd, - )
   echo "  ]"
   echo "}"
 } > "$STAGE/$BUNDLE/sbom.json"

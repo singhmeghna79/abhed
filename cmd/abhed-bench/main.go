@@ -1,4 +1,4 @@
-// Command titan-bench measures prefix-cache behavior on a real serving stack.
+// Command abhed-bench measures prefix-cache behavior on a real serving stack.
 //
 // This answers open question Q3 in docs/architecture/05-roadmap.md. The whole
 // capacity model in docs/architecture/04-sizing.md rests on a COMPUTED claim
@@ -9,7 +9,7 @@
 // endpoint you point it at, so the number in your capacity plan is yours rather
 // than an assumption.
 //
-//	titan-bench -base-url http://gpu:8000/v1 -model Qwen/Qwen3-32B
+//	abhed-bench -base-url http://gpu:8000/v1 -model Qwen/Qwen3-32B
 package main
 
 import (
@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/model"
 )
 
 type turnResult struct {
@@ -65,9 +65,9 @@ type compactStats struct {
 
 func main() {
 	var (
-		baseURL     = flag.String("base-url", envOr("TITAN_BASE_URL", "http://localhost:8000/v1"), "OpenAI-compatible endpoint")
-		modelName   = flag.String("model", envOr("TITAN_MODEL", ""), "model name")
-		apiKey      = flag.String("api-key", os.Getenv("TITAN_API_KEY"), "API key if required")
+		baseURL     = flag.String("base-url", envOr("ABHED_BASE_URL", "http://localhost:8000/v1"), "OpenAI-compatible endpoint")
+		modelName   = flag.String("model", envOr("ABHED_MODEL", ""), "model name")
+		apiKey      = flag.String("api-key", os.Getenv("ABHED_API_KEY"), "API key if required")
 		turns       = flag.Int("turns", 12, "conversation turns to simulate")
 		prefixKB    = flag.Int("prefix-kb", 24, "approximate size of the stable prefix, in KB")
 		jsonOut     = flag.String("json", "", "write the full report to this path")
@@ -76,7 +76,7 @@ func main() {
 	flag.Parse()
 
 	if *modelName == "" {
-		fmt.Fprintln(os.Stderr, "titan-bench: -model is required (or set TITAN_MODEL)")
+		fmt.Fprintln(os.Stderr, "abhed-bench: -model is required (or set ABHED_MODEL)")
 		os.Exit(2)
 	}
 
@@ -85,12 +85,12 @@ func main() {
 
 	rep := report{Endpoint: *baseURL, Model: *modelName}
 
-	// A large, byte-identical prefix is the thing under test: Titan's system
+	// A large, byte-identical prefix is the thing under test: Abhed's system
 	// prompt plus memory file plus tool definitions, re-sent every turn.
 	prefix := buildPrefix(*prefixKB)
 	rep.PrefixTokens = len(prefix) * 10 / 36
 
-	fmt.Printf("titan-bench\n")
+	fmt.Printf("abhed-bench\n")
 	fmt.Printf("  endpoint  %s\n", *baseURL)
 	fmt.Printf("  model     %s\n", *modelName)
 	fmt.Printf("  prefix    ~%d tokens (%d KB)\n", rep.PrefixTokens, *prefixKB)
@@ -263,7 +263,7 @@ func printReport(r report) {
 	if !r.CacheReported {
 		fmt.Printf("\n  ⚠ This endpoint reported NO cached tokens.\n\n")
 		fmt.Printf("    Either prefix caching is disabled, or the server does not\n")
-		fmt.Printf("    report prompt_tokens_details.cached_tokens. Titan's context\n")
+		fmt.Printf("    report prompt_tokens_details.cached_tokens. Abhed's context\n")
 		fmt.Printf("    design assumes a working prefix cache — without one, every\n")
 		fmt.Printf("    turn pays full prefill and the capacity model in\n")
 		fmt.Printf("    docs/architecture/04-sizing.md does not hold for this stack.\n\n")
@@ -297,7 +297,7 @@ func printReport(r report) {
 	switch {
 	case !r.CacheReported && s.TTFTSpeedup < 1.3:
 		fmt.Printf("no prefix caching detected.\n")
-		fmt.Printf("  Titan will work, but every turn pays full prefill. Enable prefix\n")
+		fmt.Printf("  Abhed will work, but every turn pays full prefill. Enable prefix\n")
 		fmt.Printf("  caching on the serving stack before sizing a deployment.\n")
 	case s.HitRate > 0.5 || s.TTFTSpeedup > 1.5:
 		fmt.Printf("prefix caching is working.\n")
@@ -311,11 +311,11 @@ func printReport(r report) {
 	}
 }
 
-// buildPrefix approximates Titan's real stable prefix: system prompt, memory
+// buildPrefix approximates Abhed's real stable prefix: system prompt, memory
 // file, and tool definitions.
 func buildPrefix(kb int) string {
 	var b strings.Builder
-	b.WriteString("You are Titan, a software engineering agent operating in a user's codebase.\n\n")
+	b.WriteString("You are Abhed, a software engineering agent operating in a user's codebase.\n\n")
 	target := kb * 1024
 	section := 0
 	for b.Len() < target {

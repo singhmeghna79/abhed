@@ -1,6 +1,6 @@
-# Titan documentation
+# Abhed documentation
 
-Titan is an on-prem deep agent harness. It runs where your data is, against whichever
+Abhed is an on-prem deep agent harness. It runs where your data is, against whichever
 model you point it at, and records everything it does.
 
 ## Start here
@@ -17,7 +17,7 @@ model you point it at, and records everything it does.
 | Guide | For |
 |---|---|
 | [Tools](05-tools.md) | the built-in tools, and the four ways to add your own |
-| [Skills](06-skills.md) | teaching Titan a procedure it should follow |
+| [Skills](06-skills.md) | teaching Abhed a procedure it should follow |
 | [Extensions](07-extensions.md) | intercepting, filtering and adding capability |
 | [MCP](08-mcp.md) | connecting Model Context Protocol servers |
 
@@ -25,8 +25,8 @@ model you point it at, and records everything it does.
 
 | Guide | For |
 |---|---|
-| [The SDK](09-sdk.md) | embedding Titan in a Go program |
-| [RPC and headless](10-automation.md) | driving Titan from another language, or from CI |
+| [The SDK](09-sdk.md) | embedding Abhed in a Go program |
+| [RPC and headless](10-automation.md) | driving Abhed from another language, or from CI |
 | [Sessions and audit](11-sessions.md) | replay, forking, export, what is recorded |
 | [Observability](12-observability.md) | the event log as OpenTelemetry traces |
 | [Structured output](13-structured-output.md) | a typed answer that matches a schema, on every provider |

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/titan/internal/agent"
-	"github.com/yuvrajsingh/titan/internal/model"
-	"github.com/yuvrajsingh/titan/internal/policy"
-	"github.com/yuvrajsingh/titan/internal/sandbox"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/yuvrajsingh/abhed/internal/sandbox"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Attacks that chain features or race them, which the scoping document
@@ -50,7 +50,7 @@ func TestAttack_UndoRestoresDeletedSecret(t *testing.T) {
 			"plaintext; they must inherit the workspace's confidentiality controls.")
 	}
 	// The security property that must hold: undo cannot write OUTSIDE the workspace.
-	if _, err := os.Stat("/tmp/titan-undo-escape"); err == nil {
+	if _, err := os.Stat("/tmp/abhed-undo-escape"); err == nil {
 		t.Fatal("ESCAPE: undo wrote outside the workspace")
 	}
 }
@@ -63,9 +63,9 @@ func TestAttack_ExportPathTraversal(t *testing.T) {
 	// The export path is operator-supplied, but a malicious workspace could
 	// suggest one. Writing through the tool layer must still be scoped.
 	for _, target := range []string{
-		"/tmp/titan-export-escape.json",
+		"/tmp/abhed-export-escape.json",
 		filepath.Join(dir, "..", "escape.json"),
-		"/etc/titan-export.json",
+		"/etc/abhed-export.json",
 	} {
 		res := call(t, tools.Write{}, s, map[string]any{
 			"path": target, "content": "exported",
@@ -190,7 +190,7 @@ func TestAttack_CommandWrappingBypass(t *testing.T) {
 	e.AddDeny("bash(rm -rf *)")
 	e.AddAllow("bash(*)")
 
-	// Each of these ultimately performs a destructive delete. Titan must not
+	// Each of these ultimately performs a destructive delete. Abhed must not
 	// silently allow any of them.
 	wrapped := []string{
 		"bash -c 'rm -rf /tmp/x'",
@@ -232,7 +232,7 @@ func TestAttack_SandboxContainsPolicyMiss(t *testing.T) {
 
 	// Assume policy was bypassed entirely and this command runs. The sandbox
 	// must still prevent damage outside the workspace.
-	marker := "/usr/local/titan-policy-miss"
+	marker := "/usr/local/abhed-policy-miss"
 	for _, cmd := range []string{
 		"bash -c 'echo pwned > " + marker + "'",
 		"env sh -c 'echo pwned > " + marker + "'",

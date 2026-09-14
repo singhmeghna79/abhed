@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/titan/internal/jsonschema"
-	"github.com/yuvrajsingh/titan/internal/tools"
+	"github.com/yuvrajsingh/abhed/internal/jsonschema"
+	"github.com/yuvrajsingh/abhed/internal/tools"
 )
 
 // Structured output: a run whose answer is a JSON value matching a schema.

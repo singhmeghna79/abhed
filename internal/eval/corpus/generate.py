@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Titan's stratified evaluation corpus.
+"""Generate Abhed's stratified evaluation corpus.
 
 Hand-writing 390 tasks produces 390 variations on whatever the author was
 thinking about that afternoon. Generating them from templates across languages,

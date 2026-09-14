@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Titan capacity model. Reproduces every number in 04-sizing.md.
+"""Abhed capacity model. Reproduces every number in 04-sizing.md.
 
 Standard transformer memory arithmetic - no vendor claims, no benchmarks.
     kv_per_token = 2 * layers * kv_heads * head_dim * dtype_bytes
@@ -67,7 +67,7 @@ def main():
     print("\n" + "=" * 78)
     print("PREFILL COST on 8x H100 @ 40% MFU  (scales with ACTIVE params)")
     print("=" * 78)
-    for label, toks in [("system prompt + TITAN.md", 12000),
+    for label, toks in [("system prompt + ABHED.md", 12000),
                         ("mid-session + repo context", 60000),
                         ("near compaction threshold", 190000),
                         ("20-subagent fan-out", 240000)]:

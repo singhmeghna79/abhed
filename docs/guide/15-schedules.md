@@ -2,7 +2,7 @@
 
 A recurring run is the shape of a lot of real work: every weekday at nine,
 summarise what changed overnight; hourly, check the staging pods; Sunday
-night, run the dependency audit. `titan serve` can run those itself.
+night, run the dependency audit. `abhed serve` can run those itself.
 
 ```json
 "schedules": [
@@ -31,7 +31,7 @@ Five fields — minute, hour, day of month, month, weekday — with `*`, lists
 (`1,15`), ranges (`1-5`), steps (`*/15`), and the aliases `@hourly`, `@daily`,
 `@weekly`, `@monthly`. Evaluated in the server's local time.
 
-A bad expression is a **startup error**. `titan serve` refuses to start with a
+A bad expression is a **startup error**. `abhed serve` refuses to start with a
 schedule it could not parse, because a job that silently never fires is worse
 than a server that says why it will not start.
 

@@ -6,7 +6,7 @@
 # so every precondition is checked here first and reported together.
 set -uo pipefail
 
-DOMAIN="${TITAN_DOMAIN:-titan.zybuu.com}"
+DOMAIN="${ABHED_DOMAIN:-abhed.zybuu.com}"
 LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || echo unknown)"
 
 ok=0; warn=0; fail=0
@@ -82,10 +82,10 @@ fi
 
 command -v caddy >/dev/null 2>&1 && pass "caddy installed" || bad "caddy not installed"
 
-if podman image exists titan:local 2>/dev/null; then
-  pass "titan:local image built"
+if podman image exists abhed:local 2>/dev/null; then
+  pass "abhed:local image built"
 else
-  flag "titan:local not built yet (podman build -t titan:local -f Dockerfile .)"
+  flag "abhed:local not built yet (podman build -t abhed:local -f Dockerfile .)"
 fi
 
 # --------------------------------------------------------------------- verdict

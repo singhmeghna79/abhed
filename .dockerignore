@@ -1,7 +1,7 @@
 .git
-.titan
-.titan-workspace
-titan
+.abhed
+.abhed-workspace
+abhed
 *.tar.gz
 docs
 deploy

@@ -23,7 +23,7 @@ lives.
 | **MCP server** | the tool exists, or you want the industry-standard interface | [MCP](08-mcp.md) |
 | **Extension** | you want a tool in any language, with no protocol to learn | [Extensions](07-extensions.md) |
 | **Skill** | it is a procedure, not a program | [Skills](06-skills.md) |
-| **SDK** | you are embedding Titan and can write Go | [SDK](09-sdk.md) |
+| **SDK** | you are embedding Abhed and can write Go | [SDK](09-sdk.md) |
 
 ### The shortest path
 
@@ -48,7 +48,7 @@ done
 
 ```json
 "extensions": [
-  { "name": "tickets", "command": "bash", "args": ["/opt/titan/tickets.sh"] }
+  { "name": "tickets", "command": "bash", "args": ["/opt/abhed/tickets.sh"] }
 ]
 ```
 
@@ -62,7 +62,7 @@ exactly as `write` is.
 
 Two defaults are deliberately strict:
 
-- A tool that does not say whether it **mutates** is assumed to. Titan cannot
+- A tool that does not say whether it **mutates** is assumed to. Abhed cannot
   know what someone else's tool does, and the safe answer is the one that asks.
 - A **duplicate name is refused** rather than resolved by load order. Otherwise
   which tool ran would depend on which extension started first, and a policy

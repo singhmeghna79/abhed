@@ -1,17 +1,17 @@
 {
-  "_comment": "Titan's configuration when it runs INSIDE the deployment container. See deploy/README.md for why each value differs from a laptop config.",
+  "_comment": "Abhed's configuration when it runs INSIDE the deployment container. See deploy/README.md for why each value differs from a laptop config.",
   "auth": {
     "mode": "local",
     "session_hours": 12,
     "cookie_secure": true,
     "allow_signup": false,
-    "admin_group": "titan-admin"
+    "admin_group": "abhed-admin"
   },
   "server": {
     "hsts": true,
     "trust_proxy": true,
     "allowed_origins": [
-      "https://titan.zybuu.com"
+      "https://abhed.zybuu.com"
     ],
     "home_url": "https://zybuu.com/"
   },
@@ -40,7 +40,7 @@
       "read(**/.git-credentials)",
       "read(**/.netrc)",
       "read(/Users/**/Library/Keychains/**)",
-      "read(**/.titan/**)"
+      "read(**/.abhed/**)"
     ],
     "ask": [],
     "allow": [
@@ -97,7 +97,7 @@
   },
   "skills": {
     "dirs": [
-      "/workspace/.titan/skills"
+      "/workspace/.abhed/skills"
     ]
   },
   "k8s": {

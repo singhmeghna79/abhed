@@ -1,4 +1,4 @@
-# Titan — Resource Requirements & Sizing
+# Abhed — Resource Requirements & Sizing
 
 Status: Draft · 2026-09-02
 
@@ -66,7 +66,7 @@ Computed on 8×H100 at 40% MFU:
 
 | Scenario | Tokens | gpt-oss-120b (5.1B active) | Qwen3-32B (dense) |
 |---|---:|---:|---:|
-| System prompt + TITAN.md (cold) | 12,000 | 39 ms | 243 ms |
+| System prompt + ABHED.md (cold) | 12,000 | 39 ms | 243 ms |
 | Mid-session with repo context | 60,000 | 193 ms | 1,213 ms |
 | Near compaction threshold | 190,000 | **612 ms** | **3,840 ms** |
 | 20-subagent fan-out | 240,000 | 0.77 s | 4.85 s |
@@ -84,11 +84,11 @@ Three consequences that should change your build:
 1. **Prefix caching is not an optimization, it is a precondition.** Without it the
    re-injected-memory-file pattern (P4) costs 17× more GPU time. Verify hit rates in
    production; do not assume the serving engine delivers them. Measure with
-   `titan-bench` (below) rather than trusting this table.
+   `abhed-bench` (below) rather than trusting this table.
 2. **Compaction costs less than first assumed — if you place the prefix correctly.**
    An earlier draft of this document claimed compaction "invalidates the prefix by
-   construction." **Measurement showed that is wrong for Titan's architecture.** Because
-   the system prompt and `TITAN.md` live in the *system* message, outside the compacted
+   construction." **Measurement showed that is wrong for Abhed's architecture.** Because
+   the system prompt and `ABHED.md` live in the *system* message, outside the compacted
    history, compaction discards the conversation tail while the cached prefix survives.
    Measured penalty: ~1.0×, not the large cold-prefill hit predicted.
    This holds only while the prefix stays outside the summarized region — an
@@ -97,10 +97,10 @@ Three consequences that should change your build:
 
 ### Measured vs computed
 
-`cmd/titan-bench` measures all of this on a real endpoint:
+`cmd/abhed-bench` measures all of this on a real endpoint:
 
 ```
-titan-bench -base-url http://gpu:8000/v1 -model Qwen/Qwen3-32B -turns 40
+abhed-bench -base-url http://gpu:8000/v1 -model Qwen/Qwen3-32B -turns 40
 ```
 
 It reports cache hit rate, prefill savings, cold vs warm TTFT, and the compaction
@@ -122,7 +122,7 @@ Research produced **no verified quantization quality numbers.** Do not accept ve
 claims of "lossless." Run your own eval harness (P10) on your own task distribution before
 promoting any quantized model — agentic tool-calling degrades differently from the
 text benchmarks quantization is usually validated on, and that difference is exactly what
-would hurt Titan.
+would hurt Abhed.
 
 ## 6. Supporting infrastructure (per T2 node)
 
@@ -160,7 +160,7 @@ would hurt Titan.
 
 Excludes facility, network fabric, support contracts, and engineering. GPU pricing moves
 fast and varies enormously by vendor relationship — **treat these as order-of-magnitude
-only.** The engineering cost of building Titan (see `05-roadmap.md`) will likely exceed T2
+only.** The engineering cost of building Abhed (see `05-roadmap.md`) will likely exceed T2
 hardware cost, which is the usual and correct surprise.
 
 ## 8. Sizing procedure
