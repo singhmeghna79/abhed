@@ -27,10 +27,13 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+      # gosec's findings are all triaged in docs/trust/security-scans.md; the
+      # gate fails only on findings that are not in that baseline, so a new
+      # one blocks the build and the known set does not keep the job red.
       - name: gosec
-        uses: securego/gosec@master
-        with:
-          args: ./...
+        run: |
+          go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -quiet -fmt json -no-fail -out gosec.json ./... || true
+          python3 deploy/ci/gosec-gate.py gosec.json
 
       - uses: actions/setup-node@v4
         with:

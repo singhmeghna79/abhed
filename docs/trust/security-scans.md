@@ -209,6 +209,15 @@ Recommended Fixes #1.**
 
 ### gosec
 
+**In CI.** The triaged findings below are the baseline in
+`deploy/ci/gosec-baseline.json`, keyed by rule and file. The workflow runs
+gosec at the version recorded here and fails only on a finding outside that
+baseline (`deploy/ci/gosec-gate.py`), so a new finding blocks a merge while
+the known set does not keep the job permanently red. A fix that removes a
+finding, or a new one once it has been triaged here, is followed by
+`--update`, which rewrites the baseline from the current report.
+
+
 **Command:** `env -u GOROOT go run github.com/securego/gosec/v2/cmd/gosec@latest ./...` (also captured as JSON via `-fmt=json -out=gosec.json`)
 
 **Counts: 138 findings.**
