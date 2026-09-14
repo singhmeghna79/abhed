@@ -102,6 +102,26 @@ func newLogin(t *testing.T, idp *mockIDP) *Login {
 	return l
 }
 
+// visitIDP plays the browser's trip to the identity provider. The mock IdP
+// answers the authorization request with a redirect to the configured
+// callback URL, and nothing listens there during the test: the callback
+// handler is called directly afterwards. So the client must stop at the
+// redirect rather than follow it. Following it made the test pass only on a
+// machine where port 8420 happened to be answering, and fail on every clean
+// runner with "connection refused".
+func visitIDP(t *testing.T, u string) {
+	t.Helper()
+	c := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := c.Get(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("identity provider answered %d, want a redirect back to the callback", resp.StatusCode)
+	}
+}
+
 // The full flow: /login → IdP → /auth/callback → session cookie.
 func TestBrowserLoginFlow(t *testing.T) {
 	idp := newMockIDP(t)
@@ -123,11 +143,7 @@ func TestBrowserLoginFlow(t *testing.T) {
 	}
 
 	// Step 2: the IdP redirects back with a code.
-	resp, err := http.Get(loc.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
+	visitIDP(t, loc.String())
 
 	// Step 3: the callback exchanges it and sets a cookie.
 	rec = httptest.NewRecorder()
@@ -185,7 +201,7 @@ func TestStateIsSingleUse(t *testing.T) {
 	l.Start(rec, httptest.NewRequest("GET", "/login", nil))
 	loc, _ := url.Parse(rec.Header().Get("Location"))
 	state := loc.Query().Get("state")
-	http.Get(loc.String())
+	visitIDP(t, loc.String())
 
 	first := httptest.NewRecorder()
 	l.Callback(first, httptest.NewRequest("GET", "/auth/callback?code=c&state="+state, nil))
@@ -222,7 +238,7 @@ func TestLogoutClearsSession(t *testing.T) {
 	rec := httptest.NewRecorder()
 	l.Start(rec, httptest.NewRequest("GET", "/login", nil))
 	loc, _ := url.Parse(rec.Header().Get("Location"))
-	http.Get(loc.String())
+	visitIDP(t, loc.String())
 	cb := httptest.NewRecorder()
 	l.Callback(cb, httptest.NewRequest("GET", "/auth/callback?code=c&state="+loc.Query().Get("state"), nil))
 	cookie := cb.Result().Cookies()[0]
@@ -272,7 +288,7 @@ func TestPKCEIsEnforced(t *testing.T) {
 	l.Start(rec, httptest.NewRequest("GET", "/login", nil))
 	loc, _ := url.Parse(rec.Header().Get("Location"))
 	state := loc.Query().Get("state")
-	http.Get(loc.String())
+	visitIDP(t, loc.String())
 
 	// Corrupt the stored verifier: the token endpoint must now refuse.
 	l.mu.Lock()
