@@ -10,6 +10,12 @@
 # is a function of the timeline, so it is aligned with the voice by
 # construction — there is nothing to sync afterwards.
 set -euo pipefail
+# A render runs at about twice realtime, long enough for the Mac to sleep, and
+# a sleeping Mac stalls Chrome on a frame until the screenshot times out.
+# Keep the machine awake for exactly as long as this script runs.
+if command -v caffeinate >/dev/null 2>&1 && [ -z "${DEMO_AWAKE:-}" ]; then
+  DEMO_AWAKE=1 exec caffeinate -dims "$0" "$@"
+fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
 OUT="${1:-$ROOT/.series-build}"; shift || true
