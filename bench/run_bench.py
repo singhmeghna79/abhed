@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 BENCH_DIR = Path(__file__).resolve().parent
-SCRATCH = Path("<scratch>/bench")
+SCRATCH = Path(os.environ.get("BENCH_SCRATCH", Path(__file__).resolve().parent / ".scratch"))
 TASKS_DIR = SCRATCH / "tasks"
 ORIG_TESTS_DIR = SCRATCH / "orig_tests"
 ABHED_CONFIG_TEMPLATE = SCRATCH / "abhed-config-template" / ".abhed"

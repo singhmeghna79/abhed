@@ -43,3 +43,11 @@ web/zybuu/media/*.jpg
 
 # A local build dropped in the repo root is never source.
 /abhed
+
+# Not part of the product: editor and assistant tooling, internal notes, machine files
+.claude/
+.DS_Store
+docs/internal/
+docs/research/
+bench/logs/
+bench/.scratch/

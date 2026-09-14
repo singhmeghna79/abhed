@@ -13,7 +13,8 @@ SOC 2 / ISO 27001 / HIPAA certification (stated plainly on slide 9). Pricing
 is a proposal only and is labelled "proposed" everywhere it appears.
 """
 
-from pptx import Presentation
+from pptx import os
+import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
@@ -740,7 +741,7 @@ add_text(s, MARGIN, Inches(4.85), Inches(11), Inches(0.5),
 add_footer(s, 12)
 
 # ---------------------------------------------------------------- save -----
-OUT = "<scratch>/deck/abhed-deck.pptx"
+OUT = os.environ.get("DECK_OUT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "abhed-deck.pptx"))
 prs.save(OUT)
 print(f"Saved {OUT}")
 print(f"Slide count: {len(prs.slides._sldIdLst)}")

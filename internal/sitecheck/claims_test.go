@@ -794,8 +794,14 @@ func TestPageDoesNotContradictItsOwnLimitations(t *testing.T) {
 // in a deck — the GTM rule is "no benchmark not in docs/", and this one WAS in
 // docs/ while being unsourced, which is the failure the rule did not cover.
 func TestInternalDocsCiteFilesThatExist(t *testing.T) {
+	// The internal notes are kept out of the published repository (they name
+	// other people's products and internal hostnames), so a checkout without
+	// them has nothing to check here; the guard runs wherever they exist.
 	dir := filepath.Join("..", "..", "docs", "internal")
 	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		t.Skip("docs/internal is not part of this checkout")
+	}
 	if err != nil {
 		t.Fatalf("docs/internal not readable, so no citation was checked: %v", err)
 	}

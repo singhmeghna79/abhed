@@ -207,4 +207,3 @@ because it only tries what its author thought of. **A human red-team engagement
 remains outstanding and is not substitutable.** For untrusted repositories set
 `sandbox.min_tier` to `container` or `vm` and commission one first.
 
-Raw findings: [`docs/research/deep-research-findings.json`](docs/research/deep-research-findings.json)
