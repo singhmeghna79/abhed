@@ -70,6 +70,9 @@ say "vendoring Go dependencies"
 say "staging documentation and templates"
 mkdir -p "$STAGE/$BUNDLE/docs" "$STAGE/$BUNDLE/config" "$STAGE/$BUNDLE/schema"
 cp -R "$ROOT/docs/." "$STAGE/$BUNDLE/docs/"
+# Internal notes and raw research live under docs/ on a developer machine but
+# are not part of the product; a bundle built there must not carry them.
+rm -rf "$STAGE/$BUNDLE/docs/internal" "$STAGE/$BUNDLE/docs/research"
 cp "$ROOT/README.md" "$STAGE/$BUNDLE/"
 cp "$ROOT/internal/store/schema.sql" "$STAGE/$BUNDLE/schema/"
 
