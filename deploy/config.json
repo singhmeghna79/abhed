@@ -13,7 +13,8 @@
     "allowed_origins": [
       "https://abhed.zybuu.com"
     ],
-    "home_url": "https://zybuu.com/"
+    "home_url": "https://zybuu.com/",
+    "canonical_host": "abhed.zybuu.com"
   },
   "permissions": {
     "mode": "default",
