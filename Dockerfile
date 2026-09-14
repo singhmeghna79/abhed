@@ -42,7 +42,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # Debian slim rather than distroless or scratch: the agent's whole purpose is to
 # run shell commands, so it needs a shell and the ordinary POSIX tools. An image
 # without them would be smaller and useless.
-FROM debian:bookworm-slim
+# trixie rather than bookworm: the same packages, and the scan drops from 16
+# critical CVEs in the base image to none (docs/trust/security-scans.md).
+FROM debian:trixie-slim
 
 # ca-certificates is required to verify TLS to the model endpoint. git and the
 # rest are what an agent working in a repository actually reaches for.
@@ -90,11 +92,14 @@ RUN pip3 install --no-cache-dir --break-system-packages \
       pypdf==6.18.1 \
       matplotlib==3.9.2 \
       graphviz==0.20.3 \
- && python3 -c "import docx, openpyxl, pptx, reportlab, pypdf, matplotlib, graphviz; \
-      print('document writers ready')" \
  `# pip was only ever needed to install these; leaving it in the image is` \
- `# attack surface with no job.` \
- && apt-get purge -y python3-pip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+ `# attack surface with no job. Purged without autoremove on purpose: the` \
+ `# distro's python3-packaging came in with pip and matplotlib imports it` \
+ `# at runtime, so it has to stay behind.` \
+ && apt-get purge -y python3-pip && rm -rf /var/lib/apt/lists/* \
+ `# Checked AFTER the purge, so the image that ships is the image that was tested.` \
+ && python3 -c "import docx, openpyxl, pptx, reportlab, pypdf, matplotlib, graphviz; \
+      print('document writers ready')"
 
 # pypdf is here for READING, not writing, and it earns its place.
 #

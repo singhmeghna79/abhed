@@ -771,3 +771,25 @@ host. That is the SDK's documented contract — the embedding program owns
 isolation, and the site and `sdk/titan.go` say so — and a guard in
 `internal/sitecheck` keeps the two statements consistent. Changing it is a
 product decision about the SDK, not a scan finding.
+
+### Image rescanned after the fixes
+
+Same tool (trivy, vuln scanner) against the image as rebuilt and deployed on
+14 September 2026, now on `debian:trixie-slim` with the pinned Go 1.26.8
+toolchain, pypdf 6.18.1 and pip removed:
+
+| Severity | Before | After |
+|---|---|---|
+| CRITICAL | 16 | 0 |
+| HIGH | 129 | 71 |
+| MEDIUM | 260 | 131 |
+| LOW | 214 | 152 |
+| pypdf findings | 41 | 0 |
+
+What remains is the Debian base's own backlog in packages Titan does not
+call (graphics and codec libraries pulled in by graphviz and matplotlib for
+the document tools). The next reduction is to move document generation out
+of the runtime image into a separate, optional one; that is on the list,
+not done. In-container checks after the rebuild: the document libraries
+import, bubblewrap 0.12 runs a command under the process tier, and
+`titan doctor` reports the sandbox exec check as ok.
