@@ -8,7 +8,7 @@ import statistics as st
 from pathlib import Path
 
 BENCH_DIR = Path(__file__).resolve().parent
-SYSTEMS = ["titan", "aider", "bare"]
+SYSTEMS = ["abhed", "aider", "bare"]
 
 
 def mean(xs):

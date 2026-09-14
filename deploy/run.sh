@@ -81,6 +81,13 @@ for v in "$VOLUME" "$STATE_VOLUME" "$DB_VOLUME"; do
     "$RUNTIME" volume create "$v" >/dev/null
   fi
 done
+# The engine mounts the skills at /workspace/.abhed/skills, which makes the
+# runtime create /workspace/.abhed itself, owned by root, on a volume that
+# does not have it yet — and the unprivileged service user then cannot stage
+# an upload beside it. Create it first, owned by that user (uid 10001, see
+# the Dockerfile), so the mount lands inside a directory the service can use.
+"$RUNTIME" run --rm --volume "$VOLUME":/w "$DB_IMAGE" \
+  sh -c 'mkdir -p /w/.abhed && chown 10001:10001 /w/.abhed' >/dev/null
 
 if [ ! -f "$CONFIG" ]; then
   echo "error: no config at $CONFIG" >&2

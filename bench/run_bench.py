@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Orchestrate the Titan vs aider vs bare-agent benchmark.
+"""Orchestrate the Abhed vs aider vs bare-agent benchmark.
 
 Runs 24 exercism tasks x 3 systems, sequentially, against the same local
 Ollama model. Writes bench/results/<date>/<system>/<slug>.json per run plus a
@@ -22,8 +22,8 @@ BENCH_DIR = Path(__file__).resolve().parent
 SCRATCH = Path("<scratch>/bench")
 TASKS_DIR = SCRATCH / "tasks"
 ORIG_TESTS_DIR = SCRATCH / "orig_tests"
-TITAN_CONFIG_TEMPLATE = SCRATCH / "titan-config-template" / ".titan"
-TITAN_BIN = SCRATCH / "bin" / "titan"
+ABHED_CONFIG_TEMPLATE = SCRATCH / "abhed-config-template" / ".abhed"
+ABHED_BIN = SCRATCH / "bin" / "abhed"
 VENV_PY = SCRATCH / "venv" / "bin" / "python"
 AIDER_BIN = SCRATCH / "venv" / "bin" / "aider"
 SHIM_DIR = SCRATCH / "shim"
@@ -39,7 +39,7 @@ SLUGS = [
     "protein-translation", "tournament", "grade-school",
 ]
 
-SYSTEMS = ["titan", "aider", "bare"]
+SYSTEMS = ["abhed", "aider", "bare"]
 
 
 def module_name(slug: str) -> str:
@@ -126,8 +126,8 @@ def run_with_timeout(cmd, cwd, env, timeout_sec):
         return -9, out, err, elapsed, True
 
 
-def parse_titan_tail(output: str) -> dict:
-    """Extract 'N turns · X in / Y out tokens' from titan's final line."""
+def parse_abhed_tail(output: str) -> dict:
+    """Extract 'N turns · X in / Y out tokens' from abhed's final line."""
     m = re.search(r"(\d+)\s*turns?\s*·\s*([\d,]+)\s*in\s*/\s*([\d,]+)\s*out\s*tokens", output)
     if not m:
         return {"turns": None, "tokens_in": None, "tokens_out": None}
@@ -229,17 +229,17 @@ def base_env():
     return env
 
 
-def run_titan(slug: str, run_dir: Path) -> dict:
+def run_abhed(slug: str, run_dir: Path) -> dict:
     ws = fresh_workspace(slug, run_dir)
-    titan_dir = ws / ".titan"
-    shutil.copytree(TITAN_CONFIG_TEMPLATE, titan_dir)
+    abhed_dir = ws / ".abhed"
+    shutil.copytree(ABHED_CONFIG_TEMPLATE, abhed_dir)
 
     mod = module_name(slug)
     allowed_files = {f"{mod}.py", f"{mod}_test.py", "INSTRUCTIONS.md"}
     before = snapshot_files(ws)
 
     cmd = [
-        str(TITAN_BIN), "-C", str(ws),
+        str(ABHED_BIN), "-C", str(ws),
         "-mode", "accept-edits",
         "-allow", "bash(python3 -m pytest*)",
         "-max-turns", "30",
@@ -248,13 +248,13 @@ def run_titan(slug: str, run_dir: Path) -> dict:
     env = base_env()
     rc, out, err, elapsed, timed_out = run_with_timeout(cmd, cwd=ws, env=env, timeout_sec=RUN_TIMEOUT_SEC)
     combined = out + err
-    tail_info = parse_titan_tail(combined)
+    tail_info = parse_abhed_tail(combined)
     after = snapshot_files(ws)
-    touched = touched_other_files(before, after, allowed_files | {".titan"})
-    touched = [t for t in touched if not t.startswith(".titan")]
+    touched = touched_other_files(before, after, allowed_files | {".abhed"})
+    touched = [t for t in touched if not t.startswith(".abhed")]
 
     run_info = {
-        "system": "titan",
+        "system": "abhed",
         "slug": slug,
         "exit_code": rc,
         "timed_out": timed_out,
@@ -380,7 +380,7 @@ def run_bare(slug: str, run_dir: Path) -> dict:
     return run_info
 
 
-RUNNERS = {"titan": run_titan, "aider": run_aider, "bare": run_bare}
+RUNNERS = {"abhed": run_abhed, "aider": run_aider, "bare": run_bare}
 
 
 def main():

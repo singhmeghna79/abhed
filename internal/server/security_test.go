@@ -787,7 +787,7 @@ func TestCanonicalHostRedirect(t *testing.T) {
 	h := canonicalHost("abhed.example.com", inner)
 
 	req := httptest.NewRequest(http.MethodGet, "/console?x=1", nil)
-	req.Host = "titan.example.com"
+	req.Host = "old.example.com"
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusMovedPermanently {
@@ -806,7 +806,7 @@ func TestCanonicalHostRedirect(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/v1/sessions", nil)
-	req.Host = "titan.example.com"
+	req.Host = "old.example.com"
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusMisdirectedRequest {

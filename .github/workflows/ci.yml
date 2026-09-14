@@ -65,9 +65,9 @@ jobs:
       - name: Build container image
         run: |
           if command -v podman >/dev/null 2>&1; then
-            podman build -t titan:ci -f Dockerfile .
+            podman build -t abhed:ci -f Dockerfile .
           else
-            docker build -t titan:ci -f Dockerfile .
+            docker build -t abhed:ci -f Dockerfile .
           fi
 
       - name: go test ./internal/deploycheck/

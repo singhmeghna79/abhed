@@ -2,7 +2,7 @@
 """A minimal tool-using agent loop against an OpenAI-compatible /v1/chat/completions
 endpoint (Ollama). No system prompt beyond one sentence, no context compaction,
 no permission policy -- this is the "bare minimum harness" baseline for the
-Titan benchmark. ~150 lines by design.
+Abhed benchmark. ~150 lines by design.
 
 Usage:
   bare_agent.py --workspace DIR --prompt TEXT [--base-url URL] [--model NAME]

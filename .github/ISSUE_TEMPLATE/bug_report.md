@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report something in Titan that doesn't work as documented
+about: Report something in Abhed that doesn't work as documented
 title: ""
 labels: bug
 assignees: ""
@@ -24,16 +24,16 @@ instead.
 Steps, ideally as commands:
 
 ```bash
-go build -o titan ./cmd/titan
-./titan ...
+go build -o abhed ./cmd/abhed
+./abhed ...
 ```
 
-Include your `.titan/config.json` (with secrets redacted) if the bug is
+Include your `.abhed/config.json` (with secrets redacted) if the bug is
 config-dependent.
 
 ## Environment
 
-- Titan commit or version: `git rev-parse HEAD`
+- Abhed commit or version: `git rev-parse HEAD`
 - Go version: `go version`
 - OS/architecture:
 - Storage driver (`memory` or `postgres`):
@@ -42,7 +42,7 @@ config-dependent.
 ## Relevant output
 
 ```
-paste logs, error messages, or `titan doctor` output here
+paste logs, error messages, or `abhed doctor` output here
 ```
 
 ## Additional context

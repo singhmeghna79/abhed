@@ -43,4 +43,3 @@ web/zybuu/media/*.jpg
 
 # A local build dropped in the repo root is never source.
 /abhed
-/titan
