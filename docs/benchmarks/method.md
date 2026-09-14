@@ -1,4 +1,4 @@
-# Abhed vs. aider vs. a bare agent loop — a reproducible local benchmark
+# Method: a reproducible local benchmark
 
 This directory holds a small, honest benchmark comparing three coding-agent
 harnesses driven by the **same local model**, so what's being measured is the
@@ -16,7 +16,7 @@ All three are pointed at the same Ollama-served local model
 (`gemma4:26b` at `http://127.0.0.1:11434`) and given the identical task
 prompt for each exercise.
 
-See `RESULTS.md` for the numbers and their honest interpretation.
+See the results page for the numbers and their honest interpretation.
 
 **A note on naming.** The run was made at commit `de52025`, when the binary
 was still called `titan`; the project was renamed Abhed on 14 September 2026
@@ -255,3 +255,6 @@ workspaces, the exercism clone, the built `abhed` binary, the Python venv, and
 the raw per-run transcripts live outside the repo (a scratch directory), since
 they are either large, regenerable, or third-party source — not something to
 commit.
+
+
+*Source of truth: `bench/README.md` in the repository.*

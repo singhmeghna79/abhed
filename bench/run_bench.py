@@ -139,21 +139,43 @@ def parse_titan_tail(output: str) -> dict:
 
 
 def parse_aider_tail(output: str) -> dict:
-    """Extract 'Tokens: X sent, Y received' or 'X.Yk' forms if present."""
+    """Extract token usage from aider's final output.
+
+    Two formats seen in practice:
+      - normal completion: 'Tokens: X sent, Y received'
+      - the model got stuck in a repetition loop and never produced an edit:
+        'Model ... has hit a token limit!' followed by
+        'Input tokens: ~N' / 'Output tokens: ~N' (approximate, note the '~').
+    The second format is a genuine failure mode (aider ran out of budget
+    before the model converged on an answer), not a parsing edge case to
+    paper over -- so we record it distinctly via 'hit_token_limit'.
+    """
     m = re.search(r"Tokens:\s*([\d.,]+)([kK]?)\s*sent,\s*([\d.,]+)([kK]?)\s*received", output)
-    if not m:
-        return {"tokens_sent": None, "tokens_received": None}
+    if m:
+        def to_num(numstr, suffix):
+            v = float(numstr.replace(",", ""))
+            if suffix:
+                v *= 1000
+            return int(v)
 
-    def to_num(numstr, suffix):
-        v = float(numstr.replace(",", ""))
-        if suffix:
-            v *= 1000
-        return int(v)
+        return {
+            "tokens_sent": to_num(m.group(1), m.group(2)),
+            "tokens_received": to_num(m.group(3), m.group(4)),
+            "hit_token_limit": False,
+        }
 
-    return {
-        "tokens_sent": to_num(m.group(1), m.group(2)),
-        "tokens_received": to_num(m.group(3), m.group(4)),
-    }
+    m2 = re.search(
+        r"has hit a token limit.*?Input tokens:\s*~?([\d,]+).*?Output tokens:\s*~?([\d,]+)",
+        output, re.S,
+    )
+    if m2:
+        return {
+            "tokens_sent": int(m2.group(1).replace(",", "")),
+            "tokens_received": int(m2.group(2).replace(",", "")),
+            "hit_token_limit": True,
+        }
+
+    return {"tokens_sent": None, "tokens_received": None, "hit_token_limit": False}
 
 
 def score(ws: Path, slug: str) -> dict:
@@ -291,6 +313,7 @@ def run_aider(slug: str, run_dir: Path) -> dict:
         "tokens_received": tok_info["tokens_received"],
         "tokens_total": (tok_info["tokens_sent"] or 0) + (tok_info["tokens_received"] or 0)
                         if tok_info["tokens_sent"] is not None else None,
+        "hit_token_limit": tok_info.get("hit_token_limit", False),
         "touched_other_files": touched,
         "stdout_tail": combined[-4000:],
     }

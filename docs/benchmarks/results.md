@@ -1,17 +1,17 @@
-# Results — Abhed vs. aider vs. a bare agent loop
+# Results: Abhed vs. aider vs. a bare agent loop
 
 **Model:** `gemma4:26b`, served locally by Ollama at `http://127.0.0.1:11434`
 (OpenAI-compatible endpoint), identical for all three systems.
 **Hardware:** Apple M3 Pro, 36 GB RAM (`sysctl hw.memsize` = 38654705664 bytes).
 **Dates:** 2026-09-14, single sequential run, ~2h27m wall clock (06:54–09:22 IST).
 **Abhed commit:** `de52025` (built as `cmd/titan` at the time; the project was
-renamed Abhed on 14 September 2026 — see the naming note in `README.md`).
+renamed Abhed on 14 September 2026 — see the naming note in the method page).
 **aider version:** 0.86.2.
 **Task set:** 24 exercism/python exercises, 3 systems, 72 runs total, one run
-at a time (see `README.md` for why: single local model is the bottleneck).
+at a time (see the method page for why: single local model is the bottleneck).
 
-Raw data: [`bench/results/2026-09-14/results.json`](results/2026-09-14/results.json)
-(also `results.csv`). One JSON per run under `bench/results/2026-09-14/<system>/<slug>.json`.
+Raw data: `bench/results/2026-09-14/results.json` in the repository
+(also `results.csv`). One JSON per run under `bench/results/2026-09-14/<system>/<slug>.json` in the repository.
 
 ## Per-system summary
 
@@ -143,7 +143,7 @@ attempt. The invocation was corrected to
 propose edits to them, and the anti-cheat rescoring against the pristine test
 file would have caught it regardless) before any aider run in the recorded
 72-run set executed. No results were discarded because none had been
-produced yet under the old invocation. See `README.md` for the exact
+produced yet under the old invocation. See the method page for the exact
 before/after commands.
 
 ## Limitation: this is not SWE-bench
@@ -163,3 +163,6 @@ a clean stub. A harness that wins here on "read the spec, write the function,
 verify with tests, iterate on failure" is demonstrating exactly that loop and
 no more. Whether that generalizes to messier, larger tasks is a different
 question this benchmark cannot answer.
+
+
+*Source of truth: `bench/RESULTS.md` and the per-run JSON under `bench/results/` in the repository. The figures on the product page are checked against those files on every test run.*
