@@ -51,3 +51,5 @@ docs/internal/
 docs/research/
 bench/logs/
 bench/.scratch/
+__pycache__/
+*.pyc
