@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/yuvrajsingh/abhed/internal/config"
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/config"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 // Choosing the model from the console.

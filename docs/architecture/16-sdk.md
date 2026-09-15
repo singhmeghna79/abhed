@@ -8,7 +8,7 @@ agent inside their own service. The `sdk` package is the supported surface
 across that wall, kept small so the internals stay free to change.
 
 ```go
-import abhed "github.com/yuvrajsingh/abhed/sdk"
+import abhed "github.com/zybuu-ai/abhed/sdk"
 
 a, err := abhed.New(ctx, abhed.Options{
     Workspace: "/srv/work",

@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"github.com/yuvrajsingh/abhed/internal/store"
+	"github.com/zybuu-ai/abhed/internal/store"
 	"os"
 
 	"crypto/rand"
@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/zybuu-ai/abhed/internal/auth"
 )
 
 // Administration: the routes that change what the deployment is, rather than

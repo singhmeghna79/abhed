@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/agent"
 )
 
 // A deleted session must be gone from every read path — list, get, events —

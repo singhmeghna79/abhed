@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
-	"github.com/yuvrajsingh/abhed/internal/model"
-	"github.com/yuvrajsingh/abhed/internal/pipeline"
-	"github.com/yuvrajsingh/abhed/internal/skills"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/pipeline"
+	"github.com/zybuu-ai/abhed/internal/skills"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // pipelineRunner builds the function the skill tool calls to execute a

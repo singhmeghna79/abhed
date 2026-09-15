@@ -82,10 +82,7 @@ names every backend it tried and why each failed).
 ## Sign-off (DCO)
 
 Every commit must be signed off, certifying you wrote it or otherwise have
-the right to submit it under this project's license (FSL-1.1-ALv2, see
-`LICENSE.md`). Contributions are licensed to Zybuu under the Apache License 2.0
-so that they can be released under the FSL and, two years later, under
-Apache 2.0 with everything else:
+the right to submit it under this project's license (Apache 2.0):
 
 ```bash
 git commit -s -m "your message"

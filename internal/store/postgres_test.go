@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/agent"
 )
 
 // Integration tests run against a real Postgres. Set ABHED_TEST_DSN to enable;

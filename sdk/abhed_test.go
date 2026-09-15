@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	abhed "github.com/yuvrajsingh/abhed/sdk"
+	abhed "github.com/zybuu-ai/abhed/sdk"
 )
 
 // The SDK is the wall between another program and internal/. If this file

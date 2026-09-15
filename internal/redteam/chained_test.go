@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
-	"github.com/yuvrajsingh/abhed/internal/model"
-	"github.com/yuvrajsingh/abhed/internal/policy"
-	"github.com/yuvrajsingh/abhed/internal/sandbox"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/sandbox"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Attacks that chain features or race them, which the scoping document

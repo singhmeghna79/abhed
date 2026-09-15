@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/agent"
 )
 
 // Task is one evaluation case.

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // ServerConfig describes a registered MCP server.

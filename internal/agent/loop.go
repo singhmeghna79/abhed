@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
-	"github.com/yuvrajsingh/abhed/internal/policy"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Approver decides on a tool call that policy routed to Ask. Returning false

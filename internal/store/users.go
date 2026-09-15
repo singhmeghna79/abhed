@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/zybuu-ai/abhed/internal/auth"
 )
 
 // Local accounts, stored alongside the event log.

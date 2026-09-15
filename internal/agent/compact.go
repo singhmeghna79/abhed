@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 // Compaction summarizes a conversation approaching the context limit and

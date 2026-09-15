@@ -75,7 +75,7 @@ cp -R "$ROOT/docs/." "$STAGE/$BUNDLE/docs/"
 rm -rf "$STAGE/$BUNDLE/docs/internal" "$STAGE/$BUNDLE/docs/research"
 cp "$ROOT/README.md" "$STAGE/$BUNDLE/"
 # The licence travels with every copy: its redistribution clause requires it.
-cp "$ROOT/LICENSE.md" "$STAGE/$BUNDLE/"
+cp "$ROOT/LICENSE" "$STAGE/$BUNDLE/"
 cp "$ROOT/internal/store/schema.sql" "$STAGE/$BUNDLE/schema/"
 
 cat > "$STAGE/$BUNDLE/config/config.example.json" <<'JSON'
@@ -181,7 +181,7 @@ go version > "$STAGE/$BUNDLE/BUILDINFO"
   echo "  \"go_version\": \"$(go version | awk '{print $3}')\","
   echo "  \"dependencies\": ["
   ( cd "$ROOT" && go list -m -f '    {"module": "{{.Path}}", "version": "{{.Version}}"}' all 2>/dev/null |
-      grep -v '^    {"module": "github.com/yuvrajsingh/abhed"' | paste -sd, - )
+      grep -v '^    {"module": "github.com/zybuu-ai/abhed"' | paste -sd, - )
   echo "  ]"
   echo "}"
 } > "$STAGE/$BUNDLE/sbom.json"

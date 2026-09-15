@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/zybuu-ai/abhed/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zybuu-ai/abhed/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <a href="LICENSE.md"><img alt="License: FSL-1.1-ALv2" src="https://img.shields.io/badge/license-FSL--1.1--ALv2-2A8CF0?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-2A8CF0?style=flat-square"></a>
   <a href="go.mod"><img alt="Go 1.26" src="https://img.shields.io/badge/go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white"></a>
   <a href="docs/guide/03-providers.md"><img alt="20 model providers" src="https://img.shields.io/badge/model%20providers-20-2A8CF0?style=flat-square"></a>
   <a href="bench/RESULTS.md"><img alt="Benchmark 24/24" src="https://img.shields.io/badge/exercism%20benchmark-24%2F24-1E7F55?style=flat-square"></a>
@@ -209,10 +209,9 @@ remains outstanding and is not substitutable.** For untrusted repositories set
 
 ## License
 
-Abhed is source-available under the [Functional Source License, version 1.1,
-with the Apache 2.0 future license](LICENSE.md) (FSL-1.1-ALv2). You may read,
-audit, run, modify and redistribute it for any purpose except offering it,
-or a substitute for it, as a competing commercial product or service. Two
-years after each version is released, that version becomes available under
-the Apache License 2.0. The full terms are in `LICENSE.md`; the licence text is
-short and worth the two minutes.
+The Community Edition, everything in this repository, is open source under the
+[Apache License 2.0](LICENSE). Use it, modify it, ship it, sell services on it.
+The Team and Enterprise features described on the product page (OIDC, the
+admin and access dashboard, scheduled runs, multi-tenant isolation, audit
+export, the signed air-gap bundle, telemetry export) are a separate,
+proprietary edition built on this module; they are not in this repository.

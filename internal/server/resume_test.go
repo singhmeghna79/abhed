@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
-	"github.com/yuvrajsingh/abhed/internal/config"
-	"github.com/yuvrajsingh/abhed/internal/store"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/config"
+	"github.com/zybuu-ai/abhed/internal/store"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // durableMem is the memory store plus the two things a durable store gives

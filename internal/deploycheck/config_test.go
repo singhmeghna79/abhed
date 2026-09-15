@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/policy"
 )
 
 func TestDeployedDenyRulesMatchRealPaths(t *testing.T) {

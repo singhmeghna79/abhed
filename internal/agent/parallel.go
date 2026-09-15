@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Parallel subagents, optionally each in its own git worktree.

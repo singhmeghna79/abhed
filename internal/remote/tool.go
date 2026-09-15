@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Registry holds the hosts an operator has declared.

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
-	abhed "github.com/yuvrajsingh/abhed/sdk"
+	"github.com/zybuu-ai/abhed/internal/agent"
+	abhed "github.com/zybuu-ai/abhed/sdk"
 )
 
 // rpcCmd drives Abhed over stdin and stdout as line-delimited JSON.

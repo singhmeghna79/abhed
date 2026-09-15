@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/agent"
 )
 
 // downloadEntry is one file a session produced.

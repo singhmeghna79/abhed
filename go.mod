@@ -1,4 +1,4 @@
-module github.com/yuvrajsingh/abhed
+module github.com/zybuu-ai/abhed
 
 go 1.26.8
 

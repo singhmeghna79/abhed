@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/auth"
+	"github.com/zybuu-ai/abhed/internal/auth"
 )
 
 // MigrateUsers is called defensively by every user operation, and one of those

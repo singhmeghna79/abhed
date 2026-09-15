@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 type Config struct {

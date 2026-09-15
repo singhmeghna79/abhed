@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/auth"
-	"github.com/yuvrajsingh/abhed/internal/config"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/auth"
+	"github.com/zybuu-ai/abhed/internal/config"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // These tests exist because the server is reachable from the public internet.

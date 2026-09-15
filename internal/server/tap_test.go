@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
-	"github.com/yuvrajsingh/abhed/internal/store"
+	"github.com/zybuu-ai/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/store"
 )
 
 // A store that also records sessions, so the test can prove the tap does not

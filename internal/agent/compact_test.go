@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 // summarizerAdapter returns a fixed summary and records what it was asked.

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 func ev(seq int64, t EventType, payload any) Event {

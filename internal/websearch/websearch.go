@@ -67,7 +67,7 @@ func (c *Config) applyDefaults() {
 		c.Timeout = 20 * time.Second
 	}
 	if c.UserAgent == "" {
-		c.UserAgent = "Mozilla/5.0 (compatible; Abhed/0.1; +https://github.com/yuvrajsingh/abhed)"
+		c.UserAgent = "Mozilla/5.0 (compatible; Abhed/0.1; +https://github.com/zybuu-ai/abhed)"
 	}
 	if c.HTTPClient == nil {
 		c.HTTPClient = &http.Client{Timeout: c.Timeout}

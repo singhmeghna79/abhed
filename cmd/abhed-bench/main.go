@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 type turnResult struct {

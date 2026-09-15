@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
-	"github.com/yuvrajsingh/abhed/internal/policy"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 func subFactory(t *testing.T, turns []scriptedTurn, budget *Budget) *SubagentFactory {

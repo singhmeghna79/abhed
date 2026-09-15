@@ -8,9 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
-	"github.com/yuvrajsingh/abhed/internal/policy"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Budget enforces hierarchical spend limits across a session and its subagents.

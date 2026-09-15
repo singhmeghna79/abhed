@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/config"
-	"github.com/yuvrajsingh/abhed/internal/mcp"
-	"github.com/yuvrajsingh/abhed/internal/skills"
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/config"
+	"github.com/zybuu-ai/abhed/internal/mcp"
+	"github.com/zybuu-ai/abhed/internal/skills"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Changing what the agent can do, without a restart.

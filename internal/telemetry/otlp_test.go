@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/agent"
+	"github.com/zybuu-ai/abhed/internal/agent"
 )
 
 // A collector that records what it is sent.

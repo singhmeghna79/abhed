@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yuvrajsingh/abhed/internal/model"
-	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/policy"
 )
 
 const answerSchema = `{

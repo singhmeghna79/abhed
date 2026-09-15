@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 type Mode string

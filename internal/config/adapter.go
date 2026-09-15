@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/yuvrajsingh/abhed/internal/extension"
-	"github.com/yuvrajsingh/abhed/internal/model"
+	"github.com/zybuu-ai/abhed/internal/extension"
+	"github.com/zybuu-ai/abhed/internal/model"
 )
 
 // Spec converts a provider config into the model package's neutral form.

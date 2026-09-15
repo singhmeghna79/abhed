@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuvrajsingh/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/internal/tools"
 )
 
 // Tool gives the agent access to a Kubernetes cluster.

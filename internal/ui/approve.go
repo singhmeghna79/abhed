@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/policy"
 )
 
 // Approver prompts the user to approve a tool call.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/policy"
 )
 
 // Host runs the configured extensions and combines their answers.

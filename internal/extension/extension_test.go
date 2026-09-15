@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yuvrajsingh/abhed/internal/policy"
+	"github.com/zybuu-ai/abhed/internal/policy"
 )
 
 func hostWith(t *testing.T, scripts ...string) *Host {
