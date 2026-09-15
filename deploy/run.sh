@@ -259,6 +259,8 @@ fi
 # list of whoever runs it). Optional: a deployment with a local model has no
 # file and passes nothing. Refused if anyone but the owner can read it.
 ENV_FILE="${ABHED_ENV_FILE:-$(dirname "$CONFIG")/.env}"
+# Expanded with the ${arr[@]+"${arr[@]}"} form below: the macOS /bin/bash
+# (3.2) treats an empty array as unset under `set -u` and aborts the start.
 ENV_ARGS=()
 if [ -f "$ENV_FILE" ]; then
   if [ -n "$(find "$ENV_FILE" \( -perm -040 -o -perm -004 \) 2>/dev/null)" ]; then
@@ -283,7 +285,7 @@ exec "$RUNTIME" run \
   --detach \
   --restart unless-stopped \
   "${DB_ARGS[@]}" \
-  "${ENV_ARGS[@]}" \
+  ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} \
   \
   `# --- what the process may do -------------------------------------------` \
   --user 10001:10001 \
