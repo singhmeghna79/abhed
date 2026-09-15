@@ -9,6 +9,11 @@ go build -o ~/.local/bin/abhed ./cmd/abhed
 abhed -version
 ```
 
+It runs without internet access. Once built, the only outbound connection is
+to the model endpoint you configure, plus anything you enable explicitly (web
+search, MCP servers, remote tools); copy the binary and a config into an
+enclave and it works there.
+
 ## Point it at a model
 
 Abhed does not ship a model. It needs an endpoint, and the fastest one to get

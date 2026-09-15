@@ -54,8 +54,10 @@ abhed serve -addr :8420
 ```
 
 A web console with an event stream, inline approvals and session history, plus a
-JSON API. This is the multi-user path: it supports OIDC, and with Postgres
-storage it enforces tenant isolation in the database.
+JSON API. This is the multi-user path: local accounts or a reverse proxy's
+identity headers, and with Postgres storage it enforces tenant isolation in the
+database with row-level security. OIDC sign-in is part of the Enterprise
+Edition.
 
 ```bash
 B=http://127.0.0.1:8420

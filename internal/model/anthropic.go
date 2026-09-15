@@ -349,24 +349,24 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 		if err != nil {
 			return nil, err
 		}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "text/event-stream")
-	httpReq.Header.Set("anthropic-version", orElse(c.Version, defaultAnthropicVersion))
-	// A subscription token and an API key are different credentials on
-	// different headers. Sending both would let the server pick, which makes
-	// "which account paid for this" depend on someone else's precedence rules.
-	switch {
-	case c.Bearer != "":
-		httpReq.Header.Set("Authorization", "Bearer "+c.Bearer)
-		// The OAuth beta is what makes a subscription token acceptable on the
-		// Messages API; without it the request is rejected as unauthenticated.
-		httpReq.Header.Set("anthropic-beta", betaHeader(c.Beta, "oauth-2025-04-20"))
-	case c.APIKey != "":
-		httpReq.Header.Set("x-api-key", c.APIKey)
-		if len(c.Beta) > 0 {
-			httpReq.Header.Set("anthropic-beta", strings.Join(c.Beta, ","))
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Accept", "text/event-stream")
+		httpReq.Header.Set("anthropic-version", orElse(c.Version, defaultAnthropicVersion))
+		// A subscription token and an API key are different credentials on
+		// different headers. Sending both would let the server pick, which makes
+		// "which account paid for this" depend on someone else's precedence rules.
+		switch {
+		case c.Bearer != "":
+			httpReq.Header.Set("Authorization", "Bearer "+c.Bearer)
+			// The OAuth beta is what makes a subscription token acceptable on the
+			// Messages API; without it the request is rejected as unauthenticated.
+			httpReq.Header.Set("anthropic-beta", betaHeader(c.Beta, "oauth-2025-04-20"))
+		case c.APIKey != "":
+			httpReq.Header.Set("x-api-key", c.APIKey)
+			if len(c.Beta) > 0 {
+				httpReq.Header.Set("anthropic-beta", strings.Join(c.Beta, ","))
+			}
 		}
-	}
 
 		return httpReq, nil
 	}
@@ -525,7 +525,6 @@ func truncateArgs(s string) string {
 	return s[:200] + "…"
 }
 
-
 // betaHeader adds a required beta flag to whatever the operator configured,
 // without duplicating it if they already named it.
 func betaHeader(configured []string, required string) string {
@@ -536,7 +535,6 @@ func betaHeader(configured []string, required string) string {
 	}
 	return strings.Join(append([]string{required}, configured...), ",")
 }
-
 
 // errSubscriptionRestricted explains a refusal that arrives dressed as a rate
 // limit.

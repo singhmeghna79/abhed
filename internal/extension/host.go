@@ -232,7 +232,6 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-
 // OnBeforeCompact asks extensions about a pending compaction.
 //
 // An extension may cancel it, or supply the summary itself. Summarizing is the

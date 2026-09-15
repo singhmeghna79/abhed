@@ -74,8 +74,8 @@ type Step struct {
 	// the step returns prose.
 	Schema json.RawMessage `json:"schema,omitempty"`
 	// Timeout bounds one step.
-	Timeout time.Duration `json:"-"`
-	TimeoutMS int `json:"timeout_ms,omitempty"`
+	Timeout   time.Duration `json:"-"`
+	TimeoutMS int           `json:"timeout_ms,omitempty"`
 }
 
 // Gate turns a stage into a decision point.

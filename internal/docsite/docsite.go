@@ -1,13 +1,13 @@
 // Package docsite serves the Abhed documentation from inside the binary.
 //
-// The public copy lives at abhed.zybuu.com/docs, served from Cloudflare so it
-// survives the machine being asleep. That is the right default and the wrong
-// one for the deployment this product is actually built for: an air-gapped
-// install has no route to Cloudflare, and telling an operator in an enclave to
-// "check the website" is telling them nothing.
+// A public copy of the same pages may be published on the web, and for most
+// deployments that is the convenient place to read them. It is the wrong one
+// for the deployment this product is actually built for: an air-gapped
+// install has no route out, and telling an operator in an enclave to "check
+// the website" is telling them nothing.
 //
-// So the same generated HTML ships inside the binary. One generator
-// (deploy/sitegen/build-docs.py), two outputs: the public site, and this.
+// So the same generated HTML ships inside the binary. One generator, two
+// outputs: whatever site an edition publishes, and this.
 package docsite
 
 import (
@@ -25,6 +25,14 @@ import (
 //
 //go:embed all:site
 var site embed.FS
+
+// PublicURL is where an edition also publishes these pages, if anywhere.
+// Empty by default, and the default is the point: nothing in the binary
+// links out unless whoever built it said where to. It is never rendered into
+// a page — the console's air-gap guard forbids an external URL there — only
+// printed at startup for the operator, when the build carries no embedded
+// copy of its own.
+var PublicURL string
 
 // Available reports whether real documentation was embedded, as opposed to the
 // placeholder. The server uses it to decide whether to advertise /docs at all;

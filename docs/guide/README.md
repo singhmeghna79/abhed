@@ -28,7 +28,8 @@ model you point it at, and records everything it does.
 | [The SDK](09-sdk.md) | embedding Abhed in a Go program |
 | [RPC and headless](10-automation.md) | driving Abhed from another language, or from CI |
 | [Sessions and audit](11-sessions.md) | replay, forking, export, what is recorded |
-| [Observability](12-observability.md) | the event log as OpenTelemetry traces |
 | [Structured output](13-structured-output.md) | a typed answer that matches a schema, on every provider |
 | [Parallel subagents](14-parallel-subagents.md) | several at once, each in its own git worktree |
-| [Scheduled runs](15-schedules.md) | prompts the clock starts |
+
+Exporting the event log as OpenTelemetry traces and scheduled runs are
+Enterprise Edition features, documented with that edition.

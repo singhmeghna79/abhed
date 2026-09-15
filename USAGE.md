@@ -403,25 +403,22 @@ tier. `abhed doctor` always reports the tier actually in force.
 ### Authentication
 
 ```json
-{
-  "auth": {
-    "mode": "oidc",
-    "issuer": "https://idp.internal/realms/engineering",
-    "audience": "abhed",
-    "tenant_claim": "org_id",
-    "groups_claim": "groups",
-    "require_group": "abhed-users"
-  }
-}
+{ "auth": { "mode": "local", "session_hours": 12, "allow_signup": false } }
 ```
 
-See [`docs/ops/oidc-providers.md`](docs/ops/oidc-providers.md) for copy-paste
-blocks for Keycloak, Okta, Entra ID, Auth0 and Google, each with its specific
-gotcha.
+`local` holds usernames and bcrypt password hashes; create accounts with
+`abhed user add`. `mode: "proxy"` trusts `X-Abhed-User` / `X-Abhed-Tenant`
+headers and is only safe when a trusted proxy is the sole route to the port.
+`mode: "none"` is single-tenant local development. See
+[`docs/ops/enabling-auth.md`](docs/ops/enabling-auth.md).
 
-`mode: "proxy"` trusts `X-Abhed-User` / `X-Abhed-Tenant` headers and is only safe
-when a trusted proxy is the sole route to the port. `mode: "none"` is
-single-tenant local development.
+### Enterprise features
+
+OIDC sign-in with tenant mapping, the admin and access dashboard, scheduled
+runs, multi-tenant isolation, audit retention and export, the signed air-gap
+bundle with verification, managed policy distribution and OpenTelemetry export
+are part of the Enterprise Edition. It is built on this module and documented
+with it; nothing in this file depends on it.
 
 ---
 
@@ -523,20 +520,15 @@ engine.
 
 ---
 
-## 11. Air-gapped install
+## 11. Running without internet
 
-```bash
-# Connected build machine
-scripts/build-bundle.sh -v 1.0.0 -k signing-key.pem
-
-# Enclave
-scripts/verify-bundle.sh abhed-1.0.0.tar.gz public-key.pem
-tar -xzf abhed-1.0.0.tar.gz && cd abhed-1.0.0 && sudo ./install.sh
-```
-
-Verification checks the archive digest, the signature, and every file's digest
-after extraction. A swapped binary with a recomputed digest is caught by the
-signature — which is why signing matters and hashing alone does not.
+Abhed makes no outbound connection except to the model endpoint you configure
+and to whatever you enable explicitly (web search, MCP servers, remote tools).
+A static binary, a config file and a model server reachable from the enclave
+are everything an offline install needs; build on a connected machine and copy
+the binary across. The signed offline bundle, with its verifier that checks the
+archive digest, the signature and every file's digest after extraction, is part
+of the Enterprise Edition.
 
 ---
 
@@ -550,7 +542,7 @@ signature — which is why signing matters and hashing alone does not.
 | Sessions vanish on exit | Memory store | Set `ABHED_DATABASE_URL` |
 | `/sessions` says needs postgres | Same | Same |
 | Cache hit rate 0% | Prefix caching off | `--enable-prefix-caching` on vLLM |
-| Every request anonymous | `auth.mode: none` | Set `proxy` or `oidc` |
+| Every request anonymous | `auth.mode: none` | Set `local` or `proxy` |
 | `unexpected issuer` | Trailing-slash mismatch | Match `iss` byte-for-byte |
 | Agent won't edit | `plan` mode | `/mode default` |
 | Too many prompts | Narrow rules | `-mode accept-edits`, or `A` to always-allow |
@@ -573,6 +565,6 @@ abhed -p "..." -output-format json | jq 'select(.type=="observation")'
 | [04 Sizing](docs/architecture/04-sizing.md) | GPU sizing math and prefill economics |
 | [06 Tool contracts](docs/architecture/06-tool-contracts.md) | Exact tool schemas and error semantics |
 | [08 Eval](docs/architecture/08-eval.md) | The four evaluation layers |
-| [Air-gap ops](docs/ops/air-gap.md) | Offline install and egress brokering |
-| [OIDC providers](docs/ops/oidc-providers.md) | Per-provider auth configuration |
+| [Enabling authentication](docs/ops/enabling-auth.md) | Local accounts and proxy-header identity |
+| [Infrastructure tools](docs/ops/infrastructure.md) | Kubernetes, SSH and external retrieval |
 | [Red-team scope](docs/ops/red-team-scope.md) | What to commission, and why it is still open |

@@ -33,11 +33,11 @@ that reaches a code-execution primitive.**
 | Sandbox | `internal/sandbox` | Seatbelt / bubblewrap / OCI / gVisor |
 | MCP gateway | `internal/mcp` | Third-party tool servers |
 | HTTP API + console | `internal/server` | Multi-tenant, SSE |
-| Auth | `internal/auth` | OIDC verification |
+| Auth | `internal/auth` | Local accounts, proxy identity, session middleware |
 | Store | `internal/store` | Postgres, RLS, append-only |
 
-Deploy per `docs/ops/air-gap.md` with `sandbox.min_tier = container`, OIDC auth,
-and Postgres storage. Provide the team two tenants and three users at differing
+Deploy with `sandbox.min_tier = container`, authentication on, and Postgres
+storage. Provide the team two tenants and three users at differing
 privilege.
 
 ## Priority 1 — the claims most worth breaking

@@ -1,18 +1,15 @@
 # Abhed — Enabling Authentication
 
-Four modes. Pick by how Abhed is exposed, not by how much security sounds good.
+Three modes in the Community Edition. Pick by how Abhed is exposed, not by how
+much security sounds good.
 
 | Mode | Who it is for | Identity comes from |
 |---|---|---|
 | `none` | Local development, single user | Nobody — everything is "anonymous/default" |
 | `local` | A team with no identity provider | A username and password Abhed holds |
 | `proxy` | Behind an authenticating reverse proxy | `X-Abhed-User` / `X-Abhed-Tenant` headers |
-| `oidc` | An organisation with an IdP | A verified token, or a browser sign-in |
 
-`local` and `oidc` are **not exclusive**. Set `mode: "local"` and also give a
-`provider` and `client_id`, and the sign-in page offers both: a password form
-for people who are not in the corporate directory, and a "Continue with
-Google/Microsoft" button for those who are.
+OIDC sign-in and tenant mapping are part of the Enterprise Edition.
 
 **Headers are not trusted unless you ask for it.** In `none` mode a caller cannot
 choose its own tenant by setting a header — there is a test asserting exactly that.
@@ -46,7 +43,7 @@ Then open the server in a browser and sign in with it.
 
 | Command | Does |
 |---|---|
-| `abhed user add <name>` | Create an account. `-password` sets one; omitted, one is generated |
+| `abhed user add <name>` | Create an account. `-password` sets one; omitted, one is generated. `-admin` puts it in the admin group |
 | `abhed user list` | Show accounts, emails, tenants and groups |
 | `abhed user passwd <name>` | Reset a forgotten password to a new generated one |
 | `abhed user remove <name>` | Delete an account |
@@ -100,112 +97,26 @@ accounts are created by an administrator, which is true and actionable.
 - A password set by an administrator (`user add`, `user passwd`) is flagged
   `must_change_password`, and the console says so at sign-in.
 
-### Signing in with Google or Microsoft as well
+## Behind a reverse proxy
 
 ```json
-{
-  "auth": {
-    "mode": "local",
-    "provider": "google",
-    "client_id": "...apps.googleusercontent.com",
-    "client_secret_env": "ABHED_OIDC_SECRET",
-    "redirect_url": "https://abhed.internal/auth/callback"
-  }
-}
+{ "auth": { "mode": "proxy" } }
 ```
 
-`provider` fills in the issuer, scopes and tenant claim, so `google`,
-`microsoft` and `github` need only a client id and secret. See
-[oidc-providers.md](oidc-providers.md) for registering the redirect URI.
+The proxy authenticates the person and sets headers on every request it
+forwards:
 
-## Browser sign-in (what most deployments want)
+| Header | Carries | If absent |
+|---|---|---|
+| `X-Abhed-User` | the subject | `anonymous` |
+| `X-Abhed-Email` | the email address | empty |
+| `X-Abhed-Tenant` | the tenant | `default` |
+| `X-Abhed-Groups` | comma-separated groups (the admin group among them, if any) | none |
 
-```json
-{
-  "auth": {
-    "mode": "oidc",
-    "issuer": "https://idp.internal/realms/engineering",
-    "audience": "abhed",
-    "client_id": "abhed-console",
-    "client_secret_env": "ABHED_OIDC_SECRET",
-    "redirect_url": "https://abhed.internal/auth/callback",
-    "tenant_claim": "org_id",
-    "groups_claim": "groups",
-    "require_group": "abhed-users",
-    "cookie_secure": true,
-    "session_hours": 12
-  }
-}
-```
-
-Then register `https://abhed.internal/auth/callback` as a redirect URI with your
-provider, and:
-
-```bash
-export ABHED_OIDC_SECRET=...
-abhed serve -addr :8420
-```
-
-Opening the console now redirects to your IdP, and after sign-in the header shows
-who you are and which tenant you are in.
-
-### What the flow does
-
-1. `GET /login` → redirects to the IdP with **PKCE** (S256) and a single-use `state`
-2. The IdP authenticates the person and redirects back with a code
-3. `GET /auth/callback` validates `state`, exchanges the code, and **verifies the
-   returned `id_token`** — signature, issuer, audience, expiry — against the JWKS
-4. A `HttpOnly`, `SameSite=Lax` cookie holds the session
-5. `GET /logout` clears it and, where the provider supports it, ends the IdP session
-
-PKCE is used even though Abhed has a client secret: an authorization code in a
-browser URL bar is precisely what PKCE exists to protect, and it costs one hash.
-
-### Security properties, each with a test
-
-| Property | Test |
-|---|---|
-| Signature, issuer, audience and expiry verified | `TestBrowserLoginFlow` |
-| `state` is single-use — a replayed callback fails | `TestStateIsSingleUse` |
-| Forged `state` rejected | `TestCallbackRejectsUnknownState` |
-| PKCE actually enforced, not merely sent | `TestPKCEIsEnforced` |
-| No open redirect via `?return=` | `TestOpenRedirectRejected` |
-| Cookie is `HttpOnly` and `SameSite=Lax` | `TestBrowserLoginFlow` |
-| Expired browser session refuses | `TestExpiredSessionRejected` |
-| Logout clears server-side state | `TestLogoutClearsSession` |
-
-## Signing in as a different user
-
-Clearing Abhed's session is not enough. The IdP keeps its own session, so
-clicking "sign in" again silently returns the same person — which reads as
-logout being broken.
-
-Two controls, and they differ:
-
-| Route | Effect |
-|---|---|
-| `/logout` | Ends Abhed's session **and** the IdP's, then returns to `post_logout_redirect_url` |
-| `/switch-user` | Sends `prompt=login`, forcing a credential prompt even with an active IdP session |
-
-Both appear in the console header once someone is signed in.
-
-**`post_logout_redirect_url` must be pre-registered with your provider.**
-Keycloak, Entra and Auth0 all ignore an RP-initiated logout whose redirect they
-do not recognise, leaving the user stranded at the IdP or still signed in.
-
-```json
-{
-  "auth": {
-    "mode": "oidc",
-    "redirect_url": "https://abhed.internal/auth/callback",
-    "post_logout_redirect_url": "https://abhed.internal/"
-  }
-}
-```
-
-Only `login`, `select_account`, `consent` and `none` are forwarded as `prompt`
-values; anything else in the query string is dropped rather than passed to the
-provider.
+Abhed does no verification of its own in this mode, so the proxy must be the
+only route to the port: bind Abhed to loopback or a private interface and let
+nothing else reach it. Anything that can reach the port directly can claim any
+identity by setting the headers itself.
 
 ## When authentication is off
 
@@ -227,46 +138,20 @@ curl -H "Authorization: Bearer $TOKEN" https://abhed.internal/v1/sessions
 A browser navigation with no session is redirected to sign in; an API call with
 no token gets `401` with a reason. That distinction is `Accept: text/html`.
 
-## Tenancy
+## Tenant
 
-`tenant_claim` names the claim carrying the tenant, and it flows all the way
-down: the API scopes by it, and Postgres enforces it with row-level security.
-**Point it at the wrong claim and every user lands in one tenant.**
-
-Per-provider claim names — Keycloak, Okta, Entra ID, Auth0, Google — are in
-[`oidc-providers.md`](oidc-providers.md), with the specific gotcha for each.
-
-When `storage.driver` is `postgres`, `storage.tenant` must match the tenant your
-tokens carry, or the first write fails RLS. Abhed reports the mismatch by name
-rather than passing Postgres's opaque error through.
-
-## Air-gapped
-
-Set `jwks_url` explicitly. Discovery fetches `/.well-known/openid-configuration`
-from the issuer, which may be unreachable from an enclave even when a mirrored
-JWKS is not:
-
-```json
-{ "auth": { "mode": "oidc", "issuer": "https://idp.internal/realms/eng",
-            "jwks_url": "https://jwks-mirror.internal/keys", "audience": "abhed" } }
-```
-
-A mirrored discovery document must keep the original `issuer` value — Abhed
-refuses one that disagrees, because that is either a misconfiguration or an
-attack.
+The Community Edition server is single-tenant. When `storage.driver` is
+`postgres`, every session is written under `storage.tenant`, and Postgres
+enforces that scope with row-level security. If an identity arrives carrying a
+different tenant (a `proxy` header, for instance), the first write fails RLS;
+Abhed reports the mismatch by name rather than passing Postgres's opaque error
+through.
 
 ## Verifying
 
 ```bash
-abhed doctor      # reports the auth mode and whether the JWKS is reachable
+abhed doctor      # reports the auth mode in effect, alongside storage
 ```
 
-It fails at startup rather than on a user's first request, so a bad issuer or an
-unreachable IdP surfaces during deployment.
-
-## What is not covered
-
-The tests replay documented provider wire formats. They do not exercise a live
-IdP's consent screen, refresh tokens, or revocation. Get a real token from your
-provider and confirm `abhed doctor` accepts it — a five-minute check that closes
-the gap.
+The server fails at startup rather than on a user's first request, so a bad
+storage DSN or an unreadable account file surfaces during deployment.

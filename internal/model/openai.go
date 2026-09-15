@@ -97,19 +97,19 @@ type wireTool struct {
 }
 
 type wireRequest struct {
-	Model           string        `json:"model"`
-	Messages        []wireMessage `json:"messages"`
-	Tools           []wireTool    `json:"tools,omitempty"`
-	MaxTokens       int           `json:"max_tokens,omitempty"`
-	Temperature     *float64      `json:"temperature,omitempty"`
-	TopP            *float64      `json:"top_p,omitempty"`
-	FrequencyPenalty *float64     `json:"frequency_penalty,omitempty"`
-	PresencePenalty  *float64     `json:"presence_penalty,omitempty"`
-	Seed            *int64        `json:"seed,omitempty"`
-	Stop            []string      `json:"stop,omitempty"`
-	Stream          bool          `json:"stream"`
-	StreamOptions   *streamOpts   `json:"stream_options,omitempty"`
-	ReasoningEffort string        `json:"reasoning_effort,omitempty"`
+	Model            string        `json:"model"`
+	Messages         []wireMessage `json:"messages"`
+	Tools            []wireTool    `json:"tools,omitempty"`
+	MaxTokens        int           `json:"max_tokens,omitempty"`
+	Temperature      *float64      `json:"temperature,omitempty"`
+	TopP             *float64      `json:"top_p,omitempty"`
+	FrequencyPenalty *float64      `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64      `json:"presence_penalty,omitempty"`
+	Seed             *int64        `json:"seed,omitempty"`
+	Stop             []string      `json:"stop,omitempty"`
+	Stream           bool          `json:"stream"`
+	StreamOptions    *streamOpts   `json:"stream_options,omitempty"`
+	ReasoningEffort  string        `json:"reasoning_effort,omitempty"`
 
 	// Sampler knobs an OpenAI-shaped API does not define, which local servers
 	// (vLLM, Ollama, llama.cpp, TGI) accept and hosted ones ignore. They are

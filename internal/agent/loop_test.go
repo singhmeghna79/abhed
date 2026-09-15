@@ -540,7 +540,6 @@ func TestFlushablePreservesAllText(t *testing.T) {
 	}
 }
 
-
 // Reasoning is recorded as its own event so the UI can show it in a panel of
 // its own, and is NOT fed back as conversation history: it is the model's
 // scratch work, not something it should condition on next turn.

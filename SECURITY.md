@@ -27,8 +27,8 @@ Please include:
 - What you found and why it matters (impact, not just mechanism).
 - Steps to reproduce, or a proof of concept.
 - The commit or version you tested against.
-- Whether the finding is against the harness itself, the hosted console at
-  `abhed.zybuu.com`, or the `zybuu.com` site.
+- Whether the finding is against the harness itself, or against the hosted
+  console at `abhed.zybuu.com` or the `zybuu.com` site that Zybuu operates.
 
 Do not open a public GitHub issue for a security report. Use email so the
 report isn't public before a fix ships.
@@ -41,8 +41,7 @@ report isn't public before a fix ships.
   leave you guessing.
 - Credit in the fix's changelog entry or commit message, if you want it.
 - One person is doing this work. Response times are honest estimates, not
-  contractual commitments — see `docs/access-policy.md` for the same
-  disclosure applied to the hosted console.
+  contractual commitments.
 
 ## Safe harbor
 
@@ -57,9 +56,8 @@ authorized:
   we will make it known that your actions were authorized.
 - This safe harbor does not extend to attacks on other users, attempts to
   access another account's data, or anything covered by "out of scope"
-  below. `docs/access-policy.md` §P1 already invites exactly this kind of
-  research against the hosted console and asks that it be done against your
-  own account, not someone else's.
+  below. Do this kind of research against your own install or your own
+  account, not someone else's.
 
 We ask that you:
 
@@ -77,13 +75,11 @@ In scope:
   agent loop, the policy engine (`internal/policy`), the sandbox
   (`internal/sandbox`), the MCP gateway, the auth layer (`internal/auth`),
   the Postgres store (`internal/store`), and the server (`internal/server`).
-- **The console** — the web UI served by `abhed serve` and the hosted
-  instance at `abhed.zybuu.com`.
-- **Deploy scripts** — everything under `deploy/`, including
-  `deploy/run.sh`, the container hardening it applies, and the access-grant
-  and revocation scripts.
-- **The zybuu.com Functions** — the Cloudflare Pages Functions under
-  `web/zybuu/functions/`, including the access-request endpoint.
+- **The console** — the web UI served by `abhed serve`.
+- **The hosted console and site** — the hosted console at `abhed.zybuu.com`
+  and the `zybuu.com` site, which Zybuu operates. Their deployment scripts
+  and site code live in a separate private repository; findings against them
+  are welcome at the same address.
 
 ## Out of scope
 
@@ -99,7 +95,6 @@ In scope:
   is the problem (for example, treating their output as untrusted per
   `docs/architecture/03-security.md`).
 - Findings that require an operator to have already misconfigured Abhed in a
-  way the documentation explicitly warns against (for example, running with
-  `sandbox.min_tier: none` in `docs/access-policy.md`'s or
-  `deploy/GO-LIVE.md`'s deployment context, which the deployed
-  `deploy/config.json` does not do).
+  way the documentation explicitly warns against (for example, running a
+  multi-user server with `sandbox.min_tier: none`, which
+  `docs/trust/security-posture.md` says not to do).

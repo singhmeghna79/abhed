@@ -52,7 +52,7 @@ SECTIONS = [
 LLMS_INTRO = """
 # Abhed
 
-> Abhed is an on-prem, air-gap-capable agent harness by Zybuu: the agent loop, the tool contracts, the permission engine and the sandbox, as one static binary (CLI, headless mode, JSON output, JSONL RPC, and a multi-user server with a web console) plus a Go SDK. It runs on your own hardware against a model you host, records every action in an append-only replayable log, and is source-available under the Functional Source License (FSL-1.1-ALv2); each release becomes Apache-2.0 two years after it is made available.
+> Abhed is an on-prem, air-gap-capable agent harness by Zybuu: the agent loop, the tool contracts, the permission engine and the sandbox, as one static binary (CLI, headless mode, JSON output, JSONL RPC, and a multi-user server with a web console) plus a Go SDK. It runs on your own hardware against a model you host, records every action in an append-only replayable log, and the Community Edition is open source under the Apache License 2.0; the Team and Enterprise features are a separate, proprietary edition.
 
 Key facts, each stated on https://zybuu.com/abhed/ and traceable to the repository:
 
@@ -65,7 +65,7 @@ Key facts, each stated on https://zybuu.com/abhed/ and traceable to the reposito
 - Extend without forking: extensions (separate JSONL processes in any language), skills (a directory with a procedure), MCP servers (registered, disabled until enabled, optional tool allowlist).
 - Benchmark (2026-09-14, 24 Exercism Python exercises, one local 26B model, identical prompt): Abhed 24/24, a bare tool loop 22/24, aider 0.86.2 default one-shot 19/24. Abhed was the slowest and used the most tokens; the suite is small and single-file.
 - Not yet: no SOC 2, ISO 27001, HIPAA or FedRAMP certification; no support SLA; single node, no horizontal scaling or failover; Postgres is the only durable store; a human red-team engagement is outstanding; prompt injection is contained, not solved.
-- Pricing (launch, September 2026): Community free and source-available; Team USD 49 per seat per month, ten-seat minimum, billed yearly; Enterprise USD 60,000 per site per year plus USD 79 per seat per month, air-gapped sites add USD 25,000; design partner programme USD 25,000. Never per token.
+- Pricing (launch, September 2026): Community free and open source (Apache-2.0); Team USD 49 per seat per month, ten-seat minimum, billed yearly; Enterprise USD 60,000 per site per year plus USD 79 per seat per month, air-gapped sites add USD 25,000; design partner programme USD 25,000. Never per token.
 - Status: pre-release (0.1.x), invite-only. The repository is not public yet; access is by request at https://zybuu.com/abhed/#access or support@zybuu.com.
 
 Who it is for: platform and security teams in places with no route out — defence and intelligence contractors, sovereign and public-sector deployments, operational networks, and banks whose policy is no cloud at all. It is not the right tool for a solo developer who is happy in the cloud.

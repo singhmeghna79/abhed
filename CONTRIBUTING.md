@@ -30,22 +30,19 @@ Some tests need more:
   `-short` to run them.
 - Postgres integration tests need `ABHED_TEST_DSN` pointed at a real database
   (`internal/store`).
-- The site honesty checks in `internal/sitecheck` read `web/zybuu/*.html`
-  directly and will fail (loudly, on purpose) if those files are missing or
-  the claims in them drift from the code.
 
 ## How this repository actually works
 
 These aren't aspirational — they're enforced, in the sense that a PR
 violating them gets asked to fix it before merge.
 
-**Comments explain why, not what.** Read `internal/server/admin.go` or
-`internal/store/schema.sql` for the tone: a comment exists to record a
+**Comments explain why, not what.** Read `internal/store/schema.sql` or
+`internal/store/postgres.go` for the tone: a comment exists to record a
 decision or a bug that was found and fixed (see the `FORCE ROW LEVEL
-SECURITY` comment in `internal/store/schema.sql`, or the ordering comment in
-`internal/server/admin.go` about identity being read before it's
-established). A comment that restates the line below it is worse than no
-comment — it's something else to go stale.
+SECURITY` comment in `internal/store/schema.sql`, or the comment in
+`internal/store/postgres.go` on why a superuser connection is refused). A
+comment that restates the line below it is worse than no comment — it's
+something else to go stale.
 
 **A test must fail without the change.** Before you write the fix, write (or
 run) the test that fails because the bug exists. If you can't make a test go
@@ -57,21 +54,20 @@ row-level security silently inert because a table owner bypasses it without
 it, a bundle manifest that listed its own digest. Each was caught by a test
 written to attack the thing, not confirm it.
 
-**No claim on the site without a guard in `internal/sitecheck`.** If your PR
-touches `web/zybuu/*.html` and adds or changes a number, a claim about test
-counts, provider counts, attack counts, or a compliance statement, it needs a
-corresponding check in `internal/sitecheck` (see `claims_test.go`) or it will
-be reverted. The site's whole argument is that its numbers are checkable —
-that only holds if drift fails the build instead of shipping quietly.
+**No claim in the docs without something that checks it.** If your PR adds
+or changes a number in `README.md` or `docs/` — a test count, a provider
+count, an attack count — or a compliance statement, name the test or command
+that produces it, or it will be reverted. The project's whole argument is
+that its numbers are checkable; that only holds if drift is caught instead of
+shipping quietly.
 
 **Secrets never go in the repo.** Not in a commit, not in a config file
-checked in, not in a test fixture. `deploy/run.sh` generates
-`deploy/.db-password` at runtime and keeps it out of git for exactly this
-reason (see the comment above `DB_SECRET` in that script). If a change needs
-a credential, it should come from an environment variable or a file outside
-the tree — follow the pattern in `deploy/run.sh` and
-`docs/ops/enabling-auth.md` (`ABHED_OIDC_SECRET`, `ABHED_DATABASE_URL`,
-etc.), not a new hardcoded value.
+checked in, not in a test fixture. If a change needs a credential, it should
+come from an environment variable or a file outside the tree — follow the
+pattern of `ABHED_DATABASE_URL` (`docs/ops/enabling-auth.md`) and the `*_env`
+config keys (`api_key_env`, `password_env`, `headers_env`), which name the
+variable holding a secret rather than the secret itself — not a new
+hardcoded value.
 
 **Errors are written for whoever reads them next**, which for a policy
 rejection or a failed edit is the model, and for a startup failure is the

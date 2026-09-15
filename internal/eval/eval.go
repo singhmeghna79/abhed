@@ -469,7 +469,6 @@ func Run(ctx context.Context, tasks []Task, workRoot string, run Runner) ([]Resu
 	return results, nil
 }
 
-
 // finalAnswer returns the agent's last message, which is the answer a
 // prose-answering task is judged on.
 func finalAnswer(events []agent.Event) string {

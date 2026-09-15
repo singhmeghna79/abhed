@@ -190,18 +190,18 @@ type Usage struct {
 // Profile describes what a model can do. Populated by the conformance suite
 // at registration time (docs §08 L2) and consulted by the harness.
 type Profile struct {
-	Name            string             `json:"name"`
-	ContextWindow   int                `json:"context_window"`
-	MaxOutputTokens int                `json:"max_output_tokens"`
-	SupportsTools   bool               `json:"supports_tools"`
-	SupportsStream  bool               `json:"supports_stream"`
+	Name            string `json:"name"`
+	ContextWindow   int    `json:"context_window"`
+	MaxOutputTokens int    `json:"max_output_tokens"`
+	SupportsTools   bool   `json:"supports_tools"`
+	SupportsStream  bool   `json:"supports_stream"`
 	// SupportsVision reports whether this endpoint accepts image content.
 	//
 	// Defaults false, which is the safe answer for an unknown endpoint: an
 	// image sent to a text-only server is a 400 at best and silently ignored
 	// at worst, and "the model did not mention the screenshot" is a much
 	// harder failure to diagnose than a clear refusal.
-	SupportsVision bool `json:"supports_vision"`
+	SupportsVision  bool               `json:"supports_vision"`
 	ToolCallFormat  string             `json:"tool_call_format"` // json | xml | pythonic | harmony
 	ReasoningTokens bool               `json:"reasoning_tokens"`
 	GuidedDecoding  bool               `json:"guided_decoding"`
@@ -221,7 +221,6 @@ type Adapter interface {
 	// CountTokens estimates prompt size for budget and compaction decisions.
 	CountTokens(req Request) (int, error)
 }
-
 
 // estimateTokens approximates prompt size from character counts.
 //

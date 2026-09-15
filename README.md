@@ -76,13 +76,10 @@ go build -o abhed ./cmd/abhed
 ./abhed index               # build the retrieval index
 ```
 
-Air-gapped install:
-
-```bash
-scripts/build-bundle.sh -v 1.0.0 -k signing-key.pem   # on the build side
-scripts/verify-bundle.sh abhed-1.0.0.tar.gz pub.pem   # on the enclave side
-tar -xzf abhed-1.0.0.tar.gz && cd abhed-1.0.0 && sudo ./install.sh
-```
+Air-gapped: the binary is static, the console is self-contained, and nothing
+leaves the machine except calls to the model endpoint you configure. Copy the
+binary and a config into the enclave and it runs. The signed offline bundle and
+its verifier are part of the Enterprise Edition.
 
 Point it at anything OpenAI-compatible — vLLM, SGLang, TensorRT-LLM, llama.cpp,
 Ollama, or a hosted API:
@@ -119,8 +116,7 @@ go build -o abhed-bench ./cmd/abhed-bench
 | **Web console** — self-contained, no CDN | ✅ tested |
 | **Prefix-cache benchmark** | ✅ validated |
 | **Postgres store** — append-only + row-level security | ✅ integration-tested |
-| **OIDC** — full JWT verification against JWKS | ✅ attack-tested |
-| **Offline bundle** — signed, self-contained, verifiable | ✅ tamper-tested |
+| **Local accounts** — bcrypt, timing-safe sign-in, proxy-header identity | ✅ tested |
 | **Eval harness** — assertions + behavioural flags | ✅ tested |
 | **Adversarial suite** — 16 attacks | ✅ all blocked |
 
@@ -151,7 +147,8 @@ Egress    broker (optional, default OFF)
 | [08 Eval](docs/architecture/08-eval.md) | 4-layer harness incl. behavioral inspection |
 | [09 UX](docs/architecture/09-ux.md) | CLI, approvals, modes, latency budget |
 | [10 Data model](docs/architecture/10-data-model.md) | Events, schema, protocol, adapter interface |
-| [Air-gap ops](docs/ops/air-gap.md) | Offline install, egress broker, compliance |
+| [Infrastructure tools](docs/ops/infrastructure.md) | Kubernetes, SSH and external retrieval |
+| [Enabling authentication](docs/ops/enabling-auth.md) | Local accounts and proxy-header identity |
 
 ## Design decisions worth knowing
 

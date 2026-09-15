@@ -110,7 +110,6 @@ func splitList(s string) []string {
 	return out
 }
 
-
 // LoadCustom registers providers described by a file rather than compiled in.
 //
 // Adding a provider should not need a rebuild. Every endpoint worth reaching

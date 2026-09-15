@@ -166,8 +166,8 @@ func send(ctx context.Context, client *http.Client, p RetryPolicy,
 			resp.Body.Close()
 			se := &StatusError{
 				Status: resp.StatusCode, Body: strings.TrimSpace(string(body)),
-				Attempts: attempt,
-				RetryAfter: h.Get("Retry-After") != "",
+				Attempts:            attempt,
+				RetryAfter:          h.Get("Retry-After") != "",
 				HasRateLimitHeaders: hasRateLimitHeaders(h),
 			}
 			if fatal(se) {
@@ -244,10 +244,9 @@ func (e *StatusError) Error() string {
 // SetNotify installs a callback for retry notices. It exists as a method on
 // each adapter rather than a constructor argument so a caller can attach one
 // without knowing which provider it is holding.
-func (c *Anthropic) SetNotify(f func(string))         { c.Notify = f }
-func (c *OpenAICompatible) SetNotify(f func(string))  { c.Notify = f }
-func (g *Gemini) SetNotify(f func(string))            { g.Notify = f }
-
+func (c *Anthropic) SetNotify(f func(string))        { c.Notify = f }
+func (c *OpenAICompatible) SetNotify(f func(string)) { c.Notify = f }
+func (g *Gemini) SetNotify(f func(string))           { g.Notify = f }
 
 // hasRateLimitHeaders reports whether the server described its own limit. A
 // real rate limit says when it resets; a refusal wearing a 429 does not.

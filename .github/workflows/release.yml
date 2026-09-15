@@ -1,14 +1,7 @@
-# A release is a tag. Pushing v<major>.<minor>.<patch> builds the signed
-# air-gap bundle exactly as scripts/build-bundle.sh does on a laptop, verifies
-# it the way an enclave would, publishes it with standalone binaries and a
-# checksum file as a GitHub Release, and pushes a multi-arch container image
-# to GitHub's registry. Nothing here is built by hand, so a release is
-# reproducible from its tag.
-#
-# Optional secret BUNDLE_SIGNING_KEY: a PEM private key. When present the
-# bundle is signed (abhed-<tag>.tar.gz.sig) and customers verify it with the
-# matching public key using scripts/verify-bundle.sh. Without it the release
-# carries digests only, and the release notes should say so.
+# A release is a tag. Pushing v<major>.<minor>.<patch> builds one archive per
+# platform with the documentation embedded, a checksum file, and a multi-arch
+# container image, and publishes them as a GitHub Release. Nothing is built by
+# hand, so a release is reproducible from its tag.
 name: Release
 
 on:
@@ -20,43 +13,18 @@ permissions:
   packages: write
 
 jobs:
-  bundle:
-    name: Signed bundle and binaries
+  binaries:
+    name: Binaries and checksums
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-
-      - name: Build the bundle
-        env:
-          BUNDLE_SIGNING_KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
-        run: |
-          set -euo pipefail
-          KEYARG=()
-          if [ -n "${BUNDLE_SIGNING_KEY:-}" ]; then
-            umask 077
-            printf '%s' "$BUNDLE_SIGNING_KEY" > "$RUNNER_TEMP/signing-key.pem"
-            KEYARG=(-k "$RUNNER_TEMP/signing-key.pem")
-          fi
-          scripts/build-bundle.sh -v "$GITHUB_REF_NAME" -o dist "${KEYARG[@]}"
-          rm -f "$RUNNER_TEMP/signing-key.pem"
-
-      - name: Verify the bundle the way an enclave would
-        run: scripts/verify-bundle.sh "dist/abhed-${GITHUB_REF_NAME}.tar.gz"
-
-      - name: Standalone binaries and checksums
-        run: |
-          set -euo pipefail
-          tar -xzf "dist/abhed-${GITHUB_REF_NAME}.tar.gz" -C "$RUNNER_TEMP"
-          cp "$RUNNER_TEMP/abhed-${GITHUB_REF_NAME}/bin/abhed-"* dist/
-          (cd dist && sha256sum abhed-* > SHA256SUMS)
-          ls -la dist
-
+      - name: Build
+        run: scripts/build-release.sh -v "$GITHUB_REF_NAME" -o dist
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -64,7 +32,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "Abhed $GITHUB_REF_NAME" \
             --generate-notes \
-            --notes "Verify: sha256sum -c SHA256SUMS, or scripts/verify-bundle.sh abhed-$GITHUB_REF_NAME.tar.gz [public-key.pem] for the air-gap bundle."
+            --notes "Verify a download with: sha256sum -c SHA256SUMS --ignore-missing"
 
   image:
     name: Container image (linux/amd64, linux/arm64)

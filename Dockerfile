@@ -29,6 +29,12 @@ RUN go mod download
 
 COPY . .
 
+# The documentation is embedded in the binary so an air-gapped install has
+# it locally; the generator is a small Python script, and this image's build
+# stage is the one place it must run without anyone remembering to.
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 >/dev/null \
+ && python3 scripts/docsite/build.py --embed-only
+
 # CGO off produces a static binary with no libc dependency, which is what lets
 # the runtime stage be as small as it is. Symbols and DWARF are stripped: they
 # are debugging weight, and on an internet-facing binary they are also free

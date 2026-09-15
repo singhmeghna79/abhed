@@ -56,3 +56,5 @@ bench/logs/
 bench/.scratch/
 __pycache__/
 *.pyc
+ee-stage/
+ee-docs/

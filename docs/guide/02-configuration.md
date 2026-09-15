@@ -104,9 +104,10 @@ them durable and replayable, and is what `/sessions`, `/resume` and audit need.
 and Postgres does not apply it to a superuser or a `BYPASSRLS` role, not even
 with `FORCE`. Abhed checks the role it connected as and **refuses to start** if
 it is privileged, because a control that is silently off is worse than one
-that is visibly missing. `deploy/run.sh` provisions two roles for this reason:
-a superuser it uses only to provision, and a plain `abhed_app` role that owns
-the tables and is the only one in the server's DSN.
+that is visibly missing. Provision two roles for this reason: a superuser used
+only to create the database and the application role, and a plain application
+role (`NOSUPERUSER NOBYPASSRLS`) that owns the tables and is the only one in the
+server's DSN. Abhed applies its schema on connect as that role.
 
 ## Where settings come from
 

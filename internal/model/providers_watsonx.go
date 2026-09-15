@@ -25,7 +25,7 @@ func init() {
 					ContextWindow:   s.ContextWindow,
 					MaxOutputTokens: s.MaxOutputTokens,
 					SupportsTools:   true,
-			SupportsVision:  visionFromSpec(s),
+					SupportsVision:  visionFromSpec(s),
 					SupportsStream:  true,
 					ToolCallFormat:  orElse(s.ToolCallFormat, "json"),
 					ReasoningTokens: true,

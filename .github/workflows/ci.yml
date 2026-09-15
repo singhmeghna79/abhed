@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   test:
-    name: Vet, test, vulnerabilities, site checks
+    name: Vet, lint, test, vulnerabilities
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,8 +18,14 @@ jobs:
         with:
           go-version: "1.26"
 
+      - name: Embed the documentation
+        run: python3 scripts/docsite/build.py --embed-only
+
       - name: go vet
         run: go vet ./...
+
+      - name: golangci-lint
+        run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run ./...
 
       - name: go test
         run: go test ./... -count=1
@@ -33,45 +39,26 @@ jobs:
       - name: gosec
         run: |
           go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -quiet -fmt json -no-fail -out gosec.json ./... || true
-          python3 deploy/ci/gosec-gate.py gosec.json
+          python3 scripts/ci/gosec-gate.py gosec.json
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: site access checks
-        run: node deploy/sitetests/access.test.mjs
-
-      - name: site screen checks
-        run: node deploy/sitetests/screen.test.mjs
-
-      - name: site demo checks
-        run: node deploy/sitetests/demo.test.mjs
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: inline-css check
-        run: python3 deploy/sitegen/inline-css.py --check
+      # The open binary must not carry any Enterprise package, and the open
+      # tree must not reach for the company's deployment.
+      - name: Edition boundary
+        run: |
+          set -euo pipefail
+          if go list -deps ./cmd/abhed | grep -q '/ee/'; then
+            echo "cmd/abhed depends on an ee/ package"; exit 1
+          fi
+          if git grep -n -E '(^|[^a-z])deploy/' -- '*.go' '*.yml' '*.md' ':!CHANGELOG.md' | grep -v '^docs/trust/security-scans.md'; then
+            echo "references to the private deployment tree"; exit 1
+          fi
 
   container:
-    name: Container build and deploy checks
+    name: Container image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.26"
-
-      - name: Build container image
-        run: |
-          if command -v podman >/dev/null 2>&1; then
-            podman build -t abhed:ci -f Dockerfile .
-          else
-            docker build -t abhed:ci -f Dockerfile .
-          fi
-
-      - name: go test ./internal/deploycheck/
-        run: go test ./internal/deploycheck/
+      - name: Build the image
+        run: docker build -t abhed:ci -f Dockerfile .
+      - name: The image runs and reports its version
+        run: docker run --rm --entrypoint /usr/local/bin/abhed abhed:ci -version

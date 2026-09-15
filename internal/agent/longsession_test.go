@@ -178,7 +178,7 @@ func TestCompactActuallyShrinksAgentHistory(t *testing.T) {
 
 func TestCompactionIntervalOnRealisticSession(t *testing.T) {
 	dir := tempDir(t)
-	small := []byte(strings_Repeat("short result line\n", 20))       // ~100 tokens
+	small := []byte(strings_Repeat("short result line\n", 20))         // ~100 tokens
 	large := []byte(strings_Repeat("data data data data data\n", 800)) // ~5.5k tokens
 	for i := 1; i <= 100; i++ {
 		body := small

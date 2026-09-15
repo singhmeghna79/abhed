@@ -1,7 +1,7 @@
 # Data handling
 
-What Abhed stores, where it lives, how long it lives, what an operator can
-do about it, and who else touches data for the hosted console.
+What Abhed stores, where it lives, how long it lives, and what an operator can
+do about it.
 
 ## What Abhed stores
 
@@ -13,32 +13,29 @@ From `internal/store/schema.sql`, on the Postgres storage driver:
 | `events` | Every event in a session, append-only: tool calls, **tool output**, model responses, approvals and refusals — tagged `trusted` or `untrusted` per event |
 | `checkpoints` | The content of a file immediately before the agent changed it, keyed to the event that changed it — this is what `/undo` reads |
 | `models` | The registry of configured model endpoints and their capability profile |
-| `access_grants` / `access_events` | Who requested and holds console access, and the append-only history of how that changed |
 
 Accounts (username, email, tenant, groups, bcrypt password hash) are stored
 either in this same Postgres database or, without `storage.driver: postgres`
 configured, in `<workspace>/.abhed/users.json` mode `0600`
 (`docs/ops/enabling-auth.md`, "Where accounts live").
 
-**Uploads** are files the agent reads or writes inside the session workspace
-— on the hosted console this is the container's workspace volume
-(`deploy/run.sh`'s `ABHED_VOLUME`), not a host path. They are not a separate
-store; they are ordinary files in that workspace, and their content that
-passes through the agent loop is captured in `events` as tool output like
-anything else the agent reads.
+**Uploads** are files the agent reads or writes inside the session workspace.
+They are not a separate store; they are ordinary files in that workspace, and
+their content that passes through the agent loop is captured in `events` as
+tool output like anything else the agent reads. When the server runs in a
+container, put the workspace on a named volume rather than a host path, so
+there is no host path for an agent to escape to.
 
 ## Where
 
-Self-hosted: wherever the operator points `storage.dsn`. Hosted console: a
-Postgres container on the operator's own machine
-(`deploy/run.sh`'s `abhed-db` container, `DB_VOLUME`), with no published
-port — reachable only from the container network, never the LAN or the host
-(`deploy/run.sh` comment: "No published port").
+Wherever the operator points `storage.dsn`. Give the database no published
+port: reachable only from the network the server is on, never the LAN or the
+host at large.
 
 Without the Postgres driver configured, sessions and events live in memory
-and do not survive a restart at all (`internal/sitecheck/claims_test.go`'s
-`TestDurabilityClaimsNameTheDriver` pins this exact distinction: "accounts
-survive... transcripts survive... postgres... default... they do not").
+and do not survive a restart at all. Accounts do survive, in `users.json`;
+transcripts do not (`docs/ops/enabling-auth.md`, "Where accounts live";
+`docs/guide/02-configuration.md`, "Storage").
 
 ## Retention
 
@@ -59,19 +56,11 @@ only by someone with the database, never through the API again." A deleted
 session is gone from the console and the API; it is not gone from the
 database.
 
-**Access grants and revocations are permanent, by design.** Revoking access
-disables the account rather than deleting it, "so the record of what
-happened survives — that is the point of an audit log"
-(`docs/access-policy.md`, "How revocation works"). `access_events` is
-append-only by trigger, same as `events`.
-
 ## What the operator can export or delete
 
-- **Export**: `docs/access-policy.md` tells a hosted-console user to "export
-  before you lose access, or ask" — there is a session-export path in the
-  console for a user's own sessions while their account is active. An
-  operator with database access can export anything directly via `pg_dump`
-  (see `docs/trust/backup-restore.md`).
+- **Export**: there is a session-export path in the console for a user's own
+  sessions while their account is active. An operator with database access
+  can export anything directly via `pg_dump`.
 - **Delete**: A user can delete their own session from the console UI, which
   marks it per schema version 3 above — it stops being reachable through the
   product but the rows remain in Postgres. An operator with direct database
@@ -82,24 +71,9 @@ append-only by trigger, same as `events`.
   first — which is a deliberate, high-friction operation, not a supported
   workflow).
 - **Accounts**: `abhed user remove <username>` deletes the account
-  immediately. It does not delete that user's session history — "Removing
-  the account ends their access; the audit log of what they did stays, which
-  is the point of keeping it" (`deploy/GO-LIVE.md`, "Turning it off").
-
-## Subprocessors — hosted console at abhed.zybuu.com
-
-Zybuu is a one-person company (`docs/vision.md`), and the hosted console runs
-on the founder's own hardware. Stated plainly, per this folder's convention:
-
-| Subprocessor | What it handles | Where documented |
-|---|---|---|
-| **Cloudflare** | DNS and the `zybuu.com` zone; Cloudflare Pages hosts the marketing site and generated docs; the tunnel/reverse-proxy path carries traffic to `abhed.zybuu.com` | `deploy/GO-LIVE.md` (DNS record, Pages publishing, the docs Worker) |
-| **Resend** | Transactional mail: access-request acknowledgements, invite delivery, revocation notices | `deploy/GO-LIVE.md` ("The homepage form"), `internal/server/admin.go`'s `mailRevocation` |
-| **The founder's own hardware** | Runs the console, the Postgres database, and the model the console's agent uses | `deploy/GO-LIVE.md`: "The site is up only while this Mac is awake and online"; `docs/access-policy.md`: "that is a model running on the same machine, so prompts do not leave it" |
-
-No other third party receives console data. There is no analytics vendor and
-no tracking (`docs/access-policy.md`: "Nothing is sold, and there is no
-analytics or tracking").
+  immediately. It does not delete that user's session history: removing the
+  account ends their access; the audit log of what they did stays, which is
+  the point of keeping it.
 
 ## Self-hosted deployments
 
@@ -109,3 +83,6 @@ model endpoint they themselves configure (`docs/vision.md`: "It runs where
 the data is... It runs any model... Changing vendors is a line of config").
 Zybuu has no access to a self-hosted deployment's data, database, or logs
 unless the operator explicitly shares them (for example, to report a bug).
+
+The hosted console that Zybuu runs is a separate deployment with its own
+subprocessor list, documented with the Enterprise Edition.

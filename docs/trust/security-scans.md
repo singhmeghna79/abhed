@@ -1,5 +1,10 @@
 # Security scans
 
+> This record predates the split of the repository into a Community Edition
+> and an Enterprise Edition. The commands and paths below (`deploy/`, the
+> release bundle, the site checks) are quoted as they were run at the time;
+> some of them now live in the Enterprise repository.
+
 Independent, third-party tooling run against this repository and its
 container image on 2026-09-14. Every finding below is listed with its
 severity, its `file:line`, and a one-line triage — true positive, false
