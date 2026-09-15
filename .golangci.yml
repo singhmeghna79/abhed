@@ -11,9 +11,6 @@ linters:
     - gocritic
     - bodyclose
     - nilerr
-  settings:
-    misspell:
-      locale: UK
 formatters:
   enable:
     - gofmt
