@@ -19,6 +19,9 @@ internal/docsite/site/*
 # in a repository is a password published.
 deploy/.db-password
 deploy/.db-admin-password
+# Environment for the container (a hosted model provider's API key), read by
+# deploy/run.sh from beside the config. Same rule: never committed.
+deploy/.env
 
 # Demo artefacts are built by deploy/demo/build.sh and published with the
 # site; they are large binaries and are not source.

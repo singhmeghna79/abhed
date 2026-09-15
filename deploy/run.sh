@@ -251,6 +251,23 @@ fi
 
 "$RUNTIME" rm -f "$NAME" >/dev/null 2>&1 || true
 
+# Secrets the server reads from its environment — the API key a hosted model
+# provider names in `api_key_env`, for a deployment with no model on the
+# host. They come from an env file beside the config, never from the config
+# itself (which is mounted read-only and may be committed) and never from
+# this script's own environment (which would put the key in the process
+# list of whoever runs it). Optional: a deployment with a local model has no
+# file and passes nothing. Refused if anyone but the owner can read it.
+ENV_FILE="${ABHED_ENV_FILE:-$(dirname "$CONFIG")/.env}"
+ENV_ARGS=()
+if [ -f "$ENV_FILE" ]; then
+  if [ -n "$(find "$ENV_FILE" \( -perm -040 -o -perm -004 \) 2>/dev/null)" ]; then
+    echo "error: $ENV_FILE is readable by others; chmod 600 it" >&2
+    exit 1
+  fi
+  ENV_ARGS=(--env-file "$ENV_FILE")
+fi
+
 DB_ARGS=()
 if [ "$WITH_DB" = "1" ]; then
   # ABHED_DATABASE_URL is read by config.Load's applyEnv, so the credential
@@ -266,6 +283,7 @@ exec "$RUNTIME" run \
   --detach \
   --restart unless-stopped \
   "${DB_ARGS[@]}" \
+  "${ENV_ARGS[@]}" \
   \
   `# --- what the process may do -------------------------------------------` \
   --user 10001:10001 \

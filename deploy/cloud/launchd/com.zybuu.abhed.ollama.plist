@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Ollama as a user agent, with the two settings RUNBOOK.md says a 26B model
+  needs to hold a long context in 36 GB. Bound to loopback: the container
+  reaches it through the podman machine's host gateway, nothing else should.
+  Replaces the `nohup ollama serve &` from the runbook, which does not
+  survive a logout or a reboot.
+
+  Install (deploy/cloud/mac-always-on.md):
+    install -m 644 deploy/cloud/launchd/com.zybuu.abhed.ollama.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zybuu.abhed.ollama.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.zybuu.abhed.ollama</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/ollama</string>
+    <string>serve</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OLLAMA_HOST</key>
+    <string>127.0.0.1:11434</string>
+    <key>OLLAMA_FLASH_ATTENTION</key>
+    <string>1</string>
+    <key>OLLAMA_KV_CACHE_TYPE</key>
+    <string>q8_0</string>
+    <!-- Keep the model loaded for an hour after the last request rather than
+         the default five minutes: reloading 18 GB is a visible pause for the
+         first visitor after a quiet spell. -1 would pin it permanently. -->
+    <key>OLLAMA_KEEP_ALIVE</key>
+    <string>1h</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/abhed/ollama.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/abhed/ollama.log</string>
+</dict>
+</plist>

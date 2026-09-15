@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The Cloudflare tunnel connector as a system daemon: starts at boot, before
+  anyone logs in, and is restarted by launchd if it exits. Reads the tunnel
+  config and credentials from /etc/cloudflared (root-only), not from
+  ~/.cloudflared, because a daemon that runs as root should not depend on a
+  user's home directory being unlocked.
+
+  Install (deploy/cloud/mac-always-on.md):
+    sudo install -m 644 -o root -g wheel deploy/cloud/launchd/com.zybuu.abhed.cloudflared.plist /Library/LaunchDaemons/
+    sudo launchctl bootstrap system /Library/LaunchDaemons/com.zybuu.abhed.cloudflared.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.zybuu.abhed.cloudflared</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>--no-autoupdate</string>
+    <string>--config</string>
+    <string>/etc/cloudflared/config.yml</string>
+    <string>tunnel</string>
+    <string>run</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <!-- Wait ten seconds between restarts rather than spinning if the network
+       is not up yet after boot. -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/abhed/cloudflared.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/abhed/cloudflared.log</string>
+</dict>
+</plist>

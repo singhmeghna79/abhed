@@ -70,6 +70,7 @@ Running it in a real environment.
 
 - [Abhed — Air-Gapped Deployment & Egress Brokering](https://abhed.zybuu.com/docs/ops/air-gap): Abhed ships one artifact set supporting three deployment postures.
 - [Abhed — Enabling Authentication](https://abhed.zybuu.com/docs/ops/enabling-auth): Four modes. Pick by how Abhed is exposed, not by how much security sounds good.
+- [Where the hosted console should run](https://abhed.zybuu.com/docs/ops/hosting-options): The invite-only console at abhed.zybuu.com runs today on a laptop: two rootless Podman containers (the server image and Postgres 16) and a Cloudflare Tunnel connector, with the model served by Ollama…
 - [Abhed — Clusters, Machines, and External Retrieval](https://abhed.zybuu.com/docs/ops/infrastructure): Four capabilities that let Abhed work on infrastructure rather than only on files.
 - [Abhed — Choosing a Model](https://abhed.zybuu.com/docs/ops/model-selection): Measured on an Apple M3 Pro, 36 GB unified memory, Ollama 0.33.2, September 2026.
 - [Abhed — OIDC Provider Configuration](https://abhed.zybuu.com/docs/ops/oidc-providers): Verified against the real token and JWKS shapes each provider issues (internal/auth/providers_test.go).

@@ -83,8 +83,15 @@ echo
 # reads "Compiled Worker successfully" and "Uploading Functions bundle" — if
 # those two lines are missing, the form is not deployed.
 cd "$DIR"
+# Pages routes a deploy to Production only when the branch name given (or
+# inferred from git) matches the project's production branch, which was set
+# when the project was created from the public-deploy branch. Every other
+# name lands in Preview, silently, with a *.pages.dev URL and no change to
+# zybuu.com — which is what happened after the trunk was renamed to main.
+# So the branch is passed explicitly, and production is checked afterwards.
 out=$(npm_config_cache="${TMPDIR:-/tmp}/zybuu-npm" npx --yes wrangler@3 pages deploy . \
     --project-name "$PROJECT" \
+    --branch "${ZYBUU_PRODUCTION_BRANCH:-public-deploy}" \
     --commit-dirty=true 2>&1 | tee /dev/stderr)
 
 # Verified, not assumed. A deploy that skips the Function still reports
@@ -146,3 +153,20 @@ Done. Three things to set in the Cloudflare dashboard the first time:
   2. Confirm abhed.zybuu.com still points at the tunnel and was not touched.
 
 TEXT
+
+# Verified, not assumed, part two: production must now serve what was just
+# uploaded. robots.txt is small, static and changes rarely, so it is compared
+# byte for byte; a mismatch means the deploy went to Preview or is cached.
+ok=0
+for _ in $(seq 1 12); do
+    if diff -q <(curl -sS --max-time 20 "https://zybuu.com/robots.txt") "$DIR/robots.txt" >/dev/null; then ok=1; break; fi
+    sleep 5
+done
+if [ "$ok" != 1 ]; then
+    echo
+    echo "!!  zybuu.com does not serve the robots.txt just deployed. The deploy"
+    echo "!!  most likely landed in the Preview environment: check that"
+    echo "!!  ZYBUU_PRODUCTION_BRANCH matches the project's production branch."
+    exit 1
+fi
+echo "production verified: zybuu.com serves the deployed files"

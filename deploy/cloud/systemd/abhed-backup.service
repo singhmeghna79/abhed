@@ -1,0 +1,18 @@
+# Nightly backup of the hosted console (deploy/cloud/backup.sh).
+#
+# A USER unit, installed into ~abhed/.config/systemd/user by
+# deploy/cloud/bootstrap.sh, because the containers are rootless and belong
+# to that user: a system unit would see a different podman with no
+# containers in it. The user manager runs at boot because bootstrap.sh
+# enabled lingering for the account.
+[Unit]
+Description=Abhed console backup
+After=podman-restart.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/abhed
+ExecStart=%h/abhed/deploy/cloud/backup.sh
+# Optional off-host copy; see backup.sh. Set it here, or in an override:
+#   systemctl --user edit abhed-backup.service
+#Environment=ABHED_BACKUP_RCLONE_REMOTE=r2:abhed-backups
