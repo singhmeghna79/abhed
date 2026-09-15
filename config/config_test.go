@@ -15,7 +15,7 @@ func TestDefaultIsValid(t *testing.T) {
 
 func TestProjectConfigOverridesUser(t *testing.T) {
 	ws := t.TempDir()
-	os.MkdirAll(filepath.Join(ws, ".abhed"), 0o755)
+	_ = os.MkdirAll(filepath.Join(ws, ".abhed"), 0o755)
 	os.WriteFile(filepath.Join(ws, ".abhed", "config.json"), []byte(`{
       "model":{"default":"custom","providers":{"custom":{
         "type":"openai-compatible","base_url":"http://gpu:8000/v1",

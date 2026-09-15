@@ -25,14 +25,14 @@ func modernServer(t *testing.T) *httptest.Server {
 			ID     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		if req.Method == "notifications/initialized" {
 			w.WriteHeader(http.StatusAccepted)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Mcp-Session-Id", "sess-123")
-		fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,%s}`, req.ID, resultFor(req.Method))
+		_, _ = fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,%s}`, req.ID, resultFor(req.Method))
 	}))
 }
 
@@ -45,12 +45,12 @@ func legacyServer(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/sse", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "event: endpoint\ndata: /messages?session=abc\n\n")
+		_, _ = fmt.Fprintf(w, "event: endpoint\ndata: /messages?session=abc\n\n")
 		w.(http.Flusher).Flush()
 		for {
 			select {
 			case msg := <-replies:
-				fmt.Fprintf(w, "data: %s\n\n", msg)
+				_, _ = fmt.Fprintf(w, "data: %s\n\n", msg)
 				w.(http.Flusher).Flush()
 			case <-r.Context().Done():
 				return
@@ -62,7 +62,7 @@ func legacyServer(t *testing.T) *httptest.Server {
 			ID     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		w.WriteHeader(http.StatusAccepted)
 		if req.Method != "notifications/initialized" {
 			replies <- fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,%s}`, req.ID, resultFor(req.Method))
@@ -95,7 +95,7 @@ func TestHTTPTransportModernShape(t *testing.T) {
 		t.Fatalf("connect: %v", err)
 	}
 	client := NewClient("remote", tr)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if err := client.Initialize(ctx); err != nil {
 		t.Fatalf("initialize: %v", err)
@@ -119,7 +119,7 @@ func TestHTTPTransportLegacySSEShape(t *testing.T) {
 		t.Fatalf("connect: %v", err)
 	}
 	client := NewClient("remote", tr)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if err := client.Initialize(ctx); err != nil {
 		t.Fatalf("initialize: %v", err)
@@ -149,7 +149,7 @@ func TestHTTPTransportSendsHeaders(t *testing.T) {
 			ID     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
 		}
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,%s}`, req.ID, resultFor(req.Method))
 	}))
@@ -163,7 +163,7 @@ func TestHTTPTransportSendsHeaders(t *testing.T) {
 	}
 	client := NewClient("remote", tr)
 	defer client.Close()
-	client.Initialize(ctx)
+	_ = client.Initialize(ctx)
 
 	if got != "Bearer tok" {
 		t.Errorf("Authorization = %q, want the configured bearer token", got)

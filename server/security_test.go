@@ -610,12 +610,12 @@ func TestToolRegistrySwapIsRaceFree(t *testing.T) {
 	// Writers, standing in for settings changes.
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
-		go func(n int) {
+		go func() {
 			defer wg.Done()
 			for j := 0; j < 50; j++ {
 				st.swapTools(func(reg *tools.Registry) { reg.Add(tools.Grep{}) })
 			}
-		}(i)
+		}()
 	}
 
 	time.Sleep(120 * time.Millisecond)

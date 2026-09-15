@@ -179,7 +179,7 @@ func (l *LocalAuth) Authenticate(ctx context.Context, username, password string)
 	if err != nil {
 		// Hash anyway so a missing user takes the same time as a wrong
 		// password: otherwise response timing enumerates valid usernames.
-		bcrypt.CompareHashAndPassword(
+		_ = bcrypt.CompareHashAndPassword(
 			[]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"),
 			[]byte(password))
 		return nil, ErrBadCredentials
@@ -329,7 +329,7 @@ func (l *LocalAuth) Whoami(w http.ResponseWriter, r *http.Request) {
 func writeAuthJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // CreateUserOrReset sets a password without knowing the current one. This is

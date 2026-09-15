@@ -20,19 +20,19 @@ func fakeAPIServer(t *testing.T, seen *[]string) *httptest.Server {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/pods"):
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"kind":"PodList","items":[
+			_, _ = fmt.Fprint(w, `{"kind":"PodList","items":[
 			  {"metadata":{"name":"api-0","namespace":"prod"},
 			   "status":{"phase":"Running","containerStatuses":[{"ready":true,"restartCount":0}]}}]}`)
 		case strings.Contains(r.URL.Path, "/log"):
-			fmt.Fprint(w, "line one\nline two\n")
+			_, _ = fmt.Fprint(w, "line one\nline two\n")
 		case r.Method == http.MethodDelete:
-			fmt.Fprint(w, `{"kind":"Status","status":"Success"}`)
+			_, _ = fmt.Fprint(w, `{"kind":"Status","status":"Success"}`)
 		case r.Method == http.MethodPatch:
-			fmt.Fprintf(w, `{"kind":"Deployment","metadata":{"name":"web"},"contentType":%q}`,
+			_, _ = fmt.Fprintf(w, `{"kind":"Deployment","metadata":{"name":"web"},"contentType":%q}`,
 				r.Header.Get("Content-Type"))
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, `{"kind":"Status","message":"the server could not find the requested resource"}`)
+			_, _ = fmt.Fprint(w, `{"kind":"Status","message":"the server could not find the requested resource"}`)
 		}
 	}))
 }

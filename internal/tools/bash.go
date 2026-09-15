@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -270,7 +271,8 @@ func summarizeCommand(command string) string {
 }
 
 func asExitError(err error, target **exec.ExitError) bool {
-	ee, ok := err.(*exec.ExitError)
+	ee := &exec.ExitError{}
+	ok := errors.As(err, &ee)
 	if ok {
 		*target = ee
 	}

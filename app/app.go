@@ -18,8 +18,8 @@ import (
 	"github.com/zybuu-ai/abhed/auth"
 	"github.com/zybuu-ai/abhed/config"
 	"github.com/zybuu-ai/abhed/internal/docsite"
-	"github.com/zybuu-ai/abhed/server"
 	abhed "github.com/zybuu-ai/abhed/sdk"
+	"github.com/zybuu-ai/abhed/server"
 )
 
 // App is the binary's registry: what it can authenticate with, which paid

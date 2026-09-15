@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,7 +16,7 @@ func newTestAuth(t *testing.T) *LocalAuth {
 	return NewLocalAuth(NewMemoryUserStore(), time.Hour, false)
 }
 
-func mustCreate(t *testing.T, l *LocalAuth, name, pw string) {
+func mustCreate(t *testing.T, l *LocalAuth, name, pw string) { //nolint:unparam // a fixture; the fixed argument documents what the tests rely on
 	t.Helper()
 	if err := l.CreateUser(context.Background(),
 		User{Username: name, Email: name + "@example.com"}, pw); err != nil {
@@ -45,7 +46,7 @@ func TestAuthenticateRejectsWrongPassword(t *testing.T) {
 	l := newTestAuth(t)
 	mustCreate(t, l, "ada", "correct-horse-battery")
 
-	if _, err := l.Authenticate(context.Background(), "ada", "wrong-horse-battery"); err != ErrBadCredentials {
+	if _, err := l.Authenticate(context.Background(), "ada", "wrong-horse-battery"); !errors.Is(err, ErrBadCredentials) {
 		t.Fatalf("err = %v, want ErrBadCredentials", err)
 	}
 }
@@ -75,11 +76,11 @@ func TestMissingUserStillCostsBcryptTime(t *testing.T) {
 	mustCreate(t, l, "ada", "correct-horse-battery")
 
 	start := time.Now()
-	l.Authenticate(context.Background(), "nobody", "whatever-at-all")
+	_, _ = l.Authenticate(context.Background(), "nobody", "whatever-at-all")
 	missing := time.Since(start)
 
 	start = time.Now()
-	l.Authenticate(context.Background(), "ada", "whatever-at-all")
+	_, _ = l.Authenticate(context.Background(), "ada", "whatever-at-all")
 	wrong := time.Since(start)
 
 	// Not a tight bound — CI timing is noisy. This catches the real bug,
@@ -93,7 +94,7 @@ func TestMissingUserStillCostsBcryptTime(t *testing.T) {
 func TestWeakPasswordRejected(t *testing.T) {
 	l := newTestAuth(t)
 	err := l.CreateUser(context.Background(), User{Username: "ada"}, "short")
-	if err != ErrWeakPassword {
+	if !errors.Is(err, ErrWeakPassword) {
 		t.Fatalf("err = %v, want ErrWeakPassword", err)
 	}
 }
@@ -103,7 +104,7 @@ func TestDuplicateUsernameRejected(t *testing.T) {
 	mustCreate(t, l, "ada", "correct-horse-battery")
 	err := l.CreateUser(context.Background(),
 		User{Username: "ADA"}, "another-long-password")
-	if err != ErrUserExists {
+	if !errors.Is(err, ErrUserExists) {
 		t.Fatalf("err = %v, want ErrUserExists — usernames are case-insensitive", err)
 	}
 }
@@ -214,7 +215,7 @@ func TestChangePassword(t *testing.T) {
 	if err := l.ChangePassword(ctx, "ada", "wrong-password-here", "new-long-password"); err == nil {
 		t.Error("changed password without the correct current one")
 	}
-	if err := l.ChangePassword(ctx, "ada", "correct-horse-battery", "short"); err != ErrWeakPassword {
+	if err := l.ChangePassword(ctx, "ada", "correct-horse-battery", "short"); !errors.Is(err, ErrWeakPassword) {
 		t.Errorf("err = %v, want ErrWeakPassword for a short replacement", err)
 	}
 	if err := l.ChangePassword(ctx, "ada", "correct-horse-battery", "new-long-password"); err != nil {

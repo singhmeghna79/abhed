@@ -115,7 +115,7 @@ func extractOOXML(data []byte, kind DocumentKind) (string, error) {
 		// Bounded: a zip bomb must not exhaust memory just because someone
 		// uploaded a file.
 		raw, err := io.ReadAll(io.LimitReader(rc, 64<<20))
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			continue
 		}
@@ -401,10 +401,10 @@ func inflate(data []byte) ([]byte, error) {
 	if err != nil {
 		// Some producers omit the zlib header and emit a raw deflate stream.
 		fr := flate.NewReader(bytes.NewReader(data))
-		defer fr.Close()
+		defer func() { _ = fr.Close() }()
 		return io.ReadAll(io.LimitReader(fr, 64<<20))
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	return io.ReadAll(io.LimitReader(zr, 64<<20))
 }
 

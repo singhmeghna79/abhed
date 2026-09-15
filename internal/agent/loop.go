@@ -67,6 +67,14 @@ type Loop struct {
 	repeatedFailures map[string]int
 	failuresMu       sync.Mutex
 
+	// recordErr is the first failure to write an event. The record is the
+	// session: a run that continued past a store that stopped taking events
+	// would leave a replay that ends before the run did. So the failure is
+	// kept here and ends the run at the next turn boundary, which is the
+	// first point where ending it leaves the record consistent.
+	recordErr error
+	recordMu  sync.Mutex
+
 	// emptyTurns counts consecutive turns that produced neither text nor a
 	// tool call, so a model that stalls is nudged rather than mistaken for one
 	// that finished.
@@ -122,7 +130,9 @@ func (l *Loop) Todos() []Todo { return l.todos }
 // todo tool can report through the loop rather than carrying a recorder.
 func (l *Loop) RecordTodos(items []Todo, note string) {
 	l.todos = items
-	l.Recorder.Record(EvTodoUpdated, ActorAgent, Trusted, TodoList{Items: items, Note: note})
+	// The list is loop state first and a record second: a store that cannot
+	// take this event will fail the next tool event, which does stop the run.
+	_, _ = l.Recorder.Record(EvTodoUpdated, ActorAgent, Trusted, TodoList{Items: items, Note: note})
 }
 
 type Usage struct {
@@ -192,7 +202,10 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 
 	for {
 		if ctx.Err() != nil {
-			return l.finish(TermUserInterrupt), nil
+			return l.finish(TermUserInterrupt), nil //nolint:nilerr // an interrupt is a terminal reason, not a failure
+		}
+		if err := l.recordFailure(); err != nil {
+			return TermError, err
 		}
 		if l.turns >= l.Config.MaxTurns {
 			return l.finish(TermMaxTurns), nil
@@ -200,7 +213,12 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 		// Steering is applied before the turn is counted, so a redirection
 		// never costs the user a turn from the budget.
 		for _, msg := range l.takeSteering() {
-			l.Recorder.Record(EvUserMessage, ActorUser, Trusted, Message{Text: msg})
+			// A steer that cannot be recorded is not applied: the record is the
+			// session, and a message the model saw but the log did not would
+			// make a replay diverge from what happened.
+			if _, err := l.Recorder.Record(EvUserMessage, ActorUser, Trusted, Message{Text: msg}); err != nil {
+				return TermError, err
+			}
 			l.messages = append(l.messages, model.Message{
 				Role: model.RoleUser, Content: msg,
 			})
@@ -210,7 +228,7 @@ func (l *Loop) Run(ctx context.Context, userPrompt string) (TerminalReason, erro
 		if err := l.maybeCompact(ctx); err != nil {
 			// Compaction failure is not fatal on its own; the turn may still
 			// fit. If it does not, the model call will say so.
-			l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, map[string]string{
+			l.record(EvCompactDone, ActorSystem, map[string]string{
 				"error": err.Error(),
 			})
 		}
@@ -250,7 +268,7 @@ func (l *Loop) compactIfNeeded(ctx context.Context, reserve bool) error {
 		return err
 	}
 
-	l.Recorder.Record(EvCompactStarted, ActorSystem, Trusted, Compaction{
+	l.record(EvCompactStarted, ActorSystem, Compaction{
 		BeforeTokens: used, Trigger: "auto",
 	})
 
@@ -264,7 +282,7 @@ func (l *Loop) compactIfNeeded(ctx context.Context, reserve bool) error {
 
 	l.messages = compacted
 	l.usage.Compactions++
-	l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, info)
+	l.record(EvCompactDone, ActorSystem, info)
 	return nil
 }
 
@@ -282,7 +300,7 @@ func (l *Loop) Compact(ctx context.Context) (Compaction, error) {
 	}
 	l.messages = compacted
 	l.usage.Compactions++
-	l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, info)
+	l.record(EvCompactDone, ActorSystem, info)
 	return info, nil
 }
 
@@ -361,7 +379,7 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 			// on a fast endpoint, which pure per-token emission would not.
 			if flushable(pending.String()) || time.Since(lastFlush) > 40*time.Millisecond {
 				deltaN++
-				l.Recorder.Record(EvAgentDelta, ActorAgent, Trusted,
+				l.record(EvAgentDelta, ActorAgent,
 					Delta{Text: pending.String(), Seq: deltaN})
 				pending.Reset()
 				lastFlush = time.Now()
@@ -389,18 +407,18 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 
 	if pending.Len() > 0 {
 		deltaN++
-		l.Recorder.Record(EvAgentDelta, ActorAgent, Trusted,
+		l.record(EvAgentDelta, ActorAgent,
 			Delta{Text: pending.String(), Seq: deltaN})
 		pending.Reset()
 	}
 
 	if think := strings.TrimSpace(reasoning.String()); think != "" {
-		l.Recorder.Record(EvAgentReasoning, ActorAgent, Trusted,
+		l.record(EvAgentReasoning, ActorAgent,
 			Reasoning{Text: think, Turn: l.turns})
 	}
 
 	if ctx.Err() != nil {
-		return TermUserInterrupt, true, nil
+		return TermUserInterrupt, true, nil //nolint:nilerr // an interrupt is a terminal reason, not a failure
 	}
 
 	// A malformed tool call is recoverable: tell the model what was wrong and
@@ -469,7 +487,7 @@ func (l *Loop) turn(ctx context.Context) (TerminalReason, bool, error) {
 	// rather than being compacted. Checking after the results land is what
 	// makes a long session survive its own tool output.
 	if err := l.compactNow(ctx); err != nil {
-		l.Recorder.Record(EvCompactDone, ActorSystem, Trusted, map[string]string{
+		l.record(EvCompactDone, ActorSystem, map[string]string{
 			"error": err.Error(),
 		})
 	}
@@ -509,15 +527,6 @@ func truncateKey(k string) string {
 	return k
 }
 
-// execute runs one tool call through policy, approval, and the tool itself.
-func (l *Loop) execute(ctx context.Context, call model.ToolCall) (tools.Result, TerminalReason) {
-	ok, res, terminal := l.authorize(ctx, call)
-	if !ok || terminal != "" {
-		return res, terminal
-	}
-	return l.invoke(ctx, call)
-}
-
 // authorize puts one call through policy and, where needed, the approver.
 //
 // It is separate from running the tool so that a turn's approvals happen one at
@@ -548,7 +557,7 @@ func (l *Loop) authorize(ctx context.Context, call model.ToolCall) (bool, tools.
 
 	switch decision.Decision {
 	case policy.Deny:
-		l.Recorder.Record(EvActionDenied, ActorSystem, Trusted, map[string]string{
+		l.record(EvActionDenied, ActorSystem, map[string]string{
 			"call_id": call.ID, "reason": decision.Reason,
 		})
 		// Feed the denial back so the model can choose another approach.
@@ -566,7 +575,7 @@ func (l *Loop) authorize(ctx context.Context, call model.ToolCall) (bool, tools.
 			return false, tools.Result{Content: err.Error(), IsError: true}, TermError
 		}
 		if !approved {
-			l.Recorder.Record(EvActionDenied, ActorUser, Trusted, map[string]string{
+			l.record(EvActionDenied, ActorUser, map[string]string{
 				"call_id": call.ID, "reason": "rejected: " + decision.Reason,
 			})
 			// Say WHY, and name the rule that would have allowed it. A bare
@@ -587,7 +596,7 @@ func (l *Loop) authorize(ctx context.Context, call model.ToolCall) (bool, tools.
 		}
 	}
 
-	l.Recorder.Record(EvActionApproved, ActorSystem, Trusted, map[string]string{
+	l.record(EvActionApproved, ActorSystem, map[string]string{
 		"call_id": call.ID, "reason": decision.Reason,
 	})
 	return true, tools.Result{}, ""
@@ -648,7 +657,7 @@ func (l *Loop) invoke(ctx context.Context, call model.ToolCall) (tools.Result, T
 
 func (l *Loop) finish(reason TerminalReason) TerminalReason {
 	l.usage.Turns = l.turns
-	l.Recorder.Record(EvSessionEnded, ActorSystem, Trusted, SessionEnded{
+	l.record(EvSessionEnded, ActorSystem, SessionEnded{
 		Reason:       reason,
 		Turns:        l.turns,
 		TokensIn:     l.usage.InputTokens,
@@ -893,5 +902,24 @@ func (l *Loop) RecordPipelineStage(skill, stage, detail string, data map[string]
 	for k, v := range data {
 		payload[k] = v
 	}
-	l.Recorder.Record(EvPlanUpdated, ActorSystem, Trusted, payload)
+	l.record(EvPlanUpdated, ActorSystem, payload)
+}
+
+// record writes one of the loop's own events, which are all trusted, and
+// keeps the first failure; see recordErr.
+func (l *Loop) record(t EventType, actor Actor, payload any) {
+	if _, err := l.Recorder.Record(t, actor, Trusted, payload); err != nil {
+		l.recordMu.Lock()
+		if l.recordErr == nil {
+			l.recordErr = err
+		}
+		l.recordMu.Unlock()
+	}
+}
+
+// recordFailure reports the first event that could not be written, if any.
+func (l *Loop) recordFailure() error {
+	l.recordMu.Lock()
+	defer l.recordMu.Unlock()
+	return l.recordErr
 }

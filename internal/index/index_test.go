@@ -65,7 +65,7 @@ Credentials are rotated quarterly via the vault CLI.
 	}
 	for rel, content := range files {
 		p := filepath.Join(dir, rel)
-		os.MkdirAll(filepath.Dir(p), 0o755)
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
 		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -180,7 +180,7 @@ func TestIncrementalUpdate(t *testing.T) {
 	before, _, _, _ := ix.Stats()
 
 	p := filepath.Join(dir, "auth/login.go")
-	os.WriteFile(p, []byte(`package auth
+	_ = os.WriteFile(p, []byte(`package auth
 
 func BrandNewFunction() error {
 	return nil
@@ -207,7 +207,7 @@ func BrandNewFunction() error {
 
 func TestSkipsVendorDirectories(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "node_modules/pkg"), 0o755)
+	_ = os.MkdirAll(filepath.Join(dir, "node_modules/pkg"), 0o755)
 	os.WriteFile(filepath.Join(dir, "node_modules/pkg/index.js"), []byte("function vendored(){}"), 0o644)
 	os.WriteFile(filepath.Join(dir, "app.js"), []byte("function mine(){}"), 0o644)
 

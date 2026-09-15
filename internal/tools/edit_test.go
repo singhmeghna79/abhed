@@ -189,7 +189,7 @@ func TestWorkspaceEscapeRefused(t *testing.T) {
 	s, dir := setup(t)
 	outside := filepath.Join(filepath.Dir(dir), "outside.txt")
 	writeFile(t, outside, "secret\n")
-	defer os.Remove(outside)
+	defer func() { _ = os.Remove(outside) }()
 
 	for _, attempt := range []string{
 		outside,

@@ -106,10 +106,10 @@ func renderLine(s Style, line string) string {
 
 // inline renders emphasis and code spans within a line.
 func inline(s Style, text string) string {
-	text = replacePairs(text, "**", func(inner string) string { return s.Bold(inner) })
-	text = replacePairs(text, "`", func(inner string) string { return s.Cyan(inner) })
+	text = replacePairs(text, "**", s.Bold)
+	text = replacePairs(text, "`", s.Cyan)
 	// Single asterisk last, so it cannot consume the halves of a bold pair.
-	text = replacePairs(text, "*", func(inner string) string { return s.Bold(inner) })
+	text = replacePairs(text, "*", s.Bold)
 	text = renderLinks(s, text)
 	return text
 }

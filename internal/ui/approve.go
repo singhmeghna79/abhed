@@ -72,7 +72,7 @@ func (a *Approver) Approve(ctx context.Context, tool string, args json.RawMessag
 		if err != nil {
 			// EOF (piped input, no TTY): refuse rather than silently proceeding.
 			fmt.Fprintln(a.Out)
-			return false, nil
+			return false, nil //nolint:nilerr // end of input means refuse, which is an answer, not an error
 		}
 		switch strings.TrimSpace(line) {
 		case "a", "y", "":

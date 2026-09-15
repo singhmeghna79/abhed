@@ -86,7 +86,7 @@ func (Glob) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil // unreadable entries are skipped, not fatal
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the search
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -99,7 +99,7 @@ func (Glob) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the search
 		}
 		if matcher(filepath.ToSlash(rel)) {
 			info, err := d.Info()
@@ -293,7 +293,7 @@ func (Grep) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 
 	walk := func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the search
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -307,16 +307,16 @@ func (Grep) Run(ctx context.Context, s *Session, raw json.RawMessage) Result {
 		if globMatch != nil {
 			rel, rerr := filepath.Rel(root, path)
 			if rerr != nil || !globMatch(filepath.ToSlash(rel)) {
-				return nil
+				return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the search
 			}
 		}
 		info, ierr := d.Info()
 		if ierr != nil || info.Size() > maxGrepFileSize {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the search
 		}
 		data, rerr := os.ReadFile(path)
 		if rerr != nil || isBinary(data) {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the search
 		}
 
 		hit := fileHit{path: path}

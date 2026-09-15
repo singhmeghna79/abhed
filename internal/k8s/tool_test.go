@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -105,7 +106,7 @@ func TestApplyRejectsIncompleteManifest(t *testing.T) {
 		`not json`,
 	} {
 		args, _ := json.Marshal(map[string]string{"action": "apply", "manifest": manifest})
-		res := tool.Run(nil, nil, args)
+		res := tool.Run(context.TODO(), nil, args)
 		if !res.IsError {
 			t.Errorf("accepted an incomplete manifest: %s", manifest)
 		}

@@ -97,7 +97,7 @@ func ExportHTML(sessionID string, events []Event) string {
 			}
 
 		case EvSessionEnded:
-			json.Unmarshal(ev.Payload, &stats)
+			_ = json.Unmarshal(ev.Payload, &stats) // a malformed summary leaves the totals at zero, which the export shows as such
 		}
 	}
 

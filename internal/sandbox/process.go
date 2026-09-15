@@ -20,7 +20,6 @@ import (
 // exploitation — the kernel is shared. Use TierVM for untrusted code.
 type Process struct {
 	policy  Policy
-	profile string // rendered sandbox profile path, macOS only
 	backend string // "sandbox-exec" | "bwrap"
 
 	// Whether bwrap may mount a fresh /proc and /dev here. Inside a hardened
@@ -83,9 +82,9 @@ func (s *Process) seatbeltProfile() string {
 
 	b.WriteString(";; Writes are confined to the workspace and standard temp dirs.\n")
 	b.WriteString("(deny file-write*)\n")
-	b.WriteString(fmt.Sprintf("(allow file-write* (subpath %q))\n", s.policy.Workspace))
+	fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", s.policy.Workspace)
 	for _, p := range []string{"/private/tmp", "/private/var/tmp", "/dev/null", "/dev/stdout", "/dev/stderr", "/dev/urandom", "/dev/dtracehelper"} {
-		b.WriteString(fmt.Sprintf("(allow file-write* (subpath %q))\n", p))
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", p)
 	}
 	// macOS gives each user a private TMPDIR under /var/folders, and compilers
 	// put their work directories there. Without this, every `go build`, `cc` and
@@ -98,14 +97,14 @@ func (s *Process) seatbeltProfile() string {
 		if resolved, err := filepath.EvalSymlinks(tmp); err == nil {
 			tmp = resolved
 		}
-		b.WriteString(fmt.Sprintf("(allow file-write* (subpath %q))\n", tmp))
+		fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", tmp)
 	}
 
 	// Toolchains need writable caches or builds fail in ways that look like
 	// agent errors rather than sandbox errors.
 	if home, err := os.UserHomeDir(); err == nil {
 		for _, c := range []string{".cache", "Library/Caches", ".npm", ".cargo/registry", "go/pkg/mod"} {
-			b.WriteString(fmt.Sprintf("(allow file-write* (subpath %q))\n", filepath.Join(home, c)))
+			fmt.Fprintf(&b, "(allow file-write* (subpath %q))\n", filepath.Join(home, c))
 		}
 	}
 
@@ -116,14 +115,14 @@ func (s *Process) seatbeltProfile() string {
 
 	b.WriteString("\n;; Never writable, regardless of workspace location.\n")
 	for _, p := range []string{"/etc", "/System", "/usr", "/bin", "/sbin", "/Library/LaunchDaemons"} {
-		b.WriteString(fmt.Sprintf("(deny file-write* (subpath %q))\n", p))
+		fmt.Fprintf(&b, "(deny file-write* (subpath %q))\n", p)
 	}
 	// Credentials are readable by many tools legitimately, but an agent has no
 	// reason to read SSH or cloud keys.
 	b.WriteString("\n;; Credential paths are unreadable.\n")
 	if home, err := os.UserHomeDir(); err == nil {
 		for _, c := range []string{".ssh", ".aws", ".kube", ".gnupg", ".docker/config.json"} {
-			b.WriteString(fmt.Sprintf("(deny file-read* (subpath %q))\n", filepath.Join(home, c)))
+			fmt.Fprintf(&b, "(deny file-read* (subpath %q))\n", filepath.Join(home, c))
 		}
 	}
 	return b.String()

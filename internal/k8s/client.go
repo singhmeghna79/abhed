@@ -401,7 +401,7 @@ func (c *Cluster) Do(ctx context.Context, method, path string, body []byte) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("cannot reach the cluster at %s: %w", c.Server, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
@@ -451,7 +451,7 @@ func (c *Cluster) doPatch(ctx context.Context, path string, body []byte, content
 	if err != nil {
 		return nil, fmt.Errorf("cannot reach the cluster at %s: %w", c.Server, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {

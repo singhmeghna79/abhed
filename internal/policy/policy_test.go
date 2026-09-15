@@ -25,8 +25,8 @@ func TestDenySurvivesBypass(t *testing.T) {
 
 func TestDenyBeatsAllow(t *testing.T) {
 	e := New(ModeDefault)
-	e.AddAllow("bash(*)")
-	e.AddDeny("bash(git push --force*)")
+	_ = e.AddAllow("bash(*)")
+	_ = e.AddDeny("bash(git push --force*)")
 	res := e.Evaluate("bash", true, args(map[string]string{"command": "git push --force origin main"}))
 	if res.Decision != Deny {
 		t.Fatalf("deny must be evaluated before allow, got %s", res.Decision)
@@ -36,7 +36,7 @@ func TestDenyBeatsAllow(t *testing.T) {
 // Destructive commands confirm in every mode, even auto.
 func TestDestructiveAlwaysAsksInAutoMode(t *testing.T) {
 	e := New(ModeAuto)
-	e.AddAllow("bash(*)")
+	_ = e.AddAllow("bash(*)")
 	res := e.Evaluate("bash", true, args(map[string]string{"command": "rm -rf build"}))
 	if res.Decision != Ask {
 		t.Fatalf("destructive command must ask even in auto mode, got %s", res.Decision)
@@ -48,7 +48,7 @@ func TestDestructiveAlwaysAsksInAutoMode(t *testing.T) {
 
 func TestPlanModeBlocksMutations(t *testing.T) {
 	e := New(ModePlan)
-	e.AddAllow("*")
+	_ = e.AddAllow("*")
 	if res := e.Evaluate("edit", true, args(map[string]string{"path": "/a.go"})); res.Decision != Deny {
 		t.Fatalf("plan mode must block mutations, got %s", res.Decision)
 	}
@@ -59,7 +59,7 @@ func TestPlanModeBlocksMutations(t *testing.T) {
 
 func TestPerCommandScoping(t *testing.T) {
 	e := New(ModeDefault)
-	e.AddAllow("bash(npm test*)")
+	_ = e.AddAllow("bash(npm test*)")
 
 	allowed := e.Evaluate("bash", true, args(map[string]string{"command": "npm test --watch"}))
 	if allowed.Decision != Allow {
@@ -139,8 +139,8 @@ func TestScopeSuggestionIsNarrow(t *testing.T) {
 
 func TestAskRuleOverridesAllow(t *testing.T) {
 	e := New(ModeDefault)
-	e.AddAllow("bash(*)")
-	e.AddAsk("bash(git push*)")
+	_ = e.AddAllow("bash(*)")
+	_ = e.AddAsk("bash(git push*)")
 	res := e.Evaluate("bash", true, args(map[string]string{"command": "git push origin main"}))
 	if res.Decision != Ask {
 		t.Fatalf("ask rules are evaluated before allow, got %s", res.Decision)

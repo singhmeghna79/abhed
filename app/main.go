@@ -253,7 +253,7 @@ func run(a *App, workspace, prompt, modeFlag, modelFlag string, maxTurns int, fo
 		registry.Add(skills.Tool{
 			R:           skillReg,
 			RunPipeline: pipelineRunner(adapter, registry, sess, todos),
-			Input:       func() string { return lastPrompt() },
+			Input:       lastPrompt,
 		})
 	}
 	if t, err := buildWebSearch(cfg); err != nil {
@@ -345,7 +345,7 @@ func runOnce(ctx context.Context, store server.EventStore, r *ui.Renderer, jsonO
 	appCfg config.Config, prompt string, holder *agent.LoopHolder) int {
 
 	sessionID := fmt.Sprintf("s-%d", time.Now().UnixNano())
-	recordSession(ctx, store, sessionID, appCfg, prompt)
+	recordSession(ctx, store, sessionID, appCfg)
 	rec := agent.NewRecorder(store, sessionID, "")
 
 	events := store.Subscribe(sessionID)
@@ -461,7 +461,7 @@ func interactive(ctx context.Context, a *App, store server.EventStore, r *ui.Ren
 
 		turn++
 		sessionID := fmt.Sprintf("s-%d-%d", time.Now().Unix(), turn)
-		recordSession(ctx, store, sessionID, appCfg, line)
+		recordSession(ctx, store, sessionID, appCfg)
 		rec := agent.NewRecorder(store, sessionID, "")
 
 		events := store.Subscribe(sessionID)
@@ -1153,7 +1153,7 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 		fmt.Fprintf(os.Stderr, "abhed: %v\n", err)
 		return 1
 	}
-	defer os.RemoveAll(workRoot)
+	defer func() { _ = os.RemoveAll(workRoot) }()
 
 	runner := func(ctx context.Context, ws string, task eval.Task) ([]agent.Event, eval.Result, error) {
 		sb, err := buildSandbox(cfg, ws)
@@ -1249,7 +1249,10 @@ func evalCmd(workspace, corpusDir, jsonPath string) int {
 
 	if jsonPath != "" {
 		data, _ := json.MarshalIndent(summary, "", "  ")
-		os.WriteFile(jsonPath, append(data, '\n'), 0o644)
+		if err := os.WriteFile(jsonPath, append(data, '\n'), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "abhed: writing %s: %v\n", jsonPath, err)
+			return 1
+		}
 		fmt.Printf("\nreport written to %s\n", jsonPath)
 	}
 
@@ -1333,7 +1336,7 @@ func userCmd(workspace string, args []string) int {
 			fmt.Fprintln(os.Stderr, "usage: abhed user add <username> [-email ...] [-name ...]")
 			return 2
 		}
-		fs.Parse(rest)
+		_ = fs.Parse(rest) // the set exits on a bad flag; nothing is left to check
 
 		password := *pass
 		if password == "" {
@@ -1599,7 +1602,7 @@ func authLabel(cfg config.Config, mw *auth.Middleware) string {
 
 // recordSession creates the durable session row that events reference.
 // A no-op on the memory store, which has no session table.
-func recordSession(ctx context.Context, st server.EventStore, id string, cfg config.Config, prompt string) {
+func recordSession(ctx context.Context, st server.EventStore, id string, cfg config.Config) {
 	rec, ok := st.(interface {
 		CreateSession(context.Context, store.SessionRecord) error
 	})

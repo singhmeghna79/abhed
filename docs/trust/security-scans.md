@@ -59,6 +59,21 @@ built from those plus the plain-text logs.
 
 ---
 
+**Lint, 15 September 2026.** golangci-lint v2.13.2 with the configuration in
+`.golangci.yml` (the standard set plus errorlint, misspell, unconvert,
+unparam, gocritic, bodyclose and nilerr) reported 181 findings on the
+Community tree after the split, 109 of them in tests. All were resolved:
+dead code removed (an unused compaction estimator, an unused execute path,
+unused fields), constant parameters dropped, wrapped-error comparisons
+corrected, response bodies closed on every path, and the agent loop now
+keeps the first failure to write an event and ends the run at the next turn
+boundary rather than continuing past a record that stopped. Errors that
+carry no decision (writes to a terminal or an HTTP response, closes of
+things only read from) are excluded by name in the configuration rather
+than discarded one by one; a swallowed error that is intentional carries a
+`nolint` directive with its reason beside it. The linter runs in CI and
+blocks on any new finding.
+
 ## 1. govulncheck — known vulnerabilities in Go deps and stdlib as used
 
 **Command:** `env -u GOROOT go run golang.org/x/vuln/cmd/govulncheck@latest ./...`

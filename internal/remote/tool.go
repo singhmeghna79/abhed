@@ -62,7 +62,7 @@ func (r *Registry) Close() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, h := range r.hosts {
-		h.Close()
+		_ = h.Close()
 	}
 }
 
@@ -252,7 +252,7 @@ func (t ConnectTool) Run(ctx context.Context, _ *tools.Session, raw json.RawMess
 	}
 
 	if a.IdentityFile != "" {
-		// A path typed into a chat is approximate: "~Dowloads/key (1).prv" was
+		// A path typed into a chat is approximate: "~Downloads/key (1).prv" was
 		// a real example, with a missing slash and a typo. Resolving it here
 		// beats making the agent guess with glob.
 		resolved, err := resolveKeyPath(a.IdentityFile)
@@ -276,11 +276,11 @@ func (t ConnectTool) Run(ctx context.Context, _ *tools.Session, raw json.RawMess
 	// turns one clear failure into a confusing one on the next command.
 	out, err := h.Run(ctx, "echo abhed-connected", 30*time.Second)
 	if err != nil {
-		h.Close()
+		_ = h.Close()
 		return errf("%v", err)
 	}
 	if !strings.Contains(out.Stdout, "abhed-connected") {
-		h.Close()
+		_ = h.Close()
 		return errf("Connected to %s but the host did not run a command as expected.", a.Addr)
 	}
 

@@ -24,11 +24,11 @@ func TestRateLimitIsRetriedNotFatal(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if atomic.AddInt32(&calls, 1) < 3 {
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error":{"type":"rate_limit_error"}}`))
+			_, _ = w.Write([]byte(`{"error":{"type":"rate_limit_error"}}`))
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
-		w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
+		_, _ = w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
 	}))
 	defer srv.Close()
 

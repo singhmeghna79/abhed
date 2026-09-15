@@ -10,7 +10,7 @@ import (
 // readSource reads a file from this package for assertions about the code
 // itself, used where the dangerous change is a literal rather than a
 // behaviour a fixture would exercise.
-func readSource(t *testing.T, name string) string {
+func readSource(t *testing.T, name string) string { //nolint:unparam // a fixture; the fixed argument documents what the tests rely on
 	t.Helper()
 	b, err := os.ReadFile(name)
 	if err != nil {

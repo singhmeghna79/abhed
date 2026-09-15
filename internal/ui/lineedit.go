@@ -158,9 +158,9 @@ func (l *LineReader) Capture() func() {
 			n, err := r.Read(buf)
 			if n > 0 {
 				if l.term != nil {
-					l.term.Write(buf[:n])
+					_, _ = l.term.Write(buf[:n])
 				} else {
-					rawWriter{fallback}.Write(buf[:n])
+					_, _ = rawWriter{fallback}.Write(buf[:n])
 				}
 			}
 			if err != nil {
@@ -207,16 +207,3 @@ var startedOnTerminal = func() bool {
 	info, err := os.Stdout.Stat()
 	return err == nil && (info.Mode()&os.ModeCharDevice) != 0
 }()
-
-// terminalWidth reports the usable width, for wrapping arithmetic. Zero means
-// unknown, and callers then assume no wrapping rather than guess.
-func terminalWidth() int {
-	if !startedOnTerminal {
-		return 0
-	}
-	w, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w <= 0 {
-		return 0
-	}
-	return w
-}

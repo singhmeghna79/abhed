@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -101,7 +102,7 @@ func TestImageIsNotCountedByByteLength(t *testing.T) {
 func TestVisionIsRefusedByTextOnlyModels(t *testing.T) {
 	req := Request{Messages: []Message{imageMsg()}}
 
-	if err := CheckVision(Profile{SupportsVision: false}, req); err != ErrVisionUnsupported {
+	if err := CheckVision(Profile{SupportsVision: false}, req); !errors.Is(err, ErrVisionUnsupported) {
 		t.Errorf("a text-only model accepted an image: %v", err)
 	}
 	if err := CheckVision(Profile{SupportsVision: true}, req); err != nil {

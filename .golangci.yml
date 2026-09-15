@@ -11,6 +11,27 @@ linters:
     - gocritic
     - bodyclose
     - nilerr
+  settings:
+    errcheck:
+      # Writes to a terminal, a pipe or an HTTP response, and closes of things
+      # only read from, carry no error worth acting on; reporting them buries
+      # the ones that do. Everything else is checked or discarded explicitly
+      # with a reason beside it.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (net/http.ResponseWriter).Write
+        - (io.ReadCloser).Close
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*io.PipeReader).Close
+        - (*io.PipeWriter).Close
+  exclusions:
+    rules:
+      # A test that ignores a setup error fails on the assertion that follows.
+      - path: _test\.go
+        linters: [errcheck]
 formatters:
   enable:
     - gofmt

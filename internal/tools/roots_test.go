@@ -75,7 +75,7 @@ func TestAddRootRejectsNonDirectories(t *testing.T) {
 	s, _ := NewSession(work)
 
 	f := filepath.Join(work, "afile")
-	os.WriteFile(f, []byte("x"), 0o644)
+	_ = os.WriteFile(f, []byte("x"), 0o644)
 	if err := s.AddRoot(f); err == nil {
 		t.Error("a file was accepted as a workspace root")
 	}

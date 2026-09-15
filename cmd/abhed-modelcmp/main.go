@@ -338,10 +338,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "abhed-modelcmp: %v\n", err)
 			os.Exit(1)
 		}
-		defer f.Close()
 		enc := json.NewEncoder(f)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(reports); err != nil {
+		err = enc.Encode(reports)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "abhed-modelcmp: %v\n", err)
 			os.Exit(1)
 		}

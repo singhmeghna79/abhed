@@ -2,6 +2,7 @@ package remote
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ func TestToolRefusesUndeclaredHost(t *testing.T) {
 		t.Fatal(errs)
 	}
 	args, _ := json.Marshal(map[string]string{"host": "prod-db", "command": "ls"})
-	res := Tool{R: reg}.Run(nil, nil, args)
+	res := Tool{R: reg}.Run(context.TODO(), nil, args)
 	if !res.IsError {
 		t.Fatal("connected to a host that was never declared")
 	}
@@ -49,7 +50,7 @@ func TestToolRefusesUndeclaredHost(t *testing.T) {
 func TestToolWithNoHostsSaysSo(t *testing.T) {
 	reg, _ := NewRegistry(nil)
 	args, _ := json.Marshal(map[string]string{"host": "x", "command": "ls"})
-	res := Tool{R: reg}.Run(nil, nil, args)
+	res := Tool{R: reg}.Run(context.TODO(), nil, args)
 	if !res.IsError || !strings.Contains(res.Content, "operator") {
 		t.Errorf("unhelpful message with no hosts: %s", res.Content)
 	}

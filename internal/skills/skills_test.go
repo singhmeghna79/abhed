@@ -150,8 +150,8 @@ func TestMissingRootIsNotAnError(t *testing.T) {
 
 func TestDirectoryWithoutSkillFileIsIgnored(t *testing.T) {
 	root := t.TempDir()
-	os.MkdirAll(filepath.Join(root, "notaskill"), 0o755)
-	os.WriteFile(filepath.Join(root, "notaskill", "README.md"), []byte("x"), 0o644)
+	_ = os.MkdirAll(filepath.Join(root, "notaskill"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, "notaskill", "README.md"), []byte("x"), 0o644)
 	reg, errs := Load([]string{root})
 	if len(errs) > 0 || reg.Len() != 0 {
 		t.Errorf("a directory without SKILL.md was treated as a skill: %v %v", reg.Names(), errs)

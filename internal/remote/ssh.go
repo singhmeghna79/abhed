@@ -15,6 +15,7 @@ package remote
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -170,7 +171,7 @@ func (h *Host) connect(ctx context.Context) (*ssh.Client, error) {
 		if _, _, err := h.client.SendRequest("keepalive@abhed", true, nil); err == nil {
 			return h.client, nil
 		}
-		h.client.Close()
+		_ = h.client.Close()
 		h.client = nil
 	}
 
@@ -196,7 +197,7 @@ func (h *Host) connect(ctx context.Context) (*ssh.Client, error) {
 		Timeout:         h.cfg.Timeout,
 	})
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		if strings.Contains(err.Error(), "knownhosts") ||
 			strings.Contains(err.Error(), "key is unknown") {
 			return nil, fmt.Errorf("the host key for %s is not in known_hosts, so Abhed "+
@@ -233,7 +234,7 @@ func (h *Host) Run(ctx context.Context, command string, timeout time.Duration) (
 	if err != nil {
 		return nil, fmt.Errorf("open session on %s: %w", h.cfg.Name, err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	var stdout, stderr bytes.Buffer
 	// Bounded: a command that prints a gigabyte must not take the agent down
@@ -265,7 +266,7 @@ func (h *Host) Run(ctx context.Context, command string, timeout time.Duration) (
 	case <-runCtx.Done():
 		// Signal the remote process; a session left running holds the
 		// connection open and the next call inherits the mess.
-		session.Signal(ssh.SIGKILL)
+		_ = session.Signal(ssh.SIGKILL) // best effort: the session is being abandoned either way
 		return &Output{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: -1},
 			fmt.Errorf("command timed out after %s on %s", timeout, h.cfg.Name)
 	}
@@ -283,7 +284,8 @@ func (h *Host) Close() error {
 }
 
 func asExitError(err error, target **ssh.ExitError) bool {
-	if e, ok := err.(*ssh.ExitError); ok {
+	e := &ssh.ExitError{}
+	if errors.As(err, &e) {
 		*target = e
 		return true
 	}

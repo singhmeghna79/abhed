@@ -31,7 +31,7 @@ func runIn(t *testing.T, s Sandbox, cwd, command string) (string, error) {
 	return string(out), err
 }
 
-func processSandbox(t *testing.T, ws string, allowNet bool) Sandbox {
+func processSandbox(t *testing.T, ws string, allowNet bool) Sandbox { //nolint:unparam // a fixture; the fixed argument documents what the tests rely on
 	t.Helper()
 	p := DefaultPolicy(ws)
 	p.AllowNetwork = allowNet
@@ -61,15 +61,15 @@ func TestProcessSandboxBlocksWriteOutsideWorkspace(t *testing.T) {
 	s := processSandbox(t, ws, false)
 
 	outside := filepath.Join(os.TempDir(), "abhed-escape-probe.txt")
-	os.Remove(outside)
-	defer os.Remove(outside)
+	_ = os.Remove(outside)
+	defer func() { _ = os.Remove(outside) }()
 
 	// /private/tmp is intentionally writable (toolchains need it), so probe a
 	// path that must never be writable instead.
 	target := "/usr/local/abhed-escape-probe.txt"
 	out, _ := runIn(t, s, ws, "echo escaped > "+target+" 2>&1; echo done")
 	if _, err := os.Stat(target); err == nil {
-		os.Remove(target)
+		_ = os.Remove(target)
 		t.Fatalf("ESCAPE: wrote outside the workspace to %s\n%s", target, out)
 	}
 }
@@ -79,9 +79,9 @@ func TestProcessSandboxBlocksSystemPathWrite(t *testing.T) {
 	s := processSandbox(t, ws, false)
 
 	for _, target := range []string{"/etc/abhed-probe", "/usr/bin/abhed-probe"} {
-		runIn(t, s, ws, "echo x > "+target+" 2>&1")
+		_, _ = runIn(t, s, ws, "echo x > "+target+" 2>&1")
 		if _, err := os.Stat(target); err == nil {
-			os.Remove(target)
+			_ = os.Remove(target)
 			t.Fatalf("ESCAPE: wrote to protected path %s", target)
 		}
 	}
@@ -183,9 +183,9 @@ func TestNoneTierIsHonestAboutItself(t *testing.T) {
 }
 
 func TestTierOrdering(t *testing.T) {
-	if !(TierNone.Strength() < TierProcess.Strength() &&
-		TierProcess.Strength() < TierContainer.Strength() &&
-		TierContainer.Strength() < TierVM.Strength()) {
+	if TierNone.Strength() >= TierProcess.Strength() ||
+		TierProcess.Strength() >= TierContainer.Strength() ||
+		TierContainer.Strength() >= TierVM.Strength() {
 		t.Fatal("tier strengths must be strictly ordered")
 	}
 }

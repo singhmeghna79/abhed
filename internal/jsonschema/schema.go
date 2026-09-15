@@ -21,9 +21,8 @@ import (
 
 // Schema is a compiled schema.
 type Schema struct {
-	root  *node
-	defs  map[string]*node
-	rawOK bool
+	root *node
+	defs map[string]*node
 }
 
 type node struct {

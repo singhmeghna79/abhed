@@ -144,7 +144,7 @@ func (ix *Index) Build(ctx context.Context, opts BuildOptions) error {
 	var docs []Doc
 	err := filepath.WalkDir(ix.root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the index
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -160,11 +160,11 @@ func (ix *Index) Build(ctx context.Context, opts BuildOptions) error {
 		}
 		info, err := d.Info()
 		if err != nil || info.Size() > opts.MaxFileSize {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the index
 		}
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // an unreadable entry is skipped, not fatal to the index
 		}
 		docs = append(docs, chunkFile(path, string(content))...)
 		return nil
@@ -217,7 +217,8 @@ func (ix *Index) Update(ctx context.Context, path string) error {
 			kept = append(kept, d)
 		}
 	}
-	ix.docs = append(kept, fresh...)
+	kept = append(kept, fresh...)
+	ix.docs = kept
 	ix.rebuildLocked()
 	return nil
 }

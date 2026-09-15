@@ -19,7 +19,7 @@ func TestAnthropicSendsBearerForASubscriptionToken(t *testing.T) {
 		gotKey = r.Header.Get("x-api-key")
 		gotBeta = r.Header.Get("anthropic-beta")
 		w.Header().Set("Content-Type", "text/event-stream")
-		w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
+		_, _ = w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
 	}))
 	defer srv.Close()
 
@@ -49,7 +49,7 @@ func TestAnthropicSendsAPIKeyWhenThereIsNoToken(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth, gotKey = r.Header.Get("Authorization"), r.Header.Get("x-api-key")
 		w.Header().Set("Content-Type", "text/event-stream")
-		w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
+		_, _ = w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
 	}))
 	defer srv.Close()
 

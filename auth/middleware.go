@@ -168,7 +168,7 @@ func unauthorized(w http.ResponseWriter, reason string) {
 	w.Header().Set("WWW-Authenticate", `Bearer realm="abhed"`)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized", "reason": reason})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized", "reason": reason})
 }
 
 // RequireGroup gates a handler on group membership, for RBAC above tenancy.
@@ -187,7 +187,7 @@ func RequireGroup(group string, next http.Handler) http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "forbidden", "reason": "requires group " + group})
 	})
 }

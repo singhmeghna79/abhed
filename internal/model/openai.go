@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -293,7 +294,8 @@ func (c *OpenAICompatible) Complete(ctx context.Context, req Request) (<-chan Ch
 
 	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify, c.fatalStatus)
 	if err != nil {
-		if se, ok := err.(*StatusError); ok {
+		se := &StatusError{}
+		if errors.As(err, &se) {
 			return nil, fmt.Errorf("endpoint returned %s", se.Error())
 		}
 		return nil, fmt.Errorf("call %s: %w", c.BaseURL, err)
@@ -314,7 +316,7 @@ func (c *OpenAICompatible) Complete(ctx context.Context, req Request) (<-chan Ch
 func (c *OpenAICompatible) stream(ctx context.Context, body io.ReadCloser,
 	out chan<- Chunk, offered []ToolDef) {
 	defer close(out)
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	// Tool calls arrive fragmented across chunks; accumulate by index.
 	type pending struct {

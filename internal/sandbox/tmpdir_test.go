@@ -33,7 +33,7 @@ func TestSandboxAllowsToolchainTempDir(t *testing.T) {
 	if !strings.Contains(string(out), "WRITE_OK") {
 		t.Fatalf("toolchains cannot use TMPDIR inside the sandbox:\n%s", out)
 	}
-	os.Remove(os.Getenv("TMPDIR") + "/abhed-probe")
+	_ = os.Remove(os.Getenv("TMPDIR") + "/abhed-probe")
 }
 
 // The real check: a Go build must actually work inside the sandbox.
@@ -42,8 +42,8 @@ func TestSandboxAllowsGoBuild(t *testing.T) {
 		t.Skip("slow")
 	}
 	dir := workspace(t)
-	os.WriteFile(dir+"/go.mod", []byte("module probe\n\ngo 1.24\n"), 0o644)
-	os.WriteFile(dir+"/main.go", []byte("package main\n\nfunc main() {}\n"), 0o644)
+	_ = os.WriteFile(dir+"/go.mod", []byte("module probe\n\ngo 1.24\n"), 0o644)
+	_ = os.WriteFile(dir+"/main.go", []byte("package main\n\nfunc main() {}\n"), 0o644)
 
 	s := processSandbox(t, dir, false)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

@@ -210,7 +210,7 @@ func New(opts Options) *Server {
 	// The tap wraps only what the loop writes through. Optional interfaces
 	// (session recording, deletion, access records) are asserted on the
 	// unwrapped store below, so tapping cannot silently switch them off.
-	var tapped EventStore = st
+	tapped := st
 	if st == nil {
 		st = agent.NewMemStore()
 		tapped = st
@@ -648,7 +648,7 @@ func (s *Server) StartSession(ctx context.Context, spec StartSpec) (string, erro
 	// against a provider that does not exist is worse than a clean refusal.
 	adapter := s.opts.Adapter
 	if spec.Provider != "" {
-		a, _, err := s.resolveProvider(spec.Provider)
+		a, err := s.resolveProvider(spec.Provider)
 		if err != nil {
 			return "", fmt.Errorf("provider: %w", err)
 		}
@@ -1220,7 +1220,7 @@ func (s *Server) approveAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	select {
-	case live.approvals <- approvalReply{Approved: req.Approved, Scope: req.Scope}:
+	case live.approvals <- approvalReply(req):
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		WriteError(w, http.StatusConflict, "no approval is pending for this session")
@@ -1641,7 +1641,7 @@ func writeSSE(w http.ResponseWriter, ev agent.Event) {
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) // the status is already on the wire; there is no second answer to give
 }
 
 // WriteError writes the {"error": msg} shape the console expects.
@@ -1671,7 +1671,9 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		srv.Shutdown(shutdownCtx)
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			s.log.Warn("shutdown did not complete cleanly", "err", err)
+		}
 	}()
 	s.log.Info("abhed server listening", "addr", s.opts.Addr, "workspace", s.opts.Workspace)
 	return srv.ListenAndServe()

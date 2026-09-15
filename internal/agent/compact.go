@@ -48,27 +48,6 @@ func NewCompactor(a model.Adapter, threshold float64) *Compactor {
 	return &Compactor{Adapter: a, Threshold: threshold, KeepRecentTurns: 4}
 }
 
-// TokensPerTurn is the cost of one exchange, measured from the session so far.
-// It is what makes the compaction interval adapt: a session reading whole files
-// pays far more per turn than one running short commands, and a fixed count of
-// kept exchanges is right for neither.
-func (c *Compactor) tokensPerTurn(system string, messages []model.Message) int {
-	exchanges := 0
-	for _, m := range messages {
-		if m.Role == model.RoleAssistant {
-			exchanges++
-		}
-	}
-	if exchanges == 0 {
-		return 0
-	}
-	used, err := c.Adapter.CountTokens(model.Request{System: system, Messages: messages})
-	if err != nil {
-		return 0
-	}
-	return used / exchanges
-}
-
 // ShouldCompact reports whether the conversation has grown past the threshold.
 //
 // The threshold is applied to the used tokens PLUS headroom for what the next
@@ -203,7 +182,7 @@ func (c *Compactor) Compact(ctx context.Context, trigger string, system string,
 	}
 	if summary == "" {
 		var err error
-		summary, err = c.summarize(ctx, system, older)
+		summary, err = c.summarize(ctx, older)
 		if err != nil {
 			return messages, Compaction{}, err
 		}
@@ -226,7 +205,7 @@ func (c *Compactor) Compact(ctx context.Context, trigger string, system string,
 	}, nil
 }
 
-func (c *Compactor) summarize(ctx context.Context, system string, older []model.Message) (string, error) {
+func (c *Compactor) summarize(ctx context.Context, older []model.Message) (string, error) {
 	// Render the history as text rather than replaying it as messages: the
 	// summarizer is doing a different job than the agent, and giving it the
 	// tool schemas would invite it to call them.

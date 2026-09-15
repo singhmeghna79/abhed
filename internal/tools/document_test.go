@@ -60,8 +60,8 @@ func TestDetectOOXMLKinds(t *testing.T) {
 		var buf bytes.Buffer
 		zw := zip.NewWriter(&buf)
 		w, _ := zw.Create(tc.part)
-		w.Write([]byte("<x/>"))
-		zw.Close()
+		_, _ = w.Write([]byte("<x/>"))
+		_ = zw.Close()
 		if got := DetectKind(buf.Bytes(), "f.zip"); got != tc.want {
 			t.Errorf("part %s detected as %q, want %q", tc.part, got, tc.want)
 		}
@@ -122,8 +122,8 @@ func buildDOCX(t *testing.T, bodyXML string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Write([]byte(bodyXML))
-	zw.Close()
+	_, _ = w.Write([]byte(bodyXML))
+	_ = zw.Close()
 	return buf.Bytes()
 }
 

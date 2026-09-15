@@ -118,7 +118,7 @@ func (t *HTTPTransport) tryLegacySSE(ctx context.Context) error {
 
 	// No client timeout on the stream: it is meant to stay open.
 	streamClient := &http.Client{Transport: t.client.Transport}
-	resp, err := streamClient.Do(req)
+	resp, err := streamClient.Do(req) //nolint:bodyclose // the body is the event stream; the reader goroutine below closes it when the stream ends
 	if err != nil {
 		// Connection refused here means the server is unreachable, which the
 		// first POST would hit anyway — report it now with a clearer message.
@@ -126,7 +126,7 @@ func (t *HTTPTransport) tryLegacySSE(ctx context.Context) error {
 	}
 	ct := resp.Header.Get("Content-Type")
 	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(ct, "text/event-stream") {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil // modern shape; every reply comes back on its own POST
 	}
 
@@ -134,7 +134,7 @@ func (t *HTTPTransport) tryLegacySSE(ctx context.Context) error {
 	t.wg.Add(1)
 	go func() {
 		defer t.wg.Done()
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		t.readSSE(ctx, resp.Body, true)
 		// If the stream ends without ever naming an endpoint, unblock Send so
 		// it fails with a real error instead of hanging until the deadline.
@@ -187,8 +187,8 @@ func (t *HTTPTransport) readSSE(ctx context.Context, body io.Reader, learnEndpoi
 				data.WriteString("\n")
 			}
 			data.WriteString(strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
-		case strings.HasPrefix(line, ":"):
-			// A comment, used as a keepalive. Ignore.
+		case strings.HasPrefix(line, ":"): // a comment, used as a keepalive
+			continue
 		}
 		select {
 		case <-ctx.Done():
@@ -261,7 +261,7 @@ func (t *HTTPTransport) Send(ctx context.Context, payload []byte) error {
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	t.applyHeaders(req)
 
-	resp, err := t.client.Do(req)
+	resp, err := t.client.Do(req) //nolint:bodyclose // every branch below closes the body, the streamed one from its reader goroutine
 	if err != nil {
 		return fmt.Errorf("mcp: request failed: %w", err)
 	}
@@ -277,7 +277,7 @@ func (t *HTTPTransport) Send(ctx context.Context, payload []byte) error {
 	switch {
 	case resp.StatusCode == http.StatusAccepted, resp.StatusCode == http.StatusNoContent:
 		// Notification accepted; the reply, if any, arrives on the stream.
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil
 	case resp.StatusCode >= 400:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))

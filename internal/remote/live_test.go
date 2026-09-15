@@ -68,7 +68,7 @@ func startSSHServer(t *testing.T, password string) *testServer {
 
 	return &testServer{
 		addr: ln.Addr().String(), hostKey: signer.PublicKey(),
-		stop: func() { close(done); ln.Close() },
+		stop: func() { close(done); _ = ln.Close() },
 	}
 }
 
@@ -79,12 +79,12 @@ func serveConn(nConn net.Conn, cfg *ssh.ServerConfig) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	go ssh.DiscardRequests(reqs)
 
 	for newChan := range chans {
 		if newChan.ChannelType() != "session" {
-			newChan.Reject(ssh.UnknownChannelType, "only sessions")
+			_ = newChan.Reject(ssh.UnknownChannelType, "only sessions")
 			continue
 		}
 		ch, requests, err := newChan.Accept()
@@ -92,27 +92,27 @@ func serveConn(nConn net.Conn, cfg *ssh.ServerConfig) {
 			return
 		}
 		go func(ch ssh.Channel, in <-chan *ssh.Request) {
-			defer ch.Close()
+			defer func() { _ = ch.Close() }()
 			for req := range in {
 				if req.Type != "exec" {
-					req.Reply(false, nil)
+					_ = req.Reply(false, nil)
 					continue
 				}
 				var payload struct{ Command string }
-				ssh.Unmarshal(req.Payload, &payload)
-				req.Reply(true, nil)
+				_ = ssh.Unmarshal(req.Payload, &payload)
+				_ = req.Reply(true, nil)
 
 				status := 0
 				switch {
 				case strings.Contains(payload.Command, "false"):
-					fmt.Fprint(ch.Stderr(), "it failed\n")
+					_, _ = fmt.Fprint(ch.Stderr(), "it failed\n")
 					status = 3
 				case strings.Contains(payload.Command, "hostname"):
-					fmt.Fprint(ch, "abhed-test-vm\n")
+					_, _ = fmt.Fprint(ch, "abhed-test-vm\n")
 				default:
-					fmt.Fprintf(ch, "ran: %s\n", payload.Command)
+					_, _ = fmt.Fprintf(ch, "ran: %s\n", payload.Command)
 				}
-				ch.SendRequest("exit-status", false,
+				_, _ = ch.SendRequest("exit-status", false,
 					ssh.Marshal(struct{ Status uint32 }{uint32(status)}))
 				return
 			}
@@ -195,7 +195,7 @@ func TestUnknownHostKeyIsRefused(t *testing.T) {
 	t.Setenv("TEST_SSH_PW", "pw")
 
 	empty := filepath.Join(t.TempDir(), "known_hosts")
-	os.WriteFile(empty, []byte(""), 0o600)
+	_ = os.WriteFile(empty, []byte(""), 0o600)
 
 	reg, _ := NewRegistry([]HostConfig{{
 		Name: "vm1", Addr: srv.addr, User: "tester",
@@ -247,7 +247,7 @@ func TestConnectionIsReused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	ctx := context.Background()
 	if _, err := h.Run(ctx, "hostname", 5*time.Second); err != nil {
@@ -262,7 +262,7 @@ func TestConnectionIsReused(t *testing.T) {
 	}
 }
 
-// A user pasting "key is at ~Dowloads/key (1).prv" — missing slash, misspelled
+// A user pasting "key is at ~Downloads/key (1).prv" — missing slash, misspelled
 // directory, a space in the name — should not send the agent hunting with
 // glob through directories the sandbox denies.
 func TestResolveKeyPathHandlesTypedPaths(t *testing.T) {
@@ -279,12 +279,12 @@ func TestResolveKeyPathHandlesTypedPaths(t *testing.T) {
 	if err := os.WriteFile(real, []byte("x"), 0o600); err != nil {
 		t.Skip("cannot write test key")
 	}
-	defer os.Remove(real)
+	defer func() { _ = os.Remove(real) }()
 
 	for _, typed := range []string{
 		real,                  // exact
 		"~/Downloads/" + name, // tilde
-		"~Dowloads/" + name,   // missing slash AND misspelled, as reported
+		"~Downloads/" + name,  // missing slash AND misspelled, as reported
 		name,                  // bare filename
 	} {
 		got, err := resolveKeyPath(typed)
@@ -372,10 +372,10 @@ func TestUnknownHostKeyErrorNamesTheRetry(t *testing.T) {
 	t.Setenv("TEST_SSH_PW", "pw")
 
 	empty := filepath.Join(t.TempDir(), "known_hosts")
-	os.WriteFile(empty, []byte(""), 0o600)
+	_ = os.WriteFile(empty, []byte(""), 0o600)
 	h, _ := NewHost(HostConfig{Name: "vm1", Addr: srv.addr, User: "tester",
 		PasswordEnv: "TEST_SSH_PW", KnownHostsFile: empty})
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	_, err := h.Run(context.Background(), "hostname", 5*time.Second)
 	if err == nil {

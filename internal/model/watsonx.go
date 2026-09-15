@@ -128,7 +128,7 @@ func (w *WatsonX) bearer(ctx context.Context) (string, error) {
 		ExpiresIn   int    `json:"expires_in"`
 		Message     string `json:"errorMessage"`
 	}
-	json.Unmarshal(body, &out)
+	_ = json.Unmarshal(body, &out) // a non-JSON body leaves the token empty, which is handled just below
 	if resp.StatusCode != http.StatusOK || out.AccessToken == "" {
 		msg := out.Message
 		if msg == "" {
@@ -312,13 +312,13 @@ func (w *WatsonX) Complete(ctx context.Context, req Request) (<-chan Chunk, erro
 	}
 
 	out := make(chan Chunk, 64)
-	go w.stream(ctx, resp.Body, out, req.Tools)
+	go w.stream(resp.Body, out, req.Tools)
 	return out, nil
 }
 
-func (w *WatsonX) stream(ctx context.Context, body io.ReadCloser, out chan<- Chunk, offered []ToolDef) {
+func (w *WatsonX) stream(body io.ReadCloser, out chan<- Chunk, offered []ToolDef) {
 	defer close(out)
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	type pending struct {
 		id   string

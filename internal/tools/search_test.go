@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-func seedRepo(t *testing.T) (*Session, string) {
+func seedRepo(t *testing.T) (*Session, string) { //nolint:unparam // a fixture; the fixed argument documents what the tests rely on
 	t.Helper()
 	s, dir := setup(t)
 	mk := func(rel, content string) {
 		p := filepath.Join(dir, rel)
-		os.MkdirAll(filepath.Dir(p), 0o755)
-		os.WriteFile(p, []byte(content), 0o644)
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
+		_ = os.WriteFile(p, []byte(content), 0o644)
 	}
 	mk("main.go", "package main\n\nfunc main() {\n\thandleRequest()\n}\n")
 	mk("pkg/auth/auth.go", "package auth\n\nfunc Login() error {\n\treturn nil\n}\n")

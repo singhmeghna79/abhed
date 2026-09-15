@@ -69,8 +69,12 @@ func TestLandingGatesSignupOnServerFlag(t *testing.T) {
 // the other theme's background. Every custom property must have a value on the
 // bare :root before any override.
 func TestLandingDefinesThemeTokensOnRoot(t *testing.T) {
-	root := landingHTML[strings.Index(landingHTML, ":root{"):]
-	root = root[:strings.Index(root, "}")]
+	start := strings.Index(landingHTML, ":root{")
+	if start < 0 {
+		t.Fatal("landing page has no :root block")
+	}
+	root := landingHTML[start:]
+	root = root[:strings.Index(root, "}")+1]
 
 	used := map[string]bool{}
 	for _, m := range regexp.MustCompile(`var\((--[a-z0-9-]+)`).

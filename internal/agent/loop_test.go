@@ -85,7 +85,7 @@ func harnessIn(t *testing.T, dir string, turns []scriptedTurn, mode policy.Mode,
 	return l, store
 }
 
-func harness(t *testing.T, turns []scriptedTurn, mode policy.Mode, approve bool) (*Loop, *MemStore, string) {
+func harness(t *testing.T, turns []scriptedTurn, mode policy.Mode, approve bool) (*Loop, *MemStore, string) { //nolint:unparam // a fixture; the fixed argument documents what the tests rely on
 	t.Helper()
 	dir := tempDir(t)
 	l, store := harnessIn(t, dir, turns, mode, approve)

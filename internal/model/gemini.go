@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -272,7 +273,8 @@ func (g *Gemini) Complete(ctx context.Context, req Request) (<-chan Chunk, error
 
 	resp, err := send(ctx, g.HTTP, g.Retry, newRequest, g.Notify, g.fatalStatus)
 	if err != nil {
-		if se, ok := err.(*StatusError); ok {
+		se := &StatusError{}
+		if errors.As(err, &se) {
 			return nil, fmt.Errorf("gemini returned %s", se.Error())
 		}
 		return nil, fmt.Errorf("%s is unreachable: %w", g.BaseURL, err)

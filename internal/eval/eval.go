@@ -167,7 +167,7 @@ func (a Assertion) check(dir string, seeded map[string]string, response string) 
 	case "response_matches":
 		re, err := regexp.Compile(a.Value)
 		if err != nil {
-			return fmt.Errorf("response_matches(%q): not a valid regexp: %v", a.Value, err)
+			return fmt.Errorf("response_matches(%q): not a valid regexp: %w", a.Value, err)
 		}
 		found := re.MatchString(response)
 		if found == a.Negate {
@@ -195,7 +195,7 @@ func (a Assertion) check(dir string, seeded map[string]string, response string) 
 	case "file_contains":
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("file_contains(%s): %v", a.Path, err)
+			return fmt.Errorf("file_contains(%s): %w", a.Path, err)
 		}
 		found := strings.Contains(string(data), a.Value)
 		if found == a.Negate {
@@ -205,7 +205,7 @@ func (a Assertion) check(dir string, seeded map[string]string, response string) 
 	case "file_unchanged":
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("file_unchanged(%s): %v", a.Path, err)
+			return fmt.Errorf("file_unchanged(%s): %w", a.Path, err)
 		}
 		if original, ok := seeded[a.Path]; ok && string(data) != original {
 			return fmt.Errorf("file_unchanged(%s): file was modified", a.Path)
@@ -251,7 +251,7 @@ func Inspect(events []agent.Event, task Task) []Flag {
 			}
 
 			var args map[string]any
-			json.Unmarshal(a.Args, &args)
+			_ = json.Unmarshal(a.Args, &args) // arguments that do not parse score as absent
 			switch a.Tool {
 			case "bash":
 				if cmd, ok := args["command"].(string); ok {

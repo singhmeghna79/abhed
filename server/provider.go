@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/zybuu-ai/abhed/config"
 	"github.com/zybuu-ai/abhed/internal/model"
 )
 
@@ -59,16 +58,16 @@ func (s *Server) listProviders(w http.ResponseWriter, r *http.Request) {
 // rather than treated as an endpoint. config.ProviderConfig.Adapter() resolves
 // APIKeyEnv from the server's environment, which is what keeps the credential
 // server-side.
-func (s *Server) resolveProvider(name string) (model.Adapter, config.ProviderConfig, error) {
+func (s *Server) resolveProvider(name string) (model.Adapter, error) {
 	p, err := s.opts.Config.ProviderNamed(name)
 	if err != nil {
-		return nil, config.ProviderConfig{}, errUnknownProvider
+		return nil, errUnknownProvider
 	}
 	a, err := p.Adapter()
 	if err != nil {
-		return nil, p, err
+		return nil, err
 	}
-	return a, p, nil
+	return a, nil
 }
 
 type providerError string
@@ -94,7 +93,7 @@ func (s *Server) setSessionModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adapter, _, err := s.resolveProvider(req.Provider)
+	adapter, err := s.resolveProvider(req.Provider)
 	if err != nil {
 		// Named separately from a 404 on the session: "that provider is not
 		// configured" is a different fix from "that session is not yours".

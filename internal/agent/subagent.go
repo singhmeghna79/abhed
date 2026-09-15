@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/zybuu-ai/abhed/internal/model"
@@ -23,10 +22,8 @@ type Budget struct {
 	MaxSubagents int
 	AllowNested  bool
 
-	tokens    atomic.Int64
-	spawned   atomic.Int32
-	mu        sync.Mutex
-	exhausted bool
+	tokens  atomic.Int64
+	spawned atomic.Int32
 }
 
 func NewBudget(maxTokens int64, maxSubagents int, allowNested bool) *Budget {
@@ -267,7 +264,9 @@ func (f *SubagentFactory) Spawn(ctx context.Context, req SubagentRequest) (strin
 	// Deliberately no Compactor: a subagent that needs compaction was given too
 	// large a task, and silently compacting hides that from the operator.
 
-	rec.Record(EvSubagentSpawned, ActorAgent, Trusted, map[string]any{
+	// The parent records the spawn and the return in its own log, which is
+	// what the audit relies on; the child's copy is for its own replay.
+	_, _ = rec.Record(EvSubagentSpawned, ActorAgent, Trusted, map[string]any{
 		"description": req.Description,
 		"agent_type":  req.AgentType,
 		"depth":       f.Depth,
@@ -290,7 +289,7 @@ func (f *SubagentFactory) Spawn(ctx context.Context, req SubagentRequest) (strin
 		summary = summary[:MaxSummaryChars] + "\n\n[summary truncated]"
 	}
 
-	rec.Record(EvSubagentReturn, ActorAgent, Trusted, map[string]any{
+	_, _ = rec.Record(EvSubagentReturn, ActorAgent, Trusted, map[string]any{
 		"description":   req.Description,
 		"reason":        string(reason),
 		"turns":         usage.Turns,

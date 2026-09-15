@@ -114,7 +114,7 @@ func (g *Gateway) connectOne(ctx context.Context, cfg ServerConfig) error {
 	}
 	client := NewClient(cfg.Name, transport)
 	if err := client.Initialize(ctx); err != nil {
-		client.Close()
+		_ = client.Close()
 		return err
 	}
 
@@ -175,7 +175,7 @@ func (g *Gateway) Close() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for _, c := range g.clients {
-		c.Close()
+		_ = c.Close()
 	}
 	g.clients = map[string]*Client{}
 }

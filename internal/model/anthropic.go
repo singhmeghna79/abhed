@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -286,11 +287,10 @@ func (c *Anthropic) buildRequest(req Request) anthropicRequest {
 	// Thinking is requested explicitly. A budget is only sent when one was
 	// configured: current models removed budget_tokens and reject it, while
 	// adaptive thinking takes no budget at all.
-	if sp.ThinkingBudget != nil {
+	switch {
+	case sp.ThinkingBudget != nil:
 		out.Thinking = &anthropicThinking{Type: "enabled", BudgetTokens: sp.ThinkingBudget}
-	} else if sp.Think != nil && *sp.Think {
-		out.Thinking = &anthropicThinking{Type: "adaptive"}
-	} else if sp.Effort != EffortNone {
+	case sp.Think != nil && *sp.Think, sp.Effort != EffortNone:
 		out.Thinking = &anthropicThinking{Type: "adaptive"}
 	}
 	return out
@@ -373,7 +373,8 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 
 	resp, err := send(ctx, c.HTTP, c.Retry, newRequest, c.Notify, c.fatalStatus)
 	if err != nil {
-		if se, ok := err.(*StatusError); ok {
+		se := &StatusError{}
+		if errors.As(err, &se) {
 			if c.Bearer != "" && looksLikeSubscriptionRefusal(se) {
 				return nil, errSubscriptionRestricted
 			}
@@ -382,7 +383,7 @@ func (c *Anthropic) Complete(ctx context.Context, req Request) (<-chan Chunk, er
 		return nil, fmt.Errorf("%s is unreachable: %w", c.BaseURL, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
 		return nil, fmt.Errorf("anthropic returned %s: %s",
 			resp.Status, strings.TrimSpace(string(msg)))
@@ -547,7 +548,7 @@ func betaHeader(configured []string, required string) string {
 // Saying so plainly costs one paragraph and saves an afternoon. The condition
 // is deliberately narrow: only a bearer token, only a 429 that carries none of
 // the headers a real rate limit carries.
-var errSubscriptionRestricted = fmt.Errorf(
+var errSubscriptionRestricted = fmt.Errorf( //nolint:staticcheck // a multi-line message shown to a person, laid out on purpose
 	"this subscription token was refused (HTTP 429, with none of the headers a " +
 		"rate limit carries).\n" +
 		"  A Claude Pro or Max token is restricted to Claude Code: Anthropic checks " +

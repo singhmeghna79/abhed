@@ -93,7 +93,7 @@ func TestStepsInAStageRunConcurrently(t *testing.T) {
 func TestFanOutKeepsListOrder(t *testing.T) {
 	tool := func(_ context.Context, _ string, args json.RawMessage) (string, error) {
 		var a struct{ Q string }
-		json.Unmarshal(args, &a)
+		_ = json.Unmarshal(args, &a)
 		// The first is slowest, so finishing order differs from list order.
 		if a.Q == "first" {
 			time.Sleep(80 * time.Millisecond)

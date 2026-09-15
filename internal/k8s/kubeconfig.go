@@ -216,17 +216,18 @@ func parseSeqItem(lines []line, i, indent int) (*yamlNode, int, error) {
 	// The inline key sits at the indent of the text after "- ".
 	childIndent := indent + (len(l.text) - len(inline))
 
-	if rest != "" {
+	switch {
+	case rest != "":
 		item.mapping[key] = &yamlNode{scalar: unquote(rest)}
 		i++
-	} else if i+1 < len(lines) && lines[i+1].indent > childIndent {
+	case i+1 < len(lines) && lines[i+1].indent > childIndent:
 		child, next, err := parseBlockAt(lines, i+1, lines[i+1].indent)
 		if err != nil {
 			return nil, i, err
 		}
 		item.mapping[key] = child
 		i = next
-	} else {
+	default:
 		item.mapping[key] = &yamlNode{}
 		i++
 	}

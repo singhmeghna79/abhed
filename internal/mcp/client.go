@@ -138,7 +138,7 @@ func (c *Client) Call(ctx context.Context, tool string, args json.RawMessage) (s
 	if len(args) == 0 {
 		args = json.RawMessage("{}")
 	}
-	params, err := json.Marshal(map[string]any{"name": tool, "arguments": json.RawMessage(args)})
+	params, err := json.Marshal(map[string]any{"name": tool, "arguments": args})
 	if err != nil {
 		return "", true, err
 	}
@@ -298,7 +298,7 @@ func (t *StdioTransport) Receive(_ context.Context) ([]byte, error) {
 }
 
 func (t *StdioTransport) Close() error {
-	t.stdin.Close()
+	_ = t.stdin.Close()
 	if t.cmd.Process != nil {
 		_ = t.cmd.Process.Kill()
 	}

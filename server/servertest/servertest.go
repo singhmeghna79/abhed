@@ -13,8 +13,8 @@ import (
 
 	"github.com/zybuu-ai/abhed/config"
 	"github.com/zybuu-ai/abhed/internal/model"
-	"github.com/zybuu-ai/abhed/server"
 	"github.com/zybuu-ai/abhed/internal/tools"
+	"github.com/zybuu-ai/abhed/server"
 )
 
 // StubAdapter answers every completion with "done" and no tool calls, so a

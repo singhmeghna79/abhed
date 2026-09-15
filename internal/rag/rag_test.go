@@ -16,11 +16,11 @@ func serve(t *testing.T, body string, capture *map[string]any) *httptest.Server 
 		if capture != nil {
 			raw, _ := io.ReadAll(r.Body)
 			m := map[string]any{}
-			json.Unmarshal(raw, &m)
+			_ = json.Unmarshal(raw, &m)
 			*capture = m
 		}
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, body)
+		_, _ = io.WriteString(w, body)
 	}))
 }
 
@@ -108,7 +108,7 @@ func TestSearchBuildsRequestBody(t *testing.T) {
 		Body:        map[string]any{"index": "runbooks"},
 		ResultsPath: "results",
 	})
-	r.Search(context.Background(), "how do I restart", 3)
+	_, _ = r.Search(context.Background(), "how do I restart", 3)
 
 	if got["index"] != "runbooks" {
 		t.Errorf("fixed body field lost: %+v", got)
@@ -129,7 +129,7 @@ func TestSearchGETWithQueryParam(t *testing.T) {
 	var gotURL string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotURL = r.URL.String()
-		io.WriteString(w, `{"results":[{"text":"ok"}]}`)
+		_, _ = io.WriteString(w, `{"results":[{"text":"ok"}]}`)
 	}))
 	defer srv.Close()
 
@@ -176,13 +176,13 @@ func TestSearchSendsHeaders(t *testing.T) {
 	var auth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth = r.Header.Get("X-Api-Key")
-		io.WriteString(w, `{"results":[]}`)
+		_, _ = io.WriteString(w, `{"results":[]}`)
 	}))
 	defer srv.Close()
 
 	r, _ := New(Config{Name: "c", URL: srv.URL, ResultsPath: "results",
 		Headers: map[string]string{"X-Api-Key": "secret"}})
-	r.Search(context.Background(), "q", 5)
+	_, _ = r.Search(context.Background(), "q", 5)
 	if auth != "secret" {
 		t.Errorf("X-Api-Key = %q, want the configured key", auth)
 	}
