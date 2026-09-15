@@ -155,16 +155,18 @@ Done. Three things to set in the Cloudflare dashboard the first time:
 TEXT
 
 # Verified, not assumed, part two: production must now serve what was just
-# uploaded. robots.txt is small, static and changes rarely, so it is compared
-# byte for byte; a mismatch means the deploy went to Preview or is cached.
+# uploaded. sitemap.xml is generated at publish time and served verbatim, so
+# it is compared byte for byte; a mismatch means the deploy went to Preview
+# or is cached. (robots.txt would not do: Cloudflare prepends its managed
+# AI-crawler directives to it at the edge, so it never matches the file.)
 ok=0
 for _ in $(seq 1 12); do
-    if diff -q <(curl -sS --max-time 20 "https://zybuu.com/robots.txt") "$DIR/robots.txt" >/dev/null; then ok=1; break; fi
+    if diff -q <(curl -sS --max-time 20 "https://zybuu.com/sitemap.xml") "$DIR/sitemap.xml" >/dev/null; then ok=1; break; fi
     sleep 5
 done
 if [ "$ok" != 1 ]; then
     echo
-    echo "!!  zybuu.com does not serve the robots.txt just deployed. The deploy"
+    echo "!!  zybuu.com does not serve the sitemap.xml just deployed. The deploy"
     echo "!!  most likely landed in the Preview environment: check that"
     echo "!!  ZYBUU_PRODUCTION_BRANCH matches the project's production branch."
     exit 1
