@@ -74,6 +74,8 @@ cp -R "$ROOT/docs/." "$STAGE/$BUNDLE/docs/"
 # are not part of the product; a bundle built there must not carry them.
 rm -rf "$STAGE/$BUNDLE/docs/internal" "$STAGE/$BUNDLE/docs/research"
 cp "$ROOT/README.md" "$STAGE/$BUNDLE/"
+# The licence travels with every copy: its redistribution clause requires it.
+cp "$ROOT/LICENSE.md" "$STAGE/$BUNDLE/"
 cp "$ROOT/internal/store/schema.sql" "$STAGE/$BUNDLE/schema/"
 
 cat > "$STAGE/$BUNDLE/config/config.example.json" <<'JSON'
