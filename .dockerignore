@@ -1,7 +1,13 @@
+# What the image build does not need. docs/ stays in: the build stage renders
+# it into the binary. bench/ and brand/ are not part of the binary.
 .git
 .abhed
 .abhed-workspace
 abhed
+bin
+dist
 *.tar.gz
-docs
-deploy
+bench
+brand
+docs/internal
+docs/research

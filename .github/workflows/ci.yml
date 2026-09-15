@@ -49,7 +49,10 @@ jobs:
           if go list -deps ./cmd/abhed | grep -q '/ee/'; then
             echo "cmd/abhed depends on an ee/ package"; exit 1
           fi
-          if git grep -n -E '(^|[^a-z])deploy/' -- '*.go' '*.yml' '*.md' ':!CHANGELOG.md' | grep -v '^docs/trust/security-scans.md'; then
+          # The changelog and the scan record are history and may name the
+          # old tree; this workflow names the pattern it looks for.
+          if git grep -n -E '(^|[^a-z])deploy/' -- '*.go' '*.yml' '*.md' \
+               ':!CHANGELOG.md' ':!docs/trust/security-scans.md' ':!.github/workflows/ci.yml'; then
             echo "references to the private deployment tree"; exit 1
           fi
 

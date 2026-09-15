@@ -87,7 +87,8 @@ def slug(section, name):
     # No .html extension. Cloudflare Pages serves /a/b for /a/b.html and 308s
     # the extension away, so linking to the extension costs every reader a
     # redirect on every click. The files are still written as .html.
-    return f"{section}/{re.sub(r'\.md$', '', name)}"
+    base = re.sub(r"\.md$", "", name)
+    return f"{section}/{base}"
 
 
 def title_of(text, fallback):
