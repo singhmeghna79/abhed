@@ -17,17 +17,21 @@ import (
 // Rendered in three sizes because a mark has to survive both places it lives:
 // a single terminal cell and a 128px browser header.
 
-// MarkLarge is the startup banner: the unbroken wall with the point inside
-// it, the same construction as brand/abhed-mark.svg. Eight lines, because Banner lays
-// the run facts beside it and both columns have to end together.
-const MarkLarge = ` ▗▄▄▄▄▄▄▄▄▖ 
-▗▛        ▜▖
-▌   ▄██▄   ▐
-▌  ██████  ▐
-▌  ██████  ▐
-▌   ▀██▀   ▐
-▝▙        ▟▘
- ▝▀▀▀▀▀▀▀▀▘ `
+// MarkLarge is the startup banner: the octagonal wall of brand/abhed-mark.svg,
+// with the ring and the lit point inside it.
+//
+// The wall is UNBROKEN, and that is the whole name: abhed means without
+// breach. An earlier revision here drew the frame open on one side, which
+// looked tidier in a terminal and said the opposite of what the mark means.
+// Seven lines, matching the SVG's proportions: eight sides, a faint inner
+// ring, a point at the centre.
+const MarkLarge = `   ▄▄▄▄▄▄▄   
+ ▄▀       ▀▄ 
+▐   ▄▄▄▄▄   ▌
+▐  ▐  ◆  ▌  ▌
+▐   ▀▀▀▀▀   ▌
+ ▀▄       ▄▀ 
+   ▀▀▀▀▀▀▀   `
 
 // MarkSmall is the two-line form for a compact header.
 const MarkSmall = `▗▛●▜▖
@@ -49,6 +53,9 @@ func Banner(s Style, version, model, workspace, sandbox, storage string) string 
 	col := strings.Split(MarkLarge, "\n")
 	// Facts sit beside the mark rather than beneath it, so the block stays
 	// seven lines instead of twelve.
+	// Five rows, matching the mark's height so both columns end together.
+	// Model and sandbox are what change between runs and what a reader checks;
+	// the rest is one line of identity.
 	rows := []string{
 		s.Bold("ABHED") + "  " + s.Dim(version),
 		s.Dim("deep agent harness · on-prem"),

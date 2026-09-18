@@ -22,7 +22,7 @@ import (
 // straight through to line reads, because raw mode on a pipe would corrupt the
 // input and there is nobody typing to benefit from it.
 type LineReader struct {
-	term    *term.Terminal
+	ed      *editor
 	fd      int
 	state   *term.State
 	fallbck *bufio.Reader
@@ -39,11 +39,9 @@ func NewLineReader(prompt string) *LineReader {
 	if err != nil {
 		return &LineReader{fallbck: bufio.NewReader(os.Stdin)}
 	}
-	t := term.NewTerminal(struct {
-		io.Reader
-		io.Writer
-	}{os.Stdin, os.Stdout}, prompt)
-	return &LineReader{term: t, fd: fd, state: state, raw: true}
+	l := &LineReader{ed: newEditor(os.Stdin, os.Stdout, prompt), fd: fd, state: state, raw: true}
+
+	return l
 }
 
 // ReadLine returns the next line. In raw mode it supports Left and Right to
@@ -51,8 +49,7 @@ func NewLineReader(prompt string) *LineReader {
 // Ctrl-W, and Ctrl-C and Ctrl-D as interrupt and end of input.
 func (l *LineReader) ReadLine() (string, error) {
 	if l.raw {
-		line, err := l.term.ReadLine()
-		return line, err
+		return l.ed.readLine()
 	}
 	line, err := l.fallbck.ReadString('\n')
 	return strings.TrimRight(line, "\r\n"), err
@@ -62,10 +59,18 @@ func (l *LineReader) ReadLine() (string, error) {
 // when it is not.
 func (l *LineReader) Raw() bool { return l.raw }
 
+// Quiet suspends the prompt while a turn is running, so the reader can stay
+// live for steering without painting over the turn's output.
+func (l *LineReader) Quiet(q bool) {
+	if l.raw {
+		l.ed.setQuiet(q)
+	}
+}
+
 // SetPrompt changes the prompt shown before the cursor.
 func (l *LineReader) SetPrompt(p string) {
 	if l.raw {
-		l.term.SetPrompt(p)
+		l.ed.setPrompt(p)
 	}
 }
 
@@ -73,7 +78,7 @@ func (l *LineReader) SetPrompt(p string) {
 // being edited. Outside raw mode it goes to stdout unchanged.
 func (l *LineReader) Write(p []byte) (int, error) {
 	if l.raw {
-		return l.term.Write(p)
+		return l.ed.write(p)
 	}
 	return os.Stdout.Write(p)
 }
@@ -157,8 +162,8 @@ func (l *LineReader) Capture() func() {
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
-				if l.term != nil {
-					_, _ = l.term.Write(buf[:n])
+				if l.ed != nil {
+					_, _ = l.ed.write(buf[:n])
 				} else {
 					_, _ = rawWriter{fallback}.Write(buf[:n])
 				}

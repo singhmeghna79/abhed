@@ -420,6 +420,11 @@ func interactive(ctx context.Context, a *App, store server.EventStore, r *ui.Ren
 	go func() {
 		for {
 			line, err := editor.ReadLine()
+			if ui.ErrInterrupted(err) {
+				// Ctrl-C abandons the line being typed; it does not end the
+				// session. Ctrl-D on an empty line is what exits.
+				continue
+			}
 			if err != nil {
 				close(readErr)
 				return
@@ -451,6 +456,12 @@ func interactive(ctx context.Context, a *App, store server.EventStore, r *ui.Ren
 		}
 		if line == "" {
 			continue
+		}
+		// "exit" and "quit" without a slash are commands too. They were sent to
+		// the model as prompts, which replied "Goodbye!" while the session
+		// stayed open — the CLI ignoring the one word everyone tries first.
+		if bare := strings.ToLower(strings.TrimSpace(line)); bare == "exit" || bare == "quit" {
+			line = "/" + bare
 		}
 		if strings.HasPrefix(line, "/") {
 			if quit := handleCommand(ctx, line, r, pol, sess, sessionState); quit {
@@ -493,6 +504,14 @@ func interactive(ctx context.Context, a *App, store server.EventStore, r *ui.Ren
 		// killing the run.
 		type outcome struct{ err error }
 		finished := make(chan outcome, 1)
+		// The indicator runs from the moment the turn starts until the first
+		// output arrives. A cold local model can take thirty seconds to its
+		// first token, and an unmoving prompt in that window is
+		// indistinguishable from a hang.
+		// The turn owns the screen: the reader stays live for steering, but
+		// stops painting a prompt over the output.
+		editor.Quiet(true)
+		r.StartThinking()
 		go func() {
 			_, err := loop.Run(taskCtx, line)
 			finished <- outcome{err}
@@ -505,6 +524,8 @@ func interactive(ctx context.Context, a *App, store server.EventStore, r *ui.Ren
 		for {
 			select {
 			case o := <-finished:
+				// The turn is over however it ended; the indicator goes with it.
+				r.StopThinking()
 				runErr = o.err
 				break steering
 			case <-readErr:
@@ -523,14 +544,24 @@ func interactive(ctx context.Context, a *App, store server.EventStore, r *ui.Ren
 					// it loses what the user asked for, and running it now
 					// would act on a session that is still changing under it.
 					queued = append(queued, msg)
+					wasOn := r.PauseThinking()
 					fmt.Printf("  %s\n", s.Dim("queued "+msg+" — runs when this finishes"))
+					if wasOn {
+						r.StartThinking()
+					}
 					continue
 				}
 				loop.Steer(msg)
+				wasOn := r.PauseThinking()
 				fmt.Printf("  %s\n", s.Dim("steering — applied at the next step"))
+				if wasOn {
+					r.StartThinking()
+				}
 			}
 		}
 		cancelTask()
+		r.StopThinking() // every exit path converges here
+		editor.Quiet(false)
 		sessionState.accumulate(loop.Usage())
 
 		store.Unsubscribe(sessionID, events)
@@ -595,21 +626,9 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 		return true
 
 	case "/help":
-		fmt.Println(s.Dim(`  /mode <name>      default | accept-edits | plan | auto
-  /undo             revert the last turn's file changes
-  /diff             files changed this session
-  /cost             tokens, cache hit rate, compactions this session
-  /compact [hint]   compact the context now
-  /clear            clear the context, keep the workspace
-  /memory           show the ABHED.md files in effect
-  /model [name]     show or switch the model, keeping the conversation
-  /sessions         list recent sessions (durable store)
-  /resume <id>      replay a past session's transcript
-  /tree             show the session's steps, with the numbers /fork takes
-  /fork [step]      rebuild the conversation up to a step and continue from it
-  /export [path]    write the transcript (.html by default, .json for events)
-  /cwd              show the workspace root
-  /quit             exit`))
+		// One list, in internal/ui: help, tab completion and the suggestion
+		// menu cannot drift apart if they read the same source.
+		fmt.Println(ui.HelpText(s))
 
 	case "/mode":
 		if len(fields) < 2 {
@@ -861,6 +880,22 @@ func handleCommand(ctx context.Context, line string, r *ui.Renderer,
 			return false
 		}
 		fmt.Printf("  wrote %d events to %s\n", len(events), path)
+
+	case "/think":
+		// Reasoning is collapsed to a word count by default because on a model
+		// that reasons at length it buries the answer. This turns the full
+		// text on for the session.
+		r.Reasoning = !r.Reasoning
+		if r.Reasoning {
+			// Show the block the user just saw collapsed, not only the next
+			// one. A toggle that takes effect a turn later reads as broken to
+			// someone looking at a summary line right now.
+			if !r.ShowLastReasoning() {
+				fmt.Println(s.Dim("  reasoning shown in full from the next turn"))
+			}
+		} else {
+			fmt.Println(s.Dim("  reasoning collapsed to a summary line"))
+		}
 
 	case "/cwd":
 		fmt.Printf("  %s\n", sess.Root)
