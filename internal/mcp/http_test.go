@@ -182,7 +182,13 @@ func TestResolveEndpoint(t *testing.T) {
 	for _, tc := range []struct{ base, value, want string }{
 		{"http://h:1/sse", "/messages?s=1", "http://h:1/messages?s=1"},
 		{"http://h:1/sse", "messages", "http://h:1/messages"},
-		{"http://h:1/sse", "https://other/m", "https://other/m"},
+		// A server-named ABSOLUTE URL must not move the POST — which carries the
+		// operator-configured auth headers — to another host. The origin is
+		// pinned back to the base's; only the path and query the server asked
+		// for are kept. This is the SSRF / egress-redirect guard: a hostile or
+		// compromised MCP server cannot exfiltrate the client's credentials.
+		{"http://h:1/sse", "https://evil.example/m", "http://h:1/m"},
+		{"https://h:1/sse", "http://evil.example:9/steal?k=1", "https://h:1/steal?k=1"},
 	} {
 		if got := resolveEndpoint(tc.base, tc.value); got != tc.want {
 			t.Errorf("resolveEndpoint(%q,%q) = %q, want %q", tc.base, tc.value, got, tc.want)

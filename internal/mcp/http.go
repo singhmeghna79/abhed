@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -201,23 +202,31 @@ func (t *HTTPTransport) readSSE(ctx context.Context, body io.Reader, learnEndpoi
 
 // resolveEndpoint turns the endpoint event's value into an absolute URL. It is
 // commonly a path like "/messages?sessionId=abc".
+//
+// The result is pinned to the configured server's origin. The endpoint value
+// comes from the server over the SSE stream, and the client then POSTs to it
+// carrying the operator-configured auth headers (an API key, a bearer token).
+// A hostile or compromised server that named an ABSOLUTE URL on another host
+// would redirect those credentials to a destination it chose — an SSRF /
+// egress redirect. So only the path and query the server asks for are honoured;
+// the scheme, host and port always stay the operator's. A relative value is
+// resolved against the base as before; an off-origin absolute value is
+// neutralised by forcing the origin back to the base's.
 func resolveEndpoint(base, value string) string {
 	value = strings.TrimSpace(value)
-	if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") {
-		return value
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return base
 	}
-	i := strings.Index(base, "://")
-	if i < 0 {
-		return value
+	ref, err := url.Parse(value)
+	if err != nil {
+		return base
 	}
-	host := base[i+3:]
-	if j := strings.IndexByte(host, '/'); j >= 0 {
-		host = host[:j]
-	}
-	if !strings.HasPrefix(value, "/") {
-		value = "/" + value
-	}
-	return base[:i+3] + host + value
+	resolved := baseURL.ResolveReference(ref)
+	resolved.Scheme = baseURL.Scheme
+	resolved.Host = baseURL.Host
+	resolved.User = baseURL.User
+	return resolved.String()
 }
 
 func (t *HTTPTransport) applyHeaders(req *http.Request) {
