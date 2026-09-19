@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -327,11 +328,18 @@ func environ(extra map[string]string) []string {
 	if len(extra) == 0 {
 		return nil // inherit Abhed's environment unchanged
 	}
-	out := []string{}
+	// The extension's own variables are layered ON TOP of Abhed's environment,
+	// which is what the Config.Env doc promises ("passed to the process on top
+	// of Abhed's own environment"). Returning only `extra` — as this once did —
+	// silently dropped HOME, the locale and PATH, so setting a single variable
+	// broke the extension in ways that were hard to trace back to the cause.
+	// A key present in both wins from `extra`, since exec takes the last value
+	// for a repeated name.
+	out := os.Environ()
 	for k, v := range extra {
 		out = append(out, k+"="+v)
 	}
-	return append(out, "PATH="+pathEnv())
+	return out
 }
 
 type prefixWriter struct {
