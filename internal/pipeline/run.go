@@ -246,9 +246,9 @@ func (r *Runner) runStep(ctx context.Context, s Step, state *State, item any) (s
 
 	switch s.Kind {
 	case "tool":
-		args := json.RawMessage(render(string(s.Args), vals))
-		if len(args) == 0 {
-			args = json.RawMessage("{}")
+		args, err := renderJSON(string(s.Args), vals)
+		if err != nil {
+			return "", err
 		}
 		return r.Tool(ctx, s.Tool, args)
 	case "model":
@@ -424,4 +424,58 @@ func render(tmpl string, vals map[string]any) string {
 			return string(b)
 		}
 	})
+}
+
+// renderJSON substitutes {{path}} references into a tool step's JSON argument
+// template, escaping the substituted values so untrusted content cannot inject
+// JSON structure.
+//
+// A tool step's args are a JSON template — e.g. {"query":"{{input}}"} — and
+// input is often a prior step's output or a RAG result, which is not the
+// pipeline author's text. render() returns a string verbatim, so a value
+// containing a quote (or `","evil":"…`) would close the JSON string and add or
+// change fields in the call the tool actually receives. renderJSON escapes each
+// string substitution as a JSON string body, so it stays one string value, and
+// validates the rendered result so anything that still does not parse is
+// refused rather than handed to a tool.
+func renderJSON(tmpl string, vals map[string]any) (json.RawMessage, error) {
+	if strings.TrimSpace(tmpl) == "" {
+		return json.RawMessage("{}"), nil
+	}
+	out := refRe.ReplaceAllStringFunc(tmpl, func(m string) string {
+		path := strings.Trim(strings.Trim(m, "{}"), " ")
+		cur := any(vals)
+		for _, part := range strings.Split(path, ".") {
+			mm, ok := cur.(map[string]any)
+			if !ok {
+				return ""
+			}
+			cur, ok = mm[part]
+			if !ok {
+				return ""
+			}
+		}
+		switch t := cur.(type) {
+		case string:
+			// The template supplies the quotes around a "{{ref}}"; what has to
+			// be neutralised is any quote, backslash or control byte INSIDE the
+			// value. Marshal yields a quoted JSON string with the interior
+			// escaped; drop the surrounding quotes and keep the escaped body.
+			b, err := json.Marshal(t)
+			if err != nil {
+				return ""
+			}
+			return string(b[1 : len(b)-1])
+		default:
+			b, err := json.Marshal(cur)
+			if err != nil {
+				return ""
+			}
+			return string(b)
+		}
+	})
+	if !json.Valid([]byte(out)) {
+		return nil, fmt.Errorf("pipeline: step arguments did not render to valid JSON")
+	}
+	return json.RawMessage(out), nil
 }

@@ -75,7 +75,8 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	// the placeholder turn, that turn ended, and the follow-up message's
 	// events had nowhere to render.
 	sessionID := r.PathValue("id")
-	if sessionID == "" || sessionID == "new" {
+	staged := sessionID == "" || sessionID == "new"
+	if staged {
 		var b [6]byte
 		rand.Read(b[:])
 		sessionID = "staged-" + hex.EncodeToString(b[:])
@@ -85,6 +86,18 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	// segment is validated before it is ever joined.
 	if !validSessionID(sessionID) {
 		WriteError(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+	// A caller-supplied id must belong to the caller. The staged case above
+	// generated its own id, so it is always the caller's; every other id came
+	// from the path and has to be checked, exactly as download, stream and
+	// delete do. Without this any authenticated account could POST a file into
+	// another session's upload directory by naming that session's id — content
+	// the victim's agent then reads as (untrusted) input, a cross-session
+	// prompt-injection delivery channel. Failing closed (404, matching the
+	// sibling routes) also refuses to confirm whether an id exists.
+	if !staged && !s.mayAccess(r, sessionID) {
+		WriteError(w, http.StatusNotFound, "session not found")
 		return
 	}
 
